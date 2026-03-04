@@ -32,7 +32,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer }
 
     return (Object.values(map) as CustomerRecord[])
       .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
-      .sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }, [repairs, searchTerm]);
 
   return (

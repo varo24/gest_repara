@@ -75,7 +75,7 @@ export class LocalDB {
 
   async getAll(storeName: string): Promise<any[]> {
     if (this.useMemory || !this.db) {
-      return this.memoryStore[storeName] || [];
+      return [...(this.memoryStore[storeName] || [])];
     }
     return new Promise((resolve) => {
       try {

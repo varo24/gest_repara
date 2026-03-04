@@ -22,7 +22,7 @@ const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas']
 
 const tableFor = (col: string) => col === 'settings' ? 'rp_settings' : col;
 const hashOf = (arr: any[]) => arr.map(d => `${d.id}|${d.updatedAt||''}`).sort().join(',');
-const broadcast = (col: string, data: any[]) => subs[col]?.forEach(cb => cb(data));
+const broadcast = (col: string, data: any[]) => subs[col]?.forEach(cb => cb([...data]));
 
 // Sync en background — nunca lanza excepciones al caller
 const syncToCloud = async (col: string, record: any) => {
