@@ -14,12 +14,13 @@ import ThermalTicket from './components/ThermalTicket';
 import CalendarView from './components/CalendarView';
 import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
+import TechFieldView from './components/TechFieldView';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp } from './types';
 import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '4.0.0 UNIFIED';
+const APP_VERSION = '4.1.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -151,7 +152,8 @@ const App: React.FC = () => {
     const savedRepair: RepairItem = {
       ...data as RepairItem,
       id,
-      rmaNumber: rmaNum
+      rmaNumber: rmaNum,
+      repairType: data.repairType || 'taller',
     };
 
     // Guardar (local-first, no bloquea)
@@ -312,6 +314,8 @@ const App: React.FC = () => {
             {currentView === 'dashboard' && (
               <Dashboard
                 repairs={repairs ?? []}
+                budgets={budgets ?? []}
+                citas={citas ?? []}
                 settings={settings}
                 setView={navigateTo}
                 onNewRepair={() => navigateTo('new-repair')}
@@ -398,6 +402,14 @@ const App: React.FC = () => {
               <ExternalAppViewer
                 app={activeExternalApp}
                 onBack={() => navigateTo('external-apps')}
+              />
+            )}
+            {currentView === 'tech-field' && (
+              <TechFieldView
+                repairs={repairs ?? []}
+                settings={settings}
+                onUpdateRepair={(repair) => storage.save('repairs', repair.id, repair)}
+                onBack={() => navigateTo('dashboard')}
               />
             )}
             {currentView === 'settings' && (

@@ -147,9 +147,14 @@ const RepairList: React.FC<RepairListProps> = ({
                 return (
                   <tr key={repair.id} className="hover:bg-blue-50/20 transition-colors group">
                     <td className="px-8 py-7">
-                      <p className="text-[12px] font-black text-slate-900 leading-none mb-1.5">
-                        RMA-{repair.rmaNumber.toString().padStart(5, '0')}
-                      </p>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <p className="text-[12px] font-black text-slate-900 leading-none">
+                          RMA-{repair.rmaNumber.toString().padStart(5, '0')}
+                        </p>
+                        {repair.repairType === 'domicilio' && (
+                          <span className="text-[7px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-black uppercase">DOM</span>
+                        )}
+                      </div>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(repair.entryDate).toLocaleDateString()}</p>
                     </td>
                     <td className="px-4 py-7">

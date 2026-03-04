@@ -12,10 +12,13 @@ export enum RepairStatus {
   CANCELLED = 'Cancelado'
 }
 
+export type RepairType = 'taller' | 'domicilio';
+
 export interface RepairItem {
   id: string;
   rmaNumber: number;
   rmaPrefix?: string;
+  repairType: RepairType;
   customerName: string;
   customerPhone: string;
   customerSignature?: string;
@@ -32,6 +35,18 @@ export interface RepairItem {
   images?: string[];
   estimatedParts?: number;
   estimatedHours?: number;
+  // Campos domicilio
+  address?: string;
+  city?: string;
+  // Notas de campo del técnico
+  fieldNotes?: FieldNote[];
+}
+
+export interface FieldNote {
+  id: string;
+  text: string;
+  timestamp: string;
+  photos?: string[]; // base64 images
 }
 
 export interface BudgetItem {
@@ -94,7 +109,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'tech-field';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 

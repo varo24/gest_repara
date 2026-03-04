@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Wrench, PlusCircle, FileText, 
   Settings, TrendingUp, Users, Cpu, Wifi, WifiOff,
-  Calendar, AppWindow, Search
+  Calendar, AppWindow, Search, ClipboardCheck
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita } from '../types';
 import { storage } from '../services/persistence';
@@ -38,6 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onNewRepair, on
     { id: 'customers',   label: 'Agenda Clientes',   icon: Users },
     { id: 'calendar',    label: 'Planificador',       icon: Calendar },
     { id: 'stats',       label: 'Rendimiento',        icon: TrendingUp },
+    { id: 'tech-field',  label: 'Panel de Campo',     icon: ClipboardCheck },
     { id: 'external-apps', label: 'Módulos Externos', icon: AppWindow },
   ];
 
