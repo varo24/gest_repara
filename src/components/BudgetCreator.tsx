@@ -35,6 +35,114 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
 
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
 
+  const printBudget = () => {
+    const pSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) + laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
+    const pTaxAmount = Math.round(pSubtotal * (tax / 100) * 100) / 100;
+    const pTotal = Math.round((pSubtotal + pTaxAmount) * 100) / 100;
+    const allRows = [
+      ...items.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description}</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.quantity}</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.quantity * i.unitPrice).toFixed(2)}€</td></tr>`),
+      ...laborItems.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description} (M.O.)</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.hours}h</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.hours * i.hourlyRate).toFixed(2)}€</td></tr>`)
+    ].join('');
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto ${formatRMA(repair.rmaNumber)}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#fff;color:#000;width:210mm;padding:14mm}
+@page{size:A4 portrait;margin:0}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:12px;margin-bottom:20px}
+.shop-name{font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em}
+.shop-info{font-size:10px;color:#555;margin-top:4px;line-height:1.8}
+.rma{font-size:28px;font-weight:900;text-align:right}
+.rma-label{font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.15em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.info-box{padding:16px;background:#f8fafc;border-radius:12px}
+.info-label{font-size:8px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px}
+.info-val{font-size:13px;font-weight:900;text-transform:uppercase}
+.info-sub{font-size:10px;font-weight:600;color:#64748b;margin-top:2px}
+table{width:100%;border-collapse:collapse;margin-bottom:24px}
+thead tr{background:#0f172a;color:#fff}
+thead th{padding:8px 16px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em}
+thead th:first-child{border-radius:8px 0 0 8px;text-align:left}
+thead th:last-child{border-radius:0 8px 8px 0;text-align:right}
+tbody tr{border-bottom:1px solid #f1f5f9}
+.totals{display:flex;justify-content:flex-end;margin-top:20px}
+.totals-box{background:#f8fafc;padding:20px;border-radius:12px;min-width:260px}
+.total-row{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px}
+.total-final{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid #e2e8f0;padding-top:10px;margin-top:8px}
+.total-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em}
+.total-amount{font-size:28px;font-weight:900}
+.sig-box{width:180px;height:70px;border-bottom:1px solid #ccc;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.sig-box img{max-height:100%;mix-blend-mode:multiply}
+.footer{margin-top:40px;font-size:8px;font-weight:600;color:#94a3b8;text-align:justify;text-transform:uppercase;line-height:1.5}
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="shop-name">${settings.appName}</div>
+    <div class="shop-info">${settings.taxId || ''} ${settings.phone ? '| ' + settings.phone : ''}<br>${settings.address || ''}</div>
+  </div>
+  <div style="text-align:right">
+    <div class="rma-label">Presupuesto Técnico</div>
+    <div class="rma">${formatRMA(repair.rmaNumber)}</div>
+    <div style="font-size:10px;font-weight:600;color:#64748b;margin-top:4px">Fecha: ${new Date().toLocaleDateString('es-ES')}</div>
+  </div>
+</div>
+<div class="grid2">
+  <div class="info-box">
+    <div class="info-label">Cliente</div>
+    <div class="info-val">${repair.customerName}</div>
+    <div class="info-sub">${repair.customerPhone}</div>
+  </div>
+  <div class="info-box">
+    <div class="info-label">Equipo</div>
+    <div class="info-val">${repair.brand} ${repair.model}</div>
+    <div class="info-sub">${repair.deviceType}</div>
+  </div>
+</div>
+<table>
+  <thead><tr><th>Descripción</th><th style="text-align:center;width:70px">Cant</th><th style="text-align:right;width:100px">Subtotal</th></tr></thead>
+  <tbody>${allRows}</tbody>
+</table>
+<div style="display:flex;justify-content:space-between;align-items:flex-end">
+  <div style="text-align:center">
+    <div class="sig-box">${signature ? `<img src="${signature}" />` : ''}</div>
+    <div style="font-size:8px;font-weight:900;color:#94a3b8;text-transform:uppercase;margin-top:8px">Aceptación del Cliente</div>
+  </div>
+  <div class="totals-box">
+    <div class="total-row"><span>Subtotal</span><span>${pSubtotal.toFixed(2)}€</span></div>
+    <div class="total-row"><span>IVA (${tax}%)</span><span>${pTaxAmount.toFixed(2)}€</span></div>
+    <div class="total-final"><span class="total-label">Total</span><span class="total-amount">${pTotal.toFixed(2)}€</span></div>
+  </div>
+</div>
+<div class="footer">${settings.letterhead || 'Garantía de 3 meses en reparaciones según legislación vigente. Este presupuesto es meramente informativo y tiene una validez limitada.'}</div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=850,height=1100');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try { win.print(); } catch(e) {} }, 800);
+      return;
+    }
+    // Fallback: iframe
+    const id = 'print-frame-budget';
+    let iframe = document.getElementById(id) as HTMLIFrameElement;
+    if (iframe) iframe.remove();
+    iframe = document.createElement('iframe');
+    iframe.id = id;
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(() => {
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch(e) {}
+      setTimeout(() => iframe.remove(), 3000);
+    }, 800);
+  };
+
   const addPiece = () => {
     const newItem: BudgetItem = { id: crypto.randomUUID(), repairId: repair.id, description: '', quantity: 1, unitPrice: 0 };
     setItems([...items, newItem]);
@@ -280,7 +388,7 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white font-black rounded-xl shadow-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-blue-700 transition-all">
                  <Save size={18} /> {isSaving ? 'Guardando...' : 'Guardar Presupuesto'}
                </button>
-               <button onClick={() => window.print()} className="px-8 py-4 bg-slate-900 text-white font-black rounded-xl shadow-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-black transition-all">
+               <button onClick={printBudget} className="px-8 py-4 bg-slate-900 text-white font-black rounded-xl shadow-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-black transition-all">
                  <PrinterIcon size={18} /> Imprimir A4
                </button>
              </div>

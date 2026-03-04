@@ -20,7 +20,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '4.3.0 UNIFIED';
+const APP_VERSION = '4.4.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -376,7 +376,10 @@ const App: React.FC = () => {
                   const r = repairs?.find(rep => rep.id === b.repairId);
                   if (r) { setEditingBudget(b); setActiveBudgetRepair(r); }
                 }}
-                onPrintBudget={() => window.print()}
+                onPrintBudget={(budget) => {
+                  const r = repairs?.find(rep => rep.id === budget.repairId);
+                  if (r) { setEditingBudget(budget); setActiveBudgetRepair(r); }
+                }}
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
               />
             )}

@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+/* ── Print styles ── */
+@media print {
+  .no-print, .no-print * {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:shadow-none { box-shadow: none !important; }
+  .print\:border-none { border: none !important; }
+  .print\:p-0 { padding: 0 !important; }
+}
+
+/* Safe area for mobile fixed bottom bars */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
