@@ -20,7 +20,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '4.4.0 UNIFIED';
+const APP_VERSION = '4.5.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -384,7 +384,18 @@ const App: React.FC = () => {
               />
             )}
             {currentView === 'customers' && (
-              <CustomerList repairs={repairs ?? []} onSelectCustomer={() => navigateTo('repairs')} />
+              <CustomerList 
+                repairs={repairs ?? []} 
+                onSelectCustomer={() => {}}
+                onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+                onSaveCustomerName={async (phone, newName) => {
+                  const customerRepairs = (repairs ?? []).filter(r => r.customerPhone === phone);
+                  for (const r of customerRepairs) {
+                    await storage.save('repairs', r.id, { ...r, customerName: newName });
+                  }
+                  notify('success', `Nombre actualizado para ${customerRepairs.length} reparaciones.`);
+                }}
+              />
             )}
             {currentView === 'stats' && <StatsView repairs={repairs ?? []} budgets={budgets ?? []} />}
             {currentView === 'calendar' && (
