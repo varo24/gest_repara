@@ -319,7 +319,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({ repair, settings, onC
         {/* Firma del cliente */}
         <div className="px-8 py-6 bg-slate-50 border-b border-slate-100">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">✍️ Firma del cliente antes de imprimir</p>
-          <SignaturePad onSave={onSignatureUpdate} initialValue={repair.customerSignature} minHeight={200} />
+          <SignaturePad onSave={onSignatureUpdate} initialValue={repair.customerSignature} inline={true} inlineHeight={150} />
         </div>
 
         {/* Vista previa del documento */}

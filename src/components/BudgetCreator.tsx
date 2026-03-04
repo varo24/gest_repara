@@ -284,17 +284,9 @@ tbody tr{border-bottom:1px solid #f1f5f9}
         )}
 
         {activeTab === 'firma' && (
-          <div className="w-full flex flex-col py-2 px-1" style={{ minHeight: 'calc(100vh - 280px)' }}>
-             <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 text-center mb-2 shrink-0">
-               <h3 className="text-sm font-black uppercase text-blue-900">Firma de Conformidad</h3>
-               <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">Digitalice la aceptación del cliente</p>
-             </div>
-             <div className="bg-slate-50 p-1 rounded-2xl border border-slate-200 flex-1 flex items-center justify-center" style={{ minHeight: '500px' }}>
-               <div className="w-full h-full">
-                 <SignaturePad onSave={setSignature} initialValue={signature} minHeight={400} />
-               </div>
-             </div>
-             <button onClick={() => setActiveTab('resumen')} className="w-full py-4 mt-2 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shrink-0">
+          <div className="py-4 px-2 space-y-3">
+             <SignaturePad onSave={setSignature} initialValue={signature} label="Firma de conformidad del presupuesto" />
+             <button onClick={() => setActiveTab('resumen')} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all">
                 <CheckCircle2 size={16} /> Validar Datos
              </button>
           </div>

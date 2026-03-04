@@ -1,33 +1,33 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Eraser, CheckCircle2, PenTool, Maximize2, Minimize2 } from 'lucide-react';
+import { Eraser, CheckCircle2, PenTool, X } from 'lucide-react';
 
 interface SignaturePadProps {
   onSave: (signatureBase64: string) => void;
   initialValue?: string;
-  /** Minimum height in pixels. Default: 350. Use 500+ for large signature areas. */
-  minHeight?: number;
-  /** If true, shows a fullscreen toggle button */
-  allowFullscreen?: boolean;
-  /** Label text */
+  /** If true, starts in compact/inline mode instead of fullscreen */
+  inline?: boolean;
+  /** Height for inline mode only (px). Ignored in fullscreen. */
+  inlineHeight?: number;
+  /** Label text shown as watermark */
   label?: string;
 }
 
 const SignaturePad: React.FC<SignaturePadProps> = ({
   onSave,
   initialValue,
-  minHeight = 350,
-  allowFullscreen = true,
-  label = 'Firme aquí con el lápiz digital',
+  inline = false,
+  inlineHeight = 250,
+  label = 'Firme aquí',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(!!initialValue);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const points = useRef<{ x: number; y: number; pressure: number }[]>([]);
-  const animFrameRef = useRef<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState(!inline);
+  const points = useRef<{ x: number; y: number; p: number }[]>([]);
+  const rafRef = useRef<number>(0);
 
-  // ── Setup canvas with proper DPI scaling ──
+  // ── Canvas setup ──
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -35,268 +35,267 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Save current drawing
-    let imageData: string | null = null;
-    if (hasSignature && canvas.width > 0) {
-      imageData = canvas.toDataURL('image/png');
-    }
+    // Preserve existing drawing
+    let snapshot: string | null = null;
+    if (hasSignature && canvas.width > 0) snapshot = canvas.toDataURL('image/png');
 
     const w = container.clientWidth;
     const h = container.clientHeight;
-    const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    if (w === 0 || h === 0) return;
 
+    const dpr = Math.max(window.devicePixelRatio || 1, 2);
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     ctx.scale(dpr, dpr);
-
-    // Default drawing style
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2;
 
-    // Restore drawing or initial value
-    const src = imageData || initialValue;
+    const src = snapshot || initialValue;
     if (src) {
       const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, w, h);
-      };
+      img.onload = () => ctx.drawImage(img, 0, 0, w, h);
       img.src = src;
     }
   }, [initialValue, hasSignature]);
 
   useEffect(() => {
-    setupCanvas();
+    // Delay setup slightly so fullscreen container is rendered
+    const t = setTimeout(setupCanvas, 50);
     const ro = new ResizeObserver(() => setupCanvas());
     if (containerRef.current) ro.observe(containerRef.current);
-    return () => ro.disconnect();
+    return () => { clearTimeout(t); ro.disconnect(); };
   }, [setupCanvas, isFullscreen]);
 
-  // Prevent scrolling/zooming on touch
+  // Prevent all touch defaults on canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const c = canvasRef.current;
+    if (!c) return;
     const prevent = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-    canvas.addEventListener('touchstart', prevent, { passive: false });
-    canvas.addEventListener('touchmove', prevent, { passive: false });
-    canvas.addEventListener('touchend', prevent, { passive: false });
-    canvas.addEventListener('contextmenu', prevent);
+    c.addEventListener('touchstart', prevent, { passive: false });
+    c.addEventListener('touchmove', prevent, { passive: false });
+    c.addEventListener('touchend', prevent, { passive: false });
+    c.addEventListener('contextmenu', prevent);
     return () => {
-      canvas.removeEventListener('touchstart', prevent);
-      canvas.removeEventListener('touchmove', prevent);
-      canvas.removeEventListener('touchend', prevent);
-      canvas.removeEventListener('contextmenu', prevent);
+      c.removeEventListener('touchstart', prevent);
+      c.removeEventListener('touchmove', prevent);
+      c.removeEventListener('touchend', prevent);
+      c.removeEventListener('contextmenu', prevent);
     };
-  }, []);
+  }, [isFullscreen]);
 
-  // ── Pressure → line width mapping ──
-  const pressureToWidth = (p: number): number => {
-    if (p <= 0 || p === 0.5) return 2.5; // no pressure info (mouse)
-    const min = 0.8;
-    const max = 7;
-    return min + Math.pow(p, 1.2) * (max - min);
+  // Lock body scroll in fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [isFullscreen]);
+
+  const pw = (p: number) => {
+    if (p <= 0 || p === 0.5) return 2.8;
+    return 0.8 + Math.pow(p, 1.2) * 6.2;
   };
 
-  // ── Get coords relative to canvas ──
-  const getCoords = (e: React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+  const coords = (e: React.PointerEvent) => {
+    const c = canvasRef.current;
+    if (!c) return { x: 0, y: 0 };
+    const r = c.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
-  // ── Draw smooth Bézier through collected points ──
   const drawSmooth = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    const ctx = canvasRef.current?.getContext('2d');
     if (!ctx || points.current.length < 2) return;
-
     const pts = points.current;
-    const last = pts.length - 1;
+    const n = pts.length - 1;
 
     if (pts.length === 2) {
-      // Just two points — draw a line
       ctx.beginPath();
-      ctx.lineWidth = pressureToWidth(pts[1].pressure);
+      ctx.lineWidth = pw(pts[1].p);
       ctx.moveTo(pts[0].x, pts[0].y);
       ctx.lineTo(pts[1].x, pts[1].y);
       ctx.stroke();
     } else {
-      // Three or more points — use quadratic Bézier for smoothing
-      const p0 = pts[last - 2];
-      const p1 = pts[last - 1];
-      const p2 = pts[last];
-
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2;
-
+      const a = pts[n - 2], b = pts[n - 1], c = pts[n];
       ctx.beginPath();
-      ctx.lineWidth = pressureToWidth(p2.pressure);
-      ctx.moveTo((p0.x + p1.x) / 2, (p0.y + p1.y) / 2);
-      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+      ctx.lineWidth = pw(c.p);
+      ctx.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2);
+      ctx.quadraticCurveTo(b.x, b.y, (b.x + c.x) / 2, (b.y + c.y) / 2);
       ctx.stroke();
     }
   }, []);
 
-  // ── Pointer handlers ──
-  const handlePointerDown = (e: React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.setPointerCapture(e.pointerId);
+  const onDown = (e: React.PointerEvent) => {
+    canvasRef.current?.setPointerCapture(e.pointerId);
     setIsDrawing(true);
-
-    const { x, y } = getCoords(e);
-    points.current = [{ x, y, pressure: e.pressure }];
-
-    // Draw a dot for single taps
-    const ctx = canvas.getContext('2d');
+    const { x, y } = coords(e);
+    points.current = [{ x, y, p: e.pressure }];
+    const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
       ctx.beginPath();
-      const r = pressureToWidth(e.pressure) / 2;
-      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.arc(x, y, pw(e.pressure) / 2, 0, Math.PI * 2);
       ctx.fillStyle = '#0f172a';
       ctx.fill();
     }
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const onMove = (e: React.PointerEvent) => {
     if (!isDrawing) return;
-    const { x, y } = getCoords(e);
-    points.current.push({ x, y, pressure: e.pressure });
-
-    // Use requestAnimationFrame for smooth rendering
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    animFrameRef.current = requestAnimationFrame(drawSmooth);
+    const { x, y } = coords(e);
+    points.current.push({ x, y, p: e.pressure });
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(drawSmooth);
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const onUp = (e: React.PointerEvent) => {
     if (!isDrawing) return;
     setIsDrawing(false);
     points.current = [];
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.releasePointerCapture(e.pointerId);
-      onSave(canvas.toDataURL('image/png'));
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const c = canvasRef.current;
+    if (c) {
+      c.releasePointerCapture(e.pointerId);
+      onSave(c.toDataURL('image/png'));
       setHasSignature(true);
     }
   };
 
   const clear = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const c = canvasRef.current;
+    const ctx = c?.getContext('2d');
+    if (c && ctx) {
+      ctx.clearRect(0, 0, c.width, c.height);
       points.current = [];
       onSave('');
       setHasSignature(false);
     }
   };
 
-  const toggleFullscreen = () => setIsFullscreen(prev => !prev);
+  const accept = () => {
+    const c = canvasRef.current;
+    if (c && hasSignature) onSave(c.toDataURL('image/png'));
+    setIsFullscreen(false);
+  };
 
-  // ── Render ──
-  const padContent = (
-    <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex justify-between items-center px-2">
-        <div className="flex items-center gap-2">
-          <PenTool size={14} className="text-blue-500" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Zona de Firma Digital
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {allowFullscreen && (
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
-              title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={clear}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase"
-          >
-            <Eraser size={14} /> Limpiar
-          </button>
-        </div>
-      </div>
+  // ── Canvas element (shared between modes) ──
+  const canvasEl = (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full touch-none"
+      style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerLeave={onUp}
+      onPointerCancel={onUp}
+    />
+  );
 
-      {/* Canvas Container */}
-      <div
-        ref={containerRef}
-        className="relative w-full bg-white border-2 border-slate-200 rounded-2xl overflow-hidden cursor-crosshair shadow-inner"
-        style={{
-          minHeight: isFullscreen ? 'calc(100vh - 120px)' : `${minHeight}px`,
-          height: isFullscreen ? 'calc(100vh - 120px)' : undefined,
-        }}
-      >
-        {/* Grid lines for visual guidance */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="w-full h-full" style={{
-            backgroundImage: 'linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }} />
-          {/* Baseline for signature */}
-          <div className="absolute bottom-[25%] left-[5%] right-[5%] border-b border-dashed border-slate-200" />
-          <div className="absolute bottom-[23%] right-[5%] text-[8px] text-slate-300 font-bold uppercase tracking-widest">
-            Línea de firma
-          </div>
-        </div>
-
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full touch-none relative z-10"
-          style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        />
-
-        {!hasSignature && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 z-0">
-            <PenTool size={48} className="mb-2" />
-            <p className="text-sm font-black uppercase tracking-[0.2em]">{label}</p>
-          </div>
-        )}
-      </div>
+  // ── Watermark ──
+  const watermark = !hasSignature && (
+    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.06] z-0">
+      <PenTool size={64} className="mb-3" />
+      <p className="text-lg font-black uppercase tracking-[0.3em]">{label}</p>
+      <p className="text-xs mt-2 tracking-widest">UTILICE TODA LA SUPERFICIE</p>
     </div>
   );
 
-  // Fullscreen overlay
+  // ── Grid background ──
+  const grid = (
+    <div className="absolute inset-0 pointer-events-none z-0" style={{
+      backgroundImage: 'linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)',
+      backgroundSize: '50px 50px',
+    }}>
+      <div className="absolute bottom-[20%] left-[3%] right-[3%] border-b border-dashed border-slate-200/60" />
+    </div>
+  );
+
+  // ═══════════════════════════════════════════
+  // FULLSCREEN MODE — Canvas uses ENTIRE screen
+  // ═══════════════════════════════════════════
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 bg-white z-[500] flex flex-col p-4">
-        <div className="flex-1">{padContent}</div>
-        <div className="flex justify-center gap-4 pt-3 pb-2">
-          <button type="button" onClick={clear}
-            className="px-8 py-3 bg-red-50 text-red-600 rounded-xl font-black uppercase text-[10px] tracking-widest">
-            <Eraser size={16} className="inline mr-2" />Limpiar
-          </button>
-          <button type="button" onClick={toggleFullscreen}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-            <CheckCircle2 size={16} className="inline mr-2" />Aceptar Firma
+      <div className="fixed inset-0 z-[9999] bg-white flex flex-col" style={{ touchAction: 'none' }}>
+        {/* Toolbar — minimal, at top */}
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2">
+            <PenTool size={16} className="text-blue-500" />
+            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Zona de Firma</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={clear}
+              className="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest">
+              <Eraser size={16} /> Limpiar
+            </button>
+          </div>
+        </div>
+
+        {/* CANVAS — takes ALL remaining space */}
+        <div ref={containerRef} className="flex-1 relative bg-white cursor-crosshair overflow-hidden">
+          {grid}
+          {watermark}
+          {canvasEl}
+        </div>
+
+        {/* Bottom bar — accept/cancel */}
+        <div className="flex gap-3 px-4 py-3 bg-slate-50 border-t border-slate-200 shrink-0">
+          {inline && (
+            <button type="button" onClick={() => { setIsFullscreen(false); }}
+              className="px-6 py-3 bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2">
+              <X size={16} /> Cancelar
+            </button>
+          )}
+          <button type="button" onClick={accept}
+            className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-200 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+            <CheckCircle2 size={18} /> Aceptar Firma
           </button>
         </div>
       </div>
     );
   }
 
-  return padContent;
+  // ═══════════════════════════════════════════
+  // INLINE MODE — Small preview with "expand" button
+  // ═══════════════════════════════════════════
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center px-1">
+        <div className="flex items-center gap-2">
+          <PenTool size={14} className="text-blue-500" />
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Firma Digital</span>
+        </div>
+        <button type="button" onClick={clear}
+          className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg text-[9px] font-bold uppercase flex items-center gap-1">
+          <Eraser size={12} /> Limpiar
+        </button>
+      </div>
+
+      {/* Inline canvas area — click/tap to go fullscreen */}
+      <div
+        ref={containerRef}
+        className="relative w-full bg-white border-2 border-dashed border-slate-200 rounded-xl overflow-hidden cursor-crosshair"
+        style={{ height: `${inlineHeight}px` }}
+      >
+        {grid}
+        {canvasEl}
+        {!hasSignature && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+            <PenTool size={32} className="text-slate-200 mb-2" />
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{label}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Expand to fullscreen button */}
+      <button type="button" onClick={() => setIsFullscreen(true)}
+        className="w-full py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-black active:scale-[0.98] transition-all">
+        <PenTool size={16} /> Abrir Superficie Completa de Firma
+      </button>
+    </div>
+  );
 };
 
 export default SignaturePad;
