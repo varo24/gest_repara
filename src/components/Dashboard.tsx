@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   UserPlus, Wrench, CheckCircle2, ArrowRight, Activity, Users, ClipboardList, Clock,
-  Home, Building2, MapPin, Calendar, FileText, AlertCircle, Navigation, Phone
+  Home, Building2, MapPin, Calendar, FileText, AlertCircle, Navigation, X, ChevronDown
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings, ViewType, Budget, Cita, CitaEstado } from '../types';
 
@@ -15,119 +15,170 @@ interface DashboardProps {
   onEditRepair: (repair: RepairItem) => void;
 }
 
+type Section = null | 'ready' | 'inprogress' | 'domicilio' | 'waiting' | 'budgets';
+
 const isSameDay = (d1: Date, d2: Date) => d1.toDateString() === d2.toDateString();
-const formatTime = (iso: string) => {
-  try { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }
-  catch { return '--:--'; }
+const fmtTime = (iso: string) => { try { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); } catch { return '--:--'; } };
+
+const statusColor = (s: RepairStatus) => {
+  switch (s) {
+    case RepairStatus.READY: return 'bg-emerald-100 text-emerald-700';
+    case RepairStatus.IN_PROGRESS: case RepairStatus.DIAGNOSING: return 'bg-blue-100 text-blue-700';
+    case RepairStatus.PENDING: return 'bg-amber-100 text-amber-700';
+    case RepairStatus.WAITING_PARTS: return 'bg-orange-100 text-orange-700';
+    case RepairStatus.BUDGET_PENDING: return 'bg-purple-100 text-purple-700';
+    default: return 'bg-slate-100 text-slate-500';
+  }
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings, setView, onNewRepair, onEditRepair }) => {
   if (!settings) return null;
+  const [expandedSection, setExpandedSection] = useState<Section>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // ─── Métricas ──
   const pendingDiagnose = repairs.filter(r => r.status === RepairStatus.PENDING).sort((a, b) => a.rmaNumber - b.rmaNumber);
   const readyToDeliver = repairs.filter(r => r.status === RepairStatus.READY).sort((a, b) => a.rmaNumber - b.rmaNumber);
   const inProgress = repairs.filter(r =>
-    r.status === RepairStatus.DIAGNOSING ||
-    r.status === RepairStatus.IN_PROGRESS ||
-    r.status === RepairStatus.WAITING_PARTS ||
-    r.status === RepairStatus.BUDGET_ACCEPTED
+    r.status === RepairStatus.DIAGNOSING || r.status === RepairStatus.IN_PROGRESS ||
+    r.status === RepairStatus.WAITING_PARTS || r.status === RepairStatus.BUDGET_ACCEPTED
   ).sort((a, b) => a.rmaNumber - b.rmaNumber);
-
   const domicilioPending = repairs.filter(r => r.repairType === 'domicilio' && r.status !== RepairStatus.DELIVERED && r.status !== RepairStatus.CANCELLED);
   const pendingBudgets = budgets.filter(b => b.status === 'pending');
+  const waitingParts = repairs.filter(r => r.status === RepairStatus.WAITING_PARTS);
   const citasHoy = useMemo(() => (citas || []).filter(c => {
-    try { return isSameDay(new Date(c.fecha), today) && c.estado === CitaEstado.Confirmada; }
-    catch { return false; }
+    try { return isSameDay(new Date(c.fecha), today) && c.estado === CitaEstado.Confirmada; } catch { return false; }
   }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()), [citas]);
   const uniqueClients = [...new Set(repairs.map(r => r.customerPhone))].length;
-  const waitingParts = repairs.filter(r => r.status === RepairStatus.WAITING_PARTS);
+
+  const toggleSection = (s: Section) => setExpandedSection(prev => prev === s ? null : s);
+
+  // Repair row component
+  const RepairRow = ({ r }: { r: RepairItem }) => (
+    <div onClick={() => onEditRepair(r)} className="bg-white p-4 rounded-xl border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer flex items-center gap-4 group">
+      <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-white shrink-0 text-[10px] ${r.repairType === 'domicilio' ? 'bg-amber-500' : 'bg-slate-800'}`}>
+        {r.repairType === 'domicilio' ? <Home size={14} className="opacity-60" /> : <Building2 size={14} className="opacity-60" />}
+        <span className="leading-none mt-0.5">{r.rmaNumber.toString().padStart(5,'0').slice(-3)}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-black text-slate-800 text-sm uppercase truncate">{r.brand} {r.model}</p>
+        <p className="text-[10px] text-slate-400 font-bold truncate">{r.customerName}{r.address ? ` · ${r.address}` : ''}</p>
+      </div>
+      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg shrink-0 ${statusColor(r.status)}`}>{r.status}</span>
+      <ArrowRight size={16} className="text-slate-200 group-hover:text-blue-500 shrink-0" />
+    </div>
+  );
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       
-      {/* ── ESTADO DEL TALLER ── */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-xl shadow-blue-600/20">
-              <Activity size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Estado del Taller</h2>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Resumen de Actividad Técnica</p>
-            </div>
-          </div>
-          <button 
-            onClick={onNewRepair}
-            className="px-8 py-4 bg-slate-950 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 hover:bg-black transition-all shadow-2xl active:scale-95"
-          >
-            <UserPlus size={18} /> Nueva Reparación
-          </button>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-emerald-500 p-6 rounded-[2rem] text-white shadow-xl shadow-emerald-500/20 cursor-pointer group" onClick={() => setView('repairs')}>
-            <CheckCircle2 size={24} className="opacity-40 mb-3 group-hover:scale-110 transition-transform" />
-            <p className="text-3xl font-black tracking-tighter">{readyToDeliver.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">Listos Entrega</p>
-          </div>
-
-          <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-600/20 cursor-pointer group" onClick={() => setView('repairs')}>
-            <Wrench size={24} className="opacity-40 mb-3 group-hover:scale-110 transition-transform" />
-            <p className="text-3xl font-black tracking-tighter">{inProgress.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">En Banco</p>
-          </div>
-
-          <div className="bg-amber-500 p-6 rounded-[2rem] text-white shadow-xl shadow-amber-500/20 cursor-pointer group" onClick={() => setView('tech-field')}>
-            <Home size={24} className="opacity-40 mb-3 group-hover:scale-110 transition-transform" />
-            <p className="text-3xl font-black tracking-tighter">{domicilioPending.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">A Domicilio</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer" onClick={() => setView('customers')}>
-            <Users size={24} className="text-slate-300 mb-3" />
-            <p className="text-3xl font-black text-slate-900 tracking-tighter">{uniqueClients}</p>
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-1">Clientes</p>
+      {/* ── HEADER ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-xl shadow-blue-600/20"><Activity size={24} /></div>
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Estado del Taller</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Resumen de Actividad</p>
           </div>
         </div>
-      </section>
+        <button onClick={onNewRepair} className="px-6 py-3 bg-slate-950 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 hover:bg-black shadow-2xl active:scale-95">
+          <UserPlus size={18} /> Nueva Reparación
+        </button>
+      </div>
+
+      {/* ── KPI CARDS — clickable to expand section ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <button onClick={() => toggleSection('ready')} className={`p-5 rounded-[2rem] text-left transition-all group ${expandedSection === 'ready' ? 'bg-emerald-600 ring-4 ring-emerald-200' : 'bg-emerald-500'} text-white shadow-xl shadow-emerald-500/20`}>
+          <CheckCircle2 size={20} className="opacity-40 mb-2 group-hover:scale-110 transition-transform" />
+          <p className="text-3xl font-black tracking-tighter">{readyToDeliver.length}</p>
+          <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">Listos Entrega</p>
+        </button>
+        <button onClick={() => toggleSection('inprogress')} className={`p-5 rounded-[2rem] text-left transition-all group ${expandedSection === 'inprogress' ? 'bg-indigo-700 ring-4 ring-indigo-200' : 'bg-indigo-600'} text-white shadow-xl shadow-indigo-600/20`}>
+          <Wrench size={20} className="opacity-40 mb-2 group-hover:scale-110 transition-transform" />
+          <p className="text-3xl font-black tracking-tighter">{inProgress.length}</p>
+          <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">En Banco</p>
+        </button>
+        <button onClick={() => toggleSection('domicilio')} className={`p-5 rounded-[2rem] text-left transition-all group ${expandedSection === 'domicilio' ? 'bg-amber-600 ring-4 ring-amber-200' : 'bg-amber-500'} text-white shadow-xl shadow-amber-500/20`}>
+          <Home size={20} className="opacity-40 mb-2 group-hover:scale-110 transition-transform" />
+          <p className="text-3xl font-black tracking-tighter">{domicilioPending.length}</p>
+          <p className="text-[9px] font-black uppercase tracking-widest mt-1 opacity-80">A Domicilio</p>
+        </button>
+        <button onClick={() => setView('customers')} className="p-5 rounded-[2rem] bg-white border border-slate-100 shadow-sm text-left">
+          <Users size={20} className="text-slate-300 mb-2" />
+          <p className="text-3xl font-black text-slate-900 tracking-tighter">{uniqueClients}</p>
+          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-1">Clientes</p>
+        </button>
+      </div>
+
+      {/* ── EXPANDED SECTION ── */}
+      {expandedSection && (
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-lg overflow-hidden animate-in slide-in-from-top duration-300">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+            <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+              {expandedSection === 'ready' && <><CheckCircle2 size={16} className="text-emerald-500" /> Listos para Entrega ({readyToDeliver.length})</>}
+              {expandedSection === 'inprogress' && <><Wrench size={16} className="text-indigo-500" /> En Banco de Trabajo ({inProgress.length})</>}
+              {expandedSection === 'domicilio' && <><Home size={16} className="text-amber-500" /> Servicios a Domicilio ({domicilioPending.length})</>}
+              {expandedSection === 'waiting' && <><Clock size={16} className="text-orange-500" /> Esperando Repuestos ({waitingParts.length})</>}
+              {expandedSection === 'budgets' && <><FileText size={16} className="text-purple-500" /> Presupuestos Pendientes ({pendingBudgets.length})</>}
+            </h3>
+            <button onClick={() => setExpandedSection(null)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-lg transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="p-4 space-y-2 max-h-[50vh] overflow-y-auto">
+            {expandedSection === 'ready' && readyToDeliver.map(r => <RepairRow key={r.id} r={r} />)}
+            {expandedSection === 'inprogress' && inProgress.map(r => <RepairRow key={r.id} r={r} />)}
+            {expandedSection === 'domicilio' && domicilioPending.map(r => <RepairRow key={r.id} r={r} />)}
+            {expandedSection === 'waiting' && waitingParts.map(r => <RepairRow key={r.id} r={r} />)}
+            {expandedSection === 'budgets' && pendingBudgets.map(b => {
+              const r = repairs.find(rep => rep.id === b.repairId);
+              return (
+                <div key={b.id} onClick={() => setView('budgets')} className="bg-white p-4 rounded-xl border border-slate-100 hover:border-purple-200 hover:shadow-md transition-all cursor-pointer flex items-center gap-4">
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-black text-sm shrink-0">
+                    {b.rmaNumber.toString().padStart(5,'0').slice(-3)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-slate-800 text-sm uppercase truncate">{r?.customerName || '—'}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">RMA-{b.rmaNumber.toString().padStart(5, '0')}</p>
+                  </div>
+                  <span className="font-black text-purple-700 text-sm">{b.total.toFixed(2)}€</span>
+                </div>
+              );
+            })}
+            {((expandedSection === 'ready' && readyToDeliver.length === 0) ||
+              (expandedSection === 'inprogress' && inProgress.length === 0) ||
+              (expandedSection === 'domicilio' && domicilioPending.length === 0) ||
+              (expandedSection === 'waiting' && waitingParts.length === 0) ||
+              (expandedSection === 'budgets' && pendingBudgets.length === 0)) && (
+              <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest py-12">Sin elementos</p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── CITAS DE HOY ── */}
       {citasHoy.length > 0 && (
-        <section className="space-y-4">
+        <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-slate-900 p-2.5 rounded-xl text-white"><Calendar size={18} /></div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-tight text-slate-900">Agenda de Hoy</h3>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{citasHoy.length} cita{citasHoy.length !== 1 ? 's' : ''} confirmada{citasHoy.length !== 1 ? 's' : ''}</p>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{citasHoy.length} cita{citasHoy.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <button onClick={() => setView('calendar')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1">
               Ver Todo <ArrowRight size={14} />
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {citasHoy.slice(0, 3).map(cita => (
-              <div key={cita.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => setView('calendar')}>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm shrink-0 shadow-inner">
-                    {formatTime(cita.fecha)}
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-black text-slate-900 text-sm uppercase truncate">{cita.clienteNombre}</h4>
-                    <p className="text-[9px] text-slate-400 font-bold truncate">{cita.servicio}</p>
-                    {cita.direccion && (
-                      <p className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-0.5 truncate">
-                        <MapPin size={9} /> {cita.direccion}
-                      </p>
-                    )}
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {citasHoy.slice(0, 3).map(c => (
+              <div key={c.id} onClick={() => setView('calendar')} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center gap-3">
+                <div className="w-11 h-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm shrink-0">{fmtTime(c.fecha)}</div>
+                <div className="min-w-0">
+                  <p className="font-black text-slate-900 text-sm uppercase truncate">{c.clienteNombre}</p>
+                  <p className="text-[9px] text-slate-400 font-bold truncate">{c.servicio}</p>
                 </div>
               </div>
             ))}
@@ -135,152 +186,48 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
         </section>
       )}
 
-      {/* ── VISITAS A DOMICILIO PENDIENTES ── */}
-      {domicilioPending.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-amber-500 p-2.5 rounded-xl text-white"><Home size={18} /></div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight text-slate-900">Servicios a Domicilio</h3>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{domicilioPending.length} pendiente{domicilioPending.length !== 1 ? 's' : ''}</p>
-              </div>
-            </div>
-            <button onClick={() => setView('tech-field')} className="text-[10px] font-black text-amber-600 uppercase tracking-widest hover:underline flex items-center gap-1">
-              Panel de Campo <ArrowRight size={14} />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {domicilioPending.slice(0, 3).map(repair => (
-              <div key={repair.id} onClick={() => onEditRepair(repair)} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-amber-200 hover:shadow-lg transition-all cursor-pointer flex items-center gap-5 group">
-                <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
-                  <Home size={22} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[9px] font-black text-slate-400">RMA-{repair.rmaNumber.toString().padStart(5, '0')}</span>
-                    <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded uppercase">{repair.status}</span>
-                  </div>
-                  <h4 className="font-black text-slate-900 text-sm uppercase truncate">{repair.brand} {repair.model}</h4>
-                  <p className="text-[10px] text-slate-500 flex items-center gap-2 mt-1">
-                    <span className="flex items-center gap-1"><Users size={10} /> {repair.customerName}</span>
-                    {repair.address && <span className="flex items-center gap-1 text-amber-500"><MapPin size={10} /> {repair.address}{repair.city ? `, ${repair.city}` : ''}</span>}
-                  </p>
-                </div>
-                <ArrowRight size={18} className="text-slate-200 group-hover:text-amber-500 shrink-0 transition-colors" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── ALERTAS PENDIENTES ── */}
+      {/* ── ALERTS (clickable) ── */}
       {(waitingParts.length > 0 || pendingBudgets.length > 0) && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-500 p-2.5 rounded-xl text-white"><AlertCircle size={18} /></div>
-            <h3 className="text-sm font-black uppercase tracking-tight text-slate-900">Atención Requerida</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {waitingParts.length > 0 && (
-              <div className="bg-orange-50 p-5 rounded-2xl border border-orange-200 cursor-pointer hover:shadow-md transition-all" onClick={() => setView('repairs')}>
-                <div className="flex items-center gap-3 mb-3">
-                  <Clock size={18} className="text-orange-500" />
-                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Esperando Repuestos</p>
-                </div>
-                <p className="text-2xl font-black text-orange-700">{waitingParts.length}</p>
-                <div className="mt-3 space-y-1">
-                  {waitingParts.slice(0, 2).map(r => (
-                    <p key={r.id} className="text-[10px] text-orange-500 font-bold truncate">
-                      RMA-{r.rmaNumber.toString().padStart(5, '0')} · {r.brand} {r.model}
-                    </p>
-                  ))}
-                  {waitingParts.length > 2 && <p className="text-[9px] text-orange-400">+{waitingParts.length - 2} más</p>}
-                </div>
-              </div>
-            )}
-            {pendingBudgets.length > 0 && (
-              <div className="bg-purple-50 p-5 rounded-2xl border border-purple-200 cursor-pointer hover:shadow-md transition-all" onClick={() => setView('budgets')}>
-                <div className="flex items-center gap-3 mb-3">
-                  <FileText size={18} className="text-purple-500" />
-                  <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Presupuestos Pendientes</p>
-                </div>
-                <p className="text-2xl font-black text-purple-700">{pendingBudgets.length}</p>
-                <div className="mt-3 space-y-1">
-                  {pendingBudgets.slice(0, 2).map(b => {
-                    const r = repairs.find(rep => rep.id === b.repairId);
-                    return (
-                      <p key={b.id} className="text-[10px] text-purple-500 font-bold truncate">
-                        RMA-{b.rmaNumber.toString().padStart(5, '0')} · {r?.customerName || '—'} · {b.total.toFixed(2)}€
-                      </p>
-                    );
-                  })}
-                  {pendingBudgets.length > 2 && <p className="text-[9px] text-purple-400">+{pendingBudgets.length - 2} más</p>}
-                </div>
-              </div>
-            )}
-          </div>
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {waitingParts.length > 0 && (
+            <button onClick={() => toggleSection('waiting')} className={`text-left bg-orange-50 p-5 rounded-2xl border transition-all ${expandedSection === 'waiting' ? 'border-orange-400 shadow-lg' : 'border-orange-200 hover:shadow-md'}`}>
+              <div className="flex items-center gap-2 mb-2"><Clock size={16} className="text-orange-500" /><span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Esperando Repuestos</span></div>
+              <p className="text-2xl font-black text-orange-700">{waitingParts.length}</p>
+            </button>
+          )}
+          {pendingBudgets.length > 0 && (
+            <button onClick={() => toggleSection('budgets')} className={`text-left bg-purple-50 p-5 rounded-2xl border transition-all ${expandedSection === 'budgets' ? 'border-purple-400 shadow-lg' : 'border-purple-200 hover:shadow-md'}`}>
+              <div className="flex items-center gap-2 mb-2"><FileText size={16} className="text-purple-500" /><span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Presupuestos Pendientes</span></div>
+              <p className="text-2xl font-black text-purple-700">{pendingBudgets.length}</p>
+            </button>
+          )}
         </section>
       )}
 
       {/* ── COLA DE TRABAJO ── */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-xl">
-            <Wrench size={24} />
-          </div>
+      <section className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-900 p-2.5 rounded-xl text-white shadow-lg"><Wrench size={18} /></div>
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Laboratorio Técnico</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Equipos Pendientes de Diagnóstico</p>
+            <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Cola de Diagnóstico</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">{pendingDiagnose.length} pendientes</p>
           </div>
         </div>
-
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 flex items-center gap-2 px-2">
-            <Clock size={14} /> Cola de Trabajo ({pendingDiagnose.length})
-          </h3>
-          {pendingDiagnose.length > 0 ? (
-            pendingDiagnose.slice(0, 6).map(repair => (
-              <div key={repair.id} onClick={() => onEditRepair(repair)} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-indigo-400 hover:shadow-xl transition-all cursor-pointer flex items-center gap-6 group">
-                <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black text-white shrink-0 transition-colors ${repair.repairType === 'domicilio' ? 'bg-amber-500 group-hover:bg-amber-600' : 'bg-slate-900 group-hover:bg-indigo-600'}`}>
-                  {repair.repairType === 'domicilio' ? <Home size={16} className="opacity-50 mb-0.5" /> : <span className="text-[8px] opacity-40 uppercase">RMA</span>}
-                  <span className="text-sm leading-none">{repair.rmaNumber.toString().padStart(5, '0')}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-black text-slate-900 uppercase text-sm truncate">{repair.brand} {repair.model}</h4>
-                    {repair.repairType === 'domicilio' && (
-                      <span className="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-black uppercase shrink-0">Domicilio</span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1.5 flex items-center gap-2">
-                    <span className="text-indigo-600">CLI:</span> {repair.customerName}
-                  </p>
-                  {repair.repairType === 'domicilio' && repair.address && (
-                    <p className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-1 truncate">
-                      <MapPin size={9} /> {repair.address}{repair.city ? `, ${repair.city}` : ''}
-                    </p>
-                  )}
-                </div>
-                <div className="hidden md:block px-6 border-l border-slate-50 max-w-xs">
-                  <p className="text-[9px] font-black text-slate-300 uppercase mb-1">Avería Reportada</p>
-                  <p className="text-[10px] font-bold text-slate-600 italic line-clamp-1">{repair.problemDescription}</p>
-                </div>
-                <ArrowRight size={20} className="text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" />
-              </div>
-            ))
-          ) : (
-            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem]">
-              <ClipboardList size={40} className="mx-auto text-slate-200 mb-4" />
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No hay reparaciones en espera</p>
-            </div>
-          )}
-          {pendingDiagnose.length > 6 && (
-            <button onClick={() => setView('repairs')} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest hover:text-blue-600 transition-colors">
-              Ver los {pendingDiagnose.length} pendientes →
-            </button>
-          )}
-        </div>
+        {pendingDiagnose.length > 0 ? (
+          <div className="space-y-2">
+            {pendingDiagnose.slice(0, 5).map(r => <RepairRow key={r.id} r={r} />)}
+            {pendingDiagnose.length > 5 && (
+              <button onClick={() => setView('repairs')} className="w-full py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest hover:text-blue-600">
+                Ver los {pendingDiagnose.length} pendientes →
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="py-16 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+            <ClipboardList size={32} className="mx-auto text-slate-200 mb-3" />
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Sin reparaciones en espera</p>
+          </div>
+        )}
       </section>
     </div>
   );

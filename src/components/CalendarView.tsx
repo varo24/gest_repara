@@ -28,7 +28,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ citas, repairs, settings, o
   const [confirmDelete, setConfirmDelete] = useState<Cita | null>(null);
 
   const [formData, setFormData] = useState({
-    clienteNombre: '', telefono: '', direccion: '', ciudad: '', servicio: '', hora: '10:00'
+    clienteNombre: '', telefono: '', direccion: '', ciudad: '', servicio: '', hora: '10:00', fecha: ''
   });
 
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i - 3)), []);
@@ -55,7 +55,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ citas, repairs, settings, o
 
   const handleOpenCreate = () => {
     setEditingCita(null);
-    setFormData({ clienteNombre: '', telefono: '', direccion: '', ciudad: '', servicio: '', hora: '10:00' });
+    setFormData({ clienteNombre: '', telefono: '', direccion: '', ciudad: '', servicio: '', hora: '10:00', fecha: selectedDate.toISOString().split('T')[0] });
     setShowModal(true);
   };
 
@@ -68,6 +68,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ citas, repairs, settings, o
       ciudad: cita.ciudad || '',
       servicio: cita.servicio,
       hora: formatTime(cita.fecha),
+      fecha: new Date(cita.fecha).toISOString().split('T')[0],
     });
     setShowModal(true);
   };
@@ -75,8 +76,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ citas, repairs, settings, o
   const handleSave = () => {
     if (!formData.clienteNombre || !formData.servicio) return;
     const [h, m] = formData.hora.split(':').map(Number);
-    const fechaCita = new Date(selectedDate);
-    fechaCita.setHours(h, m, 0, 0);
+    const fechaCita = formData.fecha ? new Date(formData.fecha) : new Date(selectedDate);
+    fechaCita.setHours(h || 0, m || 0, 0, 0);
 
     const cita: Cita = {
       id: editingCita?.id || `cita-${Date.now()}`,
@@ -273,9 +274,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ citas, repairs, settings, o
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-1">Fecha</label>
-                  <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 text-sm font-bold text-slate-600 text-center">
-                    {selectedDate.toLocaleDateString('es-ES')}
-                  </div>
+                  <input type="date" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
                 </div>
               </div>
               <div>
