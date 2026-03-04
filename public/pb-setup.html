@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ReparaPro - Setup PocketBase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 40px 20px; min-height: 100vh; }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  p { color: #94a3b8; font-size: 13px; margin-bottom: 30px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+  label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; }
+  input { width: 100%; padding: 12px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: white; font-size: 14px; font-family: monospace; outline: none; }
+  input:focus { border-color: #3b82f6; }
+  button { width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; margin-top: 16px; }
+  button:hover { background: #2563eb; }
+  .log { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 16px; font-family: monospace; font-size: 12px; min-height: 120px; white-space: pre-wrap; color: #94a3b8; margin-top: 16px; }
+  .ok { color: #34d399; }
+  .err { color: #f87171; }
+  .info { color: #60a5fa; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔧 ReparaPro — Setup PocketBase</h1>
+  <p>Crea las colecciones necesarias automáticamente en tu servidor PocketBase.</p>
+
+  <div class="card">
+    <label>URL del servidor PocketBase</label>
+    <input id="host" type="text" value="http://192.168.1.131:8090" placeholder="http://192.168.1.131:8090">
+
+    <label style="margin-top:16px;">Email de administrador</label>
+    <input id="email" type="email" value="admin@reparapro.local" placeholder="admin@ejemplo.com">
+
+    <label style="margin-top:16px;">Contraseña de administrador</label>
+    <input id="password" type="password" placeholder="contraseña">
+
+    <button onclick="setup()">⚡ Crear colecciones automáticamente</button>
+    <div class="log" id="log">Esperando...</div>
+  </div>
+
+  <div class="card">
+    <label>O usa acceso sin autenticación (API rules abiertas)</label>
+    <button onclick="setupNoAuth()" style="background:#7c3aed;">🔓 Setup sin autenticación (modo taller)</button>
+  </div>
+</div>
+
+<script>
+const log = (msg, cls='') => {
+  const el = document.getElementById('log');
+  el.innerHTML += `<span class="${cls}">${msg}\n</span>`;
+};
+
+const getHost = () => document.getElementById('host').value.replace(/\/$/, '');
+
+const collections = ['repairs', 'budgets', 'rp_settings'];
+
+async function setup() {
+  document.getElementById('log').innerHTML = '';
+  const host = getHost();
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  log('🔐 Autenticando como administrador...', 'info');
+  try {
+    const authRes = await fetch(`${host}/api/admins/auth-with-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: email, password })
+    });
+    if (!authRes.ok) { log('❌ Error de autenticación. Verifica email y contraseña.', 'err'); return; }
+    const auth = await authRes.json();
+    const token = auth.token;
+    localStorage.setItem('pb_admin_token', `Admin ${token}`);
+    log('✅ Autenticado correctamente', 'ok');
+    await createCollections(host, `Admin ${token}`);
+  } catch(e) {
+    log(`❌ Error: ${e.message}`, 'err');
+  }
+}
+
+async function setupNoAuth() {
+  document.getElementById('log').innerHTML = '';
+  const host = getHost();
+  log('🔓 Intentando sin autenticación...', 'info');
+  await createCollections(host, null);
+}
+
+async function createCollections(host, token) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = token;
+
+  for (const name of collections) {
+    log(`\n📦 Procesando colección: ${name}`, 'info');
+    
+    // Comprobar si existe
+    const checkRes = await fetch(`${host}/api/collections/${name}`, { headers });
+    if (checkRes.ok) {
+      log(`  ✅ Ya existe, configurando reglas...`, 'ok');
+    } else {
+      // Crear colección
+      const createRes = await fetch(`${host}/api/collections`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name,
+          type: 'base',
+          schema: [
+            { name: 'data', type: 'json', required: false, options: {} },
+            { name: 'business_id', type: 'text', required: false, options: { min: null, max: null, pattern: '' } }
+          ]
+        })
+      });
+      if (createRes.ok) {
+        log(`  ✅ Colección creada`, 'ok');
+      } else {
+        const err = await createRes.json();
+        log(`  ❌ Error creando: ${JSON.stringify(err)}`, 'err');
+        continue;
+      }
+    }
+
+    // Abrir reglas de API (permitir todo sin auth — para red local)
+    const patchRes = await fetch(`${host}/api/collections/${name}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        listRule: '',
+        viewRule: '',
+        createRule: '',
+        updateRule: '',
+        deleteRule: ''
+      })
+    });
+    if (patchRes.ok) {
+      log(`  ✅ Reglas abiertas (acceso libre en red local)`, 'ok');
+    } else {
+      log(`  ⚠️ No se pudieron abrir las reglas`, 'err');
+    }
+  }
+
+  log('\n🎉 Setup completado. Ya puedes conectar ReparaPro.', 'ok');
+  log(`   URL: ${host}`, 'info');
+}
+</script>
+</body>
+</html>
