@@ -256,6 +256,8 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firma del Cliente</span>
           </div>
           <SignaturePad
+            minHeight={500}
+            label="Firma del cliente para completar servicio"
             onSave={(sig) => {
               if (sig) {
                 handleSignatureSave(sig);

@@ -291,7 +291,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
              </div>
              <div className="bg-slate-50 p-1 rounded-2xl border border-slate-200 flex-1 flex items-center justify-center" style={{ minHeight: '500px' }}>
                <div className="w-full h-full">
-                 <SignaturePad onSave={setSignature} initialValue={signature} height="h-full" />
+                 <SignaturePad onSave={setSignature} initialValue={signature} minHeight={400} />
                </div>
              </div>
              <button onClick={() => setActiveTab('resumen')} className="w-full py-4 mt-2 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shrink-0">
