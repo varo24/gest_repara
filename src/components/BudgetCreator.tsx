@@ -12,10 +12,12 @@ import {
   PenTool,
   Save,
   Building2,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings } from '../types';
 import SignaturePad from './SignaturePad';
+import PartsSearch from './PartsSearch';
 
 interface BudgetCreatorProps {
   repair: RepairItem;
@@ -32,8 +34,20 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
   const [tax, setTax] = useState(initialBudget?.taxRate || settings.taxRate || 21);
   const [activeTab, setActiveTab] = useState<'repuestos' | 'mano-obra' | 'firma' | 'resumen'>(initialBudget?.id ? 'resumen' : 'repuestos');
   const [isSaving, setIsSaving] = useState(false);
+  const [showPartsSearch, setShowPartsSearch] = useState(false);
 
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
+
+  const addPartFromSearch = (name: string, price: number) => {
+    const newItem: BudgetItem = {
+      id: crypto.randomUUID(),
+      repairId: repair.id,
+      description: name,
+      quantity: 1,
+      unitPrice: price,
+    };
+    setItems(prev => [...prev, newItem]);
+  };
 
   const printBudget = () => {
     const pSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) + laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
@@ -228,12 +242,37 @@ tbody tr{border-bottom:1px solid #f1f5f9}
       <div className="p-8">
         {activeTab === 'repuestos' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
               <h3 className="text-sm font-black uppercase text-slate-800">Materiales y Repuestos</h3>
-              <button onClick={addPiece} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 flex items-center gap-2">
-                <PlusIcon size={14} /> Añadir Artículo
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowPartsSearch(!showPartsSearch)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showPartsSearch ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'}`}>
+                  <Search size={14} /> {showPartsSearch ? 'Cerrar Buscador' : 'Buscar Recambios Online'}
+                </button>
+                <button onClick={addPiece} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 flex items-center gap-2">
+                  <PlusIcon size={14} /> Manual
+                </button>
+              </div>
             </div>
+
+            {/* Buscador de piezas online */}
+            {showPartsSearch && (
+              <div className="bg-blue-50/50 border-2 border-blue-100 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Search size={16} className="text-blue-500" />
+                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Buscador de Recambios Online</span>
+                  </div>
+                  <button onClick={() => setShowPartsSearch(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-white transition-all">
+                    <XIcon size={14} />
+                  </button>
+                </div>
+                <PartsSearch
+                  deviceBrand={repair.brand}
+                  deviceModel={repair.model}
+                  onAddPart={addPartFromSearch}
+                />
+              </div>
+            )}
             
             <div className="space-y-3">
               {items.map(item => (
