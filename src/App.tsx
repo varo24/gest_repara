@@ -20,7 +20,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '5.0.0 UNIFIED';
+const APP_VERSION = '5.1.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -413,6 +413,42 @@ const App: React.FC = () => {
                 onSaveCita={handleSaveCita}
                 onDeleteCita={handleDeleteCita}
                 onNavigateToRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+                onCreateRepairFromCita={(cita) => {
+                  // Generate new RMA number
+                  const maxRma = (repairs ?? []).reduce((max, r) => Math.max(max, r.rmaNumber || 0), 0);
+                  const newRma = maxRma + 1;
+                  const repairId = `RMA-${Date.now()}`;
+
+                  // Create repair from cita data
+                  const newRepair: RepairItem = {
+                    id: repairId,
+                    rmaNumber: newRma,
+                    repairType: cita.direccion ? 'domicilio' : 'taller',
+                    customerName: cita.clienteNombre,
+                    customerPhone: cita.telefono || '',
+                    deviceType: '',
+                    brand: '',
+                    model: '',
+                    serialNumber: '',
+                    problemDescription: [
+                      cita.servicio,
+                      cita.notas ? `\n--- Notas de inspección ---\n${cita.notas}` : '',
+                    ].filter(Boolean).join(''),
+                    entryDate: new Date().toISOString(),
+                    status: RepairStatus.PENDING,
+                    address: cita.direccion || '',
+                    city: cita.ciudad || '',
+                  };
+
+                  // Link cita → repair
+                  const updatedCita: Cita = { ...cita, rmaId: repairId };
+                  storage.save('citas', cita.id, updatedCita);
+
+                  // Open repair form pre-filled
+                  setEditingRepair(newRepair);
+                  navigateTo('new-repair');
+                  notify('success', `Orden de trabajo creada desde cita de ${cita.clienteNombre}. Complete los datos del equipo.`);
+                }}
               />
             )}
             {currentView === 'external-apps' && (
