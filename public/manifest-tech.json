@@ -1,0 +1,24 @@
+{
+  "name": "ReparaPro - Panel Técnico",
+  "short_name": "Técnico",
+  "description": "Panel de campo para técnicos - Vista móvil",
+  "start_url": "/?view=tech-field",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["business", "utilities"],
+  "lang": "es"
+}

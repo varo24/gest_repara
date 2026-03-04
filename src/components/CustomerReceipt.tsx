@@ -265,12 +265,32 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({ repair, settings, onC
 </html>`;
 
   const openPrintWindow = () => {
+    // Try window.open first
     const win = window.open('', '_blank', 'width=850,height=1100');
-    if (!win) return;
-    win.document.write(printHTML);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 600);
+    if (win) {
+      win.document.write(printHTML);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try { win.print(); } catch(e) {} }, 800);
+      return;
+    }
+    // Fallback: hidden iframe for browsers that block popups
+    const id = 'print-frame-receipt';
+    let iframe = document.getElementById(id) as HTMLIFrameElement;
+    if (iframe) iframe.remove();
+    iframe = document.createElement('iframe');
+    iframe.id = id;
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(printHTML);
+    doc.close();
+    setTimeout(() => {
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch(e) {}
+      setTimeout(() => iframe.remove(), 3000);
+    }, 800);
   };
 
   return (

@@ -5,7 +5,7 @@
  */
 
 const DB_NAME = 'ReparaPro_LocalDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export class LocalDB {
   private db: IDBDatabase | null = null;
@@ -13,6 +13,8 @@ export class LocalDB {
     repairs: [],
     budgets: [],
     settings: [],
+    citas: [],
+    apps_externas: [],
   };
   private useMemory = false;
 
@@ -37,6 +39,12 @@ export class LocalDB {
           }
           if (!db.objectStoreNames.contains('settings')) {
             db.createObjectStore('settings', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('citas')) {
+            db.createObjectStore('citas', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('apps_externas')) {
+            db.createObjectStore('apps_externas', { keyPath: 'id' });
           }
         };
 

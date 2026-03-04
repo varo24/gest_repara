@@ -170,11 +170,30 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
 
   const openPrint = () => {
     const win = window.open('', '_blank', 'width=420,height=580');
-    if (!win) return;
-    win.document.write(printContent);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 500);
+    if (win) {
+      win.document.write(printContent);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { try { win.print(); } catch(e) {} }, 600);
+      return;
+    }
+    // Fallback: hidden iframe
+    const id = 'print-frame-ticket';
+    let iframe = document.getElementById(id) as HTMLIFrameElement;
+    if (iframe) iframe.remove();
+    iframe = document.createElement('iframe');
+    iframe.id = id;
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:auto;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(printContent);
+    doc.close();
+    setTimeout(() => {
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch(e) {}
+      setTimeout(() => iframe.remove(), 3000);
+    }, 600);
   };
 
   // Preview a escala 2.5x (80mm→200px, 120mm→300px)

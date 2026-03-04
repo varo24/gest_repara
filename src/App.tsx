@@ -20,7 +20,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '4.1.0 UNIFIED';
+const APP_VERSION = '4.2.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -39,7 +39,9 @@ const App: React.FC = () => {
   const [repairs, setRepairs] = useState<RepairItem[] | null>(null);
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  // Detect standalone tech-field mode from URL params (for PWA install)
+  const isTechMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'tech-field';
+  const [currentView, setCurrentView] = useState<ViewType>(isTechMode ? 'tech-field' : 'dashboard');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [canInstall, setCanInstall] = useState(false);
@@ -186,20 +188,22 @@ const App: React.FC = () => {
   if (!unlocked) return <PinScreen onUnlock={() => setUnlocked(true)} />;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 no-print">
-      <Sidebar
-        currentView={currentView}
-        setView={navigateTo}
-        onNewRepair={() => navigateTo('new-repair')}
-        onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
-        appName={settings.appName}
-        version={APP_VERSION}
-        repairs={repairs ?? []}
-        budgets={budgets ?? []}
-        citas={citas ?? []}
-      />
+    <div className={`flex min-h-screen bg-slate-50 text-slate-900 no-print ${isTechMode ? '' : ''}`}>
+      {!isTechMode && (
+        <Sidebar
+          currentView={currentView}
+          setView={navigateTo}
+          onNewRepair={() => navigateTo('new-repair')}
+          onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+          appName={settings.appName}
+          version={APP_VERSION}
+          repairs={repairs ?? []}
+          budgets={budgets ?? []}
+          citas={citas ?? []}
+        />
+      )}
 
-      <main className="flex-1 p-6 md:p-10 ml-64 min-h-screen">
+      <main className={`flex-1 p-4 md:p-6 ${isTechMode ? 'ml-0' : 'ml-64'} ${isTechMode ? 'p-4' : 'md:p-10'} min-h-screen`}>
 
         {/* Notificaciones */}
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">

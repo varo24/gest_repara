@@ -15,22 +15,27 @@ interface RepairFormProps {
 }
 
 const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, settings }) => {
-  const [formData, setFormData] = useState<Partial<RepairItem>>(initialData || {
-    customerName: '',
-    customerPhone: '',
-    deviceType: '',
-    brand: '',
-    model: '',
-    serialNumber: '',
-    problemDescription: '',
-    status: RepairStatus.PENDING,
-    entryDate: new Date().toISOString().split('T')[0],
-    technician: settings?.technicians?.[0] || '',
-    images: [],
-    repairType: 'taller',
-    address: '',
-    city: '',
-    fieldNotes: [],
+  const [formData, setFormData] = useState<Partial<RepairItem>>(() => {
+    if (initialData) {
+      return { ...initialData, repairType: initialData.repairType || 'taller' };
+    }
+    return {
+      customerName: '',
+      customerPhone: '',
+      deviceType: '',
+      brand: '',
+      model: '',
+      serialNumber: '',
+      problemDescription: '',
+      status: RepairStatus.PENDING,
+      entryDate: new Date().toISOString().split('T')[0],
+      technician: settings?.technicians?.[0] || '',
+      images: [],
+      repairType: 'taller',
+      address: '',
+      city: '',
+      fieldNotes: [],
+    };
   });
 
   const [aiLoading, setAiLoading] = useState(false);

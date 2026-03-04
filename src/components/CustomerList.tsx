@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { Search, User, Smartphone, Clock, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, User, Phone, Wrench, Clock, ChevronRight } from 'lucide-react';
 import { RepairItem } from '../types';
 
 interface CustomerListProps {
@@ -8,7 +7,6 @@ interface CustomerListProps {
   onSelectCustomer: (phone: string) => void;
 }
 
-// Fix: Defined CustomerRecord interface to properly type the customer map and avoid unknown type errors
 interface CustomerRecord {
   name: string;
   phone: string;
@@ -19,80 +17,96 @@ interface CustomerRecord {
 const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Agrupar clientes por teléfono
-  // Fix: Explicitly typed the accumulator as Record<string, CustomerRecord> to resolve type inference issues
-  const customerMap = repairs.reduce((acc, repair) => {
-    const phone = repair.customerPhone;
-    if (!acc[phone]) {
-      acc[phone] = {
-        name: repair.customerName,
-        phone,
-        repairs: [],
-        lastVisit: repair.entryDate
-      };
-    }
-    acc[phone].repairs.push(repair);
-    if (new Date(repair.entryDate) > new Date(acc[phone].lastVisit)) {
-      acc[phone].lastVisit = repair.entryDate;
-    }
-    return acc;
-  }, {} as Record<string, CustomerRecord>);
+  const customers = useMemo(() => {
+    const map = repairs.reduce((acc, repair) => {
+      const phone = repair.customerPhone;
+      if (!acc[phone]) {
+        acc[phone] = { name: repair.customerName, phone, repairs: [], lastVisit: repair.entryDate };
+      }
+      acc[phone].repairs.push(repair);
+      if (new Date(repair.entryDate) > new Date(acc[phone].lastVisit)) {
+        acc[phone].lastVisit = repair.entryDate;
+      }
+      return acc;
+    }, {} as Record<string, CustomerRecord>);
 
-  // Fix: Typed customers as CustomerRecord[] to resolve property access errors on type 'unknown'
-  const customers = (Object.values(customerMap) as CustomerRecord[]).filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.phone.includes(searchTerm)
-  );
+    return (Object.values(map) as CustomerRecord[])
+      .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
+      .sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
+  }, [repairs, searchTerm]);
 
   return (
-    <div className="space-y-8 animate-in fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="relative flex-1 max-w-xl">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+    <div className="space-y-6 animate-in fade-in">
+      {/* Header compacto */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Clientes</h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{customers.length} registrados</p>
+        </div>
+        <div className="relative w-72">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input 
             type="text" 
-            placeholder="Buscar por nombre o teléfono..." 
-            className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-[2rem] font-bold text-slate-900 shadow-sm outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+            placeholder="Buscar nombre o teléfono..." 
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {customers.map(c => (
-          <div key={c.phone} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                  <User size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 uppercase truncate max-w-[150px]">{c.name}</h3>
-                  <p className="text-xs font-bold text-slate-400">{c.phone}</p>
-                </div>
-              </div>
-              <button onClick={() => onSelectCustomer(c.phone)} className="p-3 bg-slate-50 text-slate-300 rounded-xl group-hover:bg-slate-900 group-hover:text-white transition-all"><ChevronRight size={20} /></button>
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-2xl">
-              <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-2"><Smartphone size={10} /> Equipos Registrados</p>
-              <p className="text-xl font-black text-blue-900 leading-none">{c.repairs.length}</p>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock size={12} className="text-slate-300" />
-                <span className="text-[9px] font-black text-slate-400 uppercase">Última Visita: {c.lastVisit}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-        {customers.length === 0 && (
-          <div className="col-span-full py-32 text-center bg-white border-2 border-dashed border-slate-100 rounded-[3rem]">
-            <p className="text-slate-300 font-black uppercase text-xs tracking-widest">No hay clientes que coincidan</p>
-          </div>
-        )}
+      {/* Tabla compacta */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              <th className="px-6 py-4">Cliente</th>
+              <th className="px-4 py-4">Teléfono</th>
+              <th className="px-4 py-4 text-center">Reparaciones</th>
+              <th className="px-4 py-4">Última Visita</th>
+              <th className="px-4 py-4 w-10"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {customers.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-16 text-center text-slate-300">
+                  <User size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Sin resultados</p>
+                </td>
+              </tr>
+            ) : customers.map(c => (
+              <tr key={c.phone} className="hover:bg-blue-50/30 transition-colors group cursor-pointer" onClick={() => onSelectCustomer(c.phone)}>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 text-xs font-black group-hover:bg-slate-900 group-hover:text-white transition-colors shrink-0">
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-black text-slate-800 text-sm uppercase tracking-tight truncate max-w-[180px]">{c.name}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                    <Phone size={12} className="text-slate-300" /> {c.phone}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black">
+                    <Wrench size={10} /> {c.repairs.length}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                    <Clock size={10} /> {new Date(c.lastVisit).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <ChevronRight size={16} className="text-slate-200 group-hover:text-blue-500 transition-colors" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
