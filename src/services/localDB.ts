@@ -1,7 +1,13 @@
-
 /**
- * LocalDB - Motor de persistencia basado en IndexedDB
- * Con fallback a memoria si IndexedDB no está disponible
+ * LocalDB v2 — Memory-First Architecture
+ * 
+ * CRITICAL DESIGN: memoryStore is the SINGLE SOURCE OF TRUTH.
+ * - getAll() ALWAYS reads from memoryStore (never directly from IDB)
+ * - put() writes to memoryStore FIRST, then mirrors to IDB in background
+ * - IDB is used ONLY for persistence across page reloads
+ * - On init, IDB data is loaded INTO memoryStore
+ * 
+ * This eliminates all race conditions between IDB transactions.
  */
 
 const DB_NAME = 'ReparaPro_LocalDB';
@@ -9,19 +15,18 @@ const DB_VERSION = 5;
 
 export class LocalDB {
   private db: IDBDatabase | null = null;
-  private memoryStore: Record<string, any[]> = {
-    repairs: [],
-    budgets: [],
-    settings: [],
-    citas: [],
-    apps_externas: [],
-  };
-  private useMemory = false;
+  private memoryStore: Record<string, any[]> = {};
+  private idbAvailable = false;
+  private initialized = false;
 
   async init(): Promise<void> {
+    // Initialize memory stores
+    const stores = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'];
+    stores.forEach(s => { if (!this.memoryStore[s]) this.memoryStore[s] = []; });
+
     if (typeof indexedDB === 'undefined') {
-      console.warn('[LocalDB] IndexedDB no disponible, usando memoria');
-      this.useMemory = true;
+      console.warn('[LocalDB] IndexedDB no disponible');
+      this.initialized = true;
       return;
     }
 
@@ -31,87 +36,75 @@ export class LocalDB {
 
         request.onupgradeneeded = (event: any) => {
           const db = event.target.result;
-          if (!db.objectStoreNames.contains('repairs')) {
-            db.createObjectStore('repairs', { keyPath: 'id' });
-          }
-          if (!db.objectStoreNames.contains('budgets')) {
-            db.createObjectStore('budgets', { keyPath: 'id' });
-          }
-          if (!db.objectStoreNames.contains('settings')) {
-            db.createObjectStore('settings', { keyPath: 'id' });
-          }
-          if (!db.objectStoreNames.contains('citas')) {
-            db.createObjectStore('citas', { keyPath: 'id' });
-          }
-          if (!db.objectStoreNames.contains('apps_externas')) {
-            db.createObjectStore('apps_externas', { keyPath: 'id' });
-          }
+          stores.forEach(s => {
+            if (!db.objectStoreNames.contains(s)) {
+              db.createObjectStore(s, { keyPath: 'id' });
+            }
+          });
         };
 
-        request.onsuccess = (event: any) => {
+        request.onsuccess = async (event: any) => {
           this.db = event.target.result;
-          console.log('[LocalDB] IndexedDB inicializado OK');
+          this.idbAvailable = true;
+          console.log('[LocalDB] IndexedDB OK');
+
+          // Load IDB data into memoryStore
+          for (const storeName of stores) {
+            try {
+              const data = await this._idbGetAll(storeName);
+              this.memoryStore[storeName] = data;
+            } catch (e) {
+              console.warn(`[LocalDB] Failed to load ${storeName} from IDB`);
+            }
+          }
+          this.initialized = true;
           resolve();
         };
 
         request.onerror = () => {
-          console.warn('[LocalDB] Error abriendo IndexedDB, usando memoria');
-          this.useMemory = true;
+          console.warn('[LocalDB] IDB error, memory-only mode');
+          this.initialized = true;
           resolve();
         };
 
         request.onblocked = () => {
-          console.warn('[LocalDB] IndexedDB bloqueado, usando memoria');
-          this.useMemory = true;
+          console.warn('[LocalDB] IDB blocked, memory-only mode');
+          this.initialized = true;
           resolve();
         };
       } catch (e) {
-        console.warn('[LocalDB] Excepcion al abrir IndexedDB:', e);
-        this.useMemory = true;
+        console.warn('[LocalDB] Exception:', e);
+        this.initialized = true;
         resolve();
       }
     });
   }
 
+  // ALWAYS reads from memoryStore — instant, no async IDB issues
   async getAll(storeName: string): Promise<any[]> {
-    if (this.useMemory || !this.db) {
-      return [...(this.memoryStore[storeName] || [])];
-    }
-    return new Promise((resolve) => {
-      try {
-        const transaction = this.db!.transaction(storeName, 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(this.memoryStore[storeName] || []);
-      } catch (e) {
-        resolve(this.memoryStore[storeName] || []);
-      }
-    });
+    if (!this.memoryStore[storeName]) this.memoryStore[storeName] = [];
+    // Return a shallow copy so React detects changes
+    return this.memoryStore[storeName].map(item => ({ ...item }));
   }
 
+  // Writes to memoryStore FIRST (synchronous), then mirrors to IDB (background)
   async put(storeName: string, data: any): Promise<void> {
     if (!this.memoryStore[storeName]) this.memoryStore[storeName] = [];
+
+    // 1. Update memoryStore immediately (synchronous)
     const idx = this.memoryStore[storeName].findIndex((x: any) => x.id === data.id);
     if (idx >= 0) {
-      this.memoryStore[storeName][idx] = data;
+      this.memoryStore[storeName][idx] = { ...data };
     } else {
-      this.memoryStore[storeName].push(data);
+      this.memoryStore[storeName].push({ ...data });
     }
 
-    if (this.useMemory || !this.db) return;
-
-    return new Promise((resolve) => {
-      try {
-        const transaction = this.db!.transaction(storeName, 'readwrite');
-        const store = transaction.objectStore(storeName);
-        store.put(data);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => resolve();
-      } catch (e) {
-        resolve();
-      }
-    });
+    // 2. Mirror to IDB in background (don't block on this)
+    if (this.idbAvailable && this.db) {
+      this._idbPut(storeName, data).catch(e => {
+        console.warn(`[LocalDB] IDB mirror failed for ${storeName}:`, e);
+      });
+    }
   }
 
   async delete(storeName: string, id: string): Promise<void> {
@@ -119,15 +112,52 @@ export class LocalDB {
       this.memoryStore[storeName] = this.memoryStore[storeName].filter((x: any) => x.id !== id);
     }
 
-    if (this.useMemory || !this.db) return;
+    if (this.idbAvailable && this.db) {
+      this._idbDelete(storeName, id).catch(() => {});
+    }
+  }
 
-    return new Promise((resolve) => {
+  // ── Private IDB operations ──
+
+  private _idbGetAll(storeName: string): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.db) return resolve([]);
       try {
-        const transaction = this.db!.transaction(storeName, 'readwrite');
-        const store = transaction.objectStore(storeName);
+        const tx = this.db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  }
+
+  private _idbPut(storeName: string, data: any): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.db) return resolve();
+      try {
+        const tx = this.db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.put(data);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (e) {
+        resolve();
+      }
+    });
+  }
+
+  private _idbDelete(storeName: string, id: string): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.db) return resolve();
+      try {
+        const tx = this.db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
         store.delete(id);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => resolve();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
       } catch (e) {
         resolve();
       }

@@ -20,7 +20,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '4.6.0 UNIFIED';
+const APP_VERSION = '4.7.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -94,7 +94,11 @@ const App: React.FC = () => {
     const initApp = async () => {
       try {
         await storage.init();
-        storage.subscribe('repairs', (data) => { setRepairs(data); setLoading(false); });
+        storage.subscribe('repairs', (data) => { 
+          console.log('[App] repairs subscription fired:', data.length, 'items');
+          setRepairs(data); 
+          setLoading(false); 
+        });
         storage.subscribe('budgets', setBudgets);
         storage.subscribe('settings', (data) => {
           if (data && data.length > 0) setSettings(data[0]);
@@ -334,9 +338,12 @@ const App: React.FC = () => {
                 onToggleSelect={() => {}}
                 onSelectAll={() => {}}
                 onStatusChange={async (id, status) => {
+                  console.log(`[App] STATUS CHANGE requested: ${id} → ${status}`);
                   const repair = repairs?.find(r => r.id === id);
-                  if (!repair) return;
+                  if (!repair) { console.error('[App] Repair not found:', id); return; }
+                  console.log(`[App] Saving status: ${repair.status} → ${status}`);
                   await storage.save('repairs', id, { ...repair, status });
+                  console.log(`[App] Save complete for ${id}`);
                   if (status === RepairStatus.READY) {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que su equipo está listo?`, () => {
                       notifyReady({ ...repair, status }, settings);

@@ -1,7 +1,7 @@
 // ============================================================
-// ReparaPro Master - Persistence v6 (Local-First + Auto-Backup)
-// FIX: Local saves are now authoritative — polling will NOT
-//      overwrite data that was saved locally within the last 5s.
+// ReparaPro Master - Persistence v7
+// Memory-first: localDB.memoryStore is always the source of truth
+// save → put to memory (instant) → broadcast → mirror to IDB + Supabase
 // ============================================================
 
 import { localDB } from './localDB';
@@ -15,21 +15,24 @@ let online = false;
 let backupInProgress = false;
 let lastBackupTime = 0;
 
-// Track recently saved collections to prevent polling from reverting changes
 const localSaveTimestamps: Record<string, number> = {};
-const LOCAL_SAVE_GRACE_PERIOD = 6000; // 6s grace — polling won't overwrite during this window
+const LOCAL_SAVE_GRACE_PERIOD = 8000; // 8s grace
 
 const BACKUP_COOLDOWN_MS = 30000;
 const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'] as const;
 
 const tableFor = (col: string) => col === 'settings' ? 'rp_settings' : col;
 const hashOf = (arr: any[]) => arr.map(d => `${d.id}|${d.updatedAt||''}`).sort().join(',');
-const broadcast = (col: string, data: any[]) => subs[col]?.forEach(cb => cb([...data]));
+
+const broadcast = (col: string, data: any[]) => {
+  const copy = data.map(item => ({ ...item })); // deep-ish copy per item
+  subs[col]?.forEach(cb => cb(copy));
+};
 
 const syncToCloud = async (col: string, record: any) => {
   try {
-    const ok = await supabase.save(tableFor(col), record);
-    if (!ok) console.warn(`[Sync] ${col} cloud save failed`);
+    const { _rowId, ...clean } = record; // strip _rowId before sending
+    await supabase.save(tableFor(col), clean);
   } catch (e) {
     console.warn(`[Sync] ${col} cloud error:`, e);
   }
@@ -39,13 +42,10 @@ const syncDeleteToCloud = async (col: string, id: string) => {
   try { await supabase.remove(tableFor(col), id); } catch (e) { /* silent */ }
 };
 
-// ============================================================
-// BACKUP
-// ============================================================
+// ── BACKUP ──
 const performBackup = async (): Promise<boolean> => {
   if (!online || backupInProgress) return false;
-  const now = Date.now();
-  if (now - lastBackupTime < BACKUP_COOLDOWN_MS) return false;
+  if (Date.now() - lastBackupTime < BACKUP_COOLDOWN_MS) return false;
   backupInProgress = true;
   try {
     const repairs = await localDB.getAll('repairs').catch(() => []);
@@ -55,25 +55,18 @@ const performBackup = async (): Promise<boolean> => {
       repairs, budgets, settings,
       backupDate: new Date().toISOString(),
       totalRecords: repairs.length + budgets.length,
-      version: 'v6-autobackup',
+      version: 'v7-autobackup',
     });
-    if (ok) { lastBackupTime = Date.now(); }
+    if (ok) lastBackupTime = Date.now();
     return ok;
-  } catch (e) { return false; }
+  } catch { return false; }
   finally { backupInProgress = false; }
 };
 
 const performBeaconBackup = () => {
-  if (!online) return;
-  if (Date.now() - lastBackupTime < BACKUP_COOLDOWN_MS) return;
+  if (!online || Date.now() - lastBackupTime < BACKUP_COOLDOWN_MS) return;
   try {
-    const url = `https://bglmkckpopcuxmafting.supabase.co/rest/v1/backups`;
-    const body = JSON.stringify({
-      backup_id: `beacon-${Date.now()}`,
-      data: { backupDate: new Date().toISOString(), version: 'v6-beacon', trigger: 'app-close' },
-      created_at: new Date().toISOString(),
-    });
-    fetch(url, {
+    fetch(`https://bglmkckpopcuxmafting.supabase.co/rest/v1/backups`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -81,17 +74,16 @@ const performBeaconBackup = () => {
         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnbG1rY2twb3BjdXhtYWZ0aW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDg0MzYsImV4cCI6MjA4NzE4NDQzNn0.g88wW7562dUhmzpNNPRxqxpMdykTv8A1YXBkSVNI4dA',
         'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
-      body, keepalive: true,
+      body: JSON.stringify({ backup_id: `beacon-${Date.now()}`, data: { version: 'v7-beacon' }, created_at: new Date().toISOString() }),
+      keepalive: true,
     }).catch(() => {});
-  } catch (e) { /* silent */ }
+  } catch { /* closing */ }
 };
 
 const setupAutoBackup = () => {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') performBackup().catch(() => {});
-  });
-  window.addEventListener('pagehide', () => performBeaconBackup());
-  window.addEventListener('beforeunload', () => performBeaconBackup());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') performBackup().catch(() => {}); });
+  window.addEventListener('pagehide', performBeaconBackup);
+  window.addEventListener('beforeunload', performBeaconBackup);
   setInterval(() => performBackup().catch(() => {}), 5 * 60 * 1000);
 };
 
@@ -101,12 +93,12 @@ export const storage = {
     supabase.test().then(ok => {
       online = ok;
       if (ok) {
-        console.log('[Storage] Supabase conectado ✅');
+        console.log('[Storage] Supabase OK ✅');
         storage._startPolling();
         storage._pullRemote();
         setupAutoBackup();
       } else {
-        console.warn('[Storage] Modo local');
+        console.warn('[Storage] Offline mode');
       }
     });
   },
@@ -115,15 +107,20 @@ export const storage = {
 
   _pullRemote: async () => {
     for (const col of COLLECTIONS) {
+      // Skip if there was a recent local save
+      if (Date.now() - (localSaveTimestamps[col] || 0) < LOCAL_SAVE_GRACE_PERIOD) continue;
       try {
         const data = await supabase.getAll(tableFor(col));
+        if (!data.length) continue;
         const h = hashOf(data);
+        if (h === prevHash[col]) continue;
         prevHash[col] = h;
         for (const item of data) {
           const { _rowId, ...clean } = item;
-          if (clean.id) await localDB.put(col, clean).catch(() => {});
+          if (clean.id) await localDB.put(col, clean);
         }
-        broadcast(col, data);
+        const current = await localDB.getAll(col);
+        broadcast(col, current);
       } catch (e) {
         console.warn(`[Storage] pullRemote ${col}:`, e);
       }
@@ -135,13 +132,8 @@ export const storage = {
       if (timers[col]) clearInterval(timers[col]);
       timers[col] = setInterval(async () => {
         if (!subs[col]?.length || !online) return;
-
-        // ── CRITICAL FIX: Don't overwrite recent local saves ──
-        const lastLocalSave = localSaveTimestamps[col] || 0;
-        if (Date.now() - lastLocalSave < LOCAL_SAVE_GRACE_PERIOD) {
-          return; // Skip this poll cycle — local data is authoritative
-        }
-
+        // Don't overwrite recent local saves
+        if (Date.now() - (localSaveTimestamps[col] || 0) < LOCAL_SAVE_GRACE_PERIOD) return;
         try {
           const data = await supabase.getAll(tableFor(col));
           const h = hashOf(data);
@@ -149,11 +141,12 @@ export const storage = {
           prevHash[col] = h;
           for (const item of data) {
             const { _rowId, ...clean } = item;
-            if (clean.id) await localDB.put(col, clean).catch(() => {});
+            if (clean.id) await localDB.put(col, clean);
           }
-          broadcast(col, data);
-        } catch (e) { /* network error — skip */ }
-      }, 3000);
+          const current = await localDB.getAll(col);
+          broadcast(col, current);
+        } catch { /* skip */ }
+      }, 4000);
     }
   },
 
@@ -161,55 +154,57 @@ export const storage = {
     if (!subs[col]) subs[col] = [];
     subs[col].push(cb);
 
-    let localTimer: ReturnType<typeof setTimeout>;
-    localDB.getAll(col)
-      .then(localData => {
-        localTimer = setTimeout(() => {
-          if (prevHash[col] === undefined) {
-            prevHash[col] = hashOf(localData);
-            cb([...localData]);
-          }
-        }, 80);
-      })
-      .catch(() => { cb([]); });
+    // Fire immediately with current memoryStore data
+    localDB.getAll(col).then(data => {
+      // Only fire if no hash yet (first subscriber)
+      if (prevHash[col] === undefined) {
+        prevHash[col] = hashOf(data);
+      }
+      cb(data.map(item => ({ ...item })));
+    }).catch(() => cb([]));
 
-    return () => {
-      clearTimeout(localTimer);
-      subs[col] = subs[col].filter(fn => fn !== cb);
-    };
+    return () => { subs[col] = subs[col].filter(fn => fn !== cb); };
   },
 
-  // SAVE — local first, broadcast immediately, sync cloud in background
+  // SAVE — the critical path
   save: async (col: string, id: string, data: any): Promise<void> => {
-    const updatedAt = new Date().toISOString();
+    console.log(`[Storage] SAVE ${col}/${id}`, data.status || '');
 
-    // Mark this collection as recently saved locally
+    // 1. Mark as locally saved (blocks polling)
     localSaveTimestamps[col] = Date.now();
 
-    // Build the full record
-    const existing = await localDB.getAll(col)
-      .then(all => all.find((x: any) => x.id === id))
-      .catch(() => null);
-    const full = { ...existing, ...data, id, updatedAt };
+    // 2. Build the record
+    const allItems = await localDB.getAll(col);
+    const existing = allItems.find((x: any) => x.id === id);
+    const { _rowId, ...cleanData } = data; // strip _rowId if present
+    const full = {
+      ...(existing || {}),
+      ...cleanData,
+      id,
+      updatedAt: new Date().toISOString(),
+    };
+    // Remove _rowId from final record
+    delete full._rowId;
 
-    // Write to IndexedDB
-    await localDB.put(col, full).catch(e => console.error('[Storage] put error:', e));
+    // 3. Write to memoryStore (synchronous inside put)
+    await localDB.put(col, full);
 
-    // Read back ALL from local and broadcast to UI immediately
-    const localData = await localDB.getAll(col).catch(() => [full]);
-    prevHash[col] = hashOf(localData);
-    broadcast(col, localData);
+    // 4. Read back from memoryStore and broadcast
+    const updated = await localDB.getAll(col);
+    prevHash[col] = hashOf(updated);
+    console.log(`[Storage] Broadcasting ${col}: ${updated.length} items, changed id=${id} status=${full.status || 'n/a'}`);
+    broadcast(col, updated);
 
-    // Sync to cloud in background (don't await)
+    // 5. Sync to cloud in background
     syncToCloud(col, full);
   },
 
   remove: async (col: string, id: string): Promise<void> => {
     localSaveTimestamps[col] = Date.now();
-    await localDB.delete(col, id).catch(() => {});
-    const localData = await localDB.getAll(col).catch(() => []);
-    prevHash[col] = hashOf(localData);
-    broadcast(col, localData);
+    await localDB.delete(col, id);
+    const updated = await localDB.getAll(col);
+    prevHash[col] = hashOf(updated);
+    broadcast(col, updated);
     syncDeleteToCloud(col, id);
   },
 
