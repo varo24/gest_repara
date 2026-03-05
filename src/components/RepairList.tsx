@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search, Trash2, Filter, Pencil, ChevronDown, ChevronLeft, ChevronRight,
-  User, Smartphone, FilePlus, FileEdit, FileText, Ticket, MessageCircle
+  User, Smartphone, FilePlus, FileEdit, FileText, Ticket, MessageCircle,
+  Archive, Zap
 } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
 import WhatsAppPanel from './WhatsAppPanel';
@@ -24,6 +25,7 @@ interface RepairListProps {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
+const ARCHIVED_STATUSES = [RepairStatus.DELIVERED, RepairStatus.CANCELLED];
 
 const RepairList: React.FC<RepairListProps> = ({
   repairs, budgets, onStatusChange, onEdit, onCreateBudget, onEditBudget, onDelete,
@@ -35,18 +37,36 @@ const RepairList: React.FC<RepairListProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [whatsappRepair, setWhatsappRepair] = useState<RepairItem | null>(null);
+  const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
 
   const handleSearch = (val: string) => { setSearchTerm(val); setCurrentPage(1); };
   const handleStatusFilter = (val: RepairStatus | 'Todos') => { setStatusFilter(val); setCurrentPage(1); };
+  const switchView = (mode: 'active' | 'history') => { setViewMode(mode); setCurrentPage(1); setStatusFilter('Todos'); };
+
+  // Split repairs into active and archived
+  const activeRepairs = useMemo(() => repairs.filter(r => !ARCHIVED_STATUSES.includes(r.status)), [repairs]);
+  const archivedRepairs = useMemo(() => repairs.filter(r => ARCHIVED_STATUSES.includes(r.status)), [repairs]);
+
+  const baseRepairs = viewMode === 'active' ? activeRepairs : archivedRepairs;
+
+  // Available statuses for filter dropdown based on current view
+  const availableStatuses = useMemo(() => {
+    if (viewMode === 'active') return Object.values(RepairStatus).filter(s => !ARCHIVED_STATUSES.includes(s));
+    return ARCHIVED_STATUSES;
+  }, [viewMode]);
 
   const filteredRepairs = useMemo(() => {
-    return repairs.filter(r => {
+    return baseRepairs.filter(r => {
       const searchStr = `${r.rmaNumber} ${r.customerName} ${r.deviceType} ${r.brand} ${r.model} ${r.customerPhone}`.toLowerCase();
       const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'Todos' || r.status === statusFilter;
       return matchesSearch && matchesStatus;
-    }).sort((a, b) => a.rmaNumber - b.rmaNumber);
-  }, [repairs, searchTerm, statusFilter]);
+    }).sort((a, b) => {
+      // Active: by RMA ascending. History: most recent first
+      if (viewMode === 'history') return b.rmaNumber - a.rmaNumber;
+      return a.rmaNumber - b.rmaNumber;
+    });
+  }, [baseRepairs, searchTerm, statusFilter, viewMode]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRepairs.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -85,36 +105,65 @@ const RepairList: React.FC<RepairListProps> = ({
     <>
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
 
-        {/* Cabecera con filtros */}
-        <div className="p-8 md:p-10 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 no-print">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Banco de Trabajo</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2">
-              {filteredRepairs.length} reparación{filteredRepairs.length !== 1 ? 'es' : ''} encontrada{filteredRepairs.length !== 1 ? 's' : ''}
-            </p>
+        {/* Cabecera */}
+        <div className="p-8 md:p-10 border-b border-slate-50 space-y-6 no-print">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Banco de Trabajo</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2">
+                {filteredRepairs.length} reparación{filteredRepairs.length !== 1 ? 'es' : ''}
+                {viewMode === 'active' ? ' activa' : ' en historial'}{filteredRepairs.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative">
+                <Filter className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <select
+                  className="pl-12 pr-10 py-4 bg-slate-50 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer outline-none"
+                  value={statusFilter}
+                  onChange={(e) => handleStatusFilter(e.target.value as RepairStatus | 'Todos')}
+                >
+                  <option value="Todos">Todos los estados</option>
+                  {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="relative md:w-80">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Buscar por RMA, cliente, marca..."
+                  className="pl-14 pr-6 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold w-full outline-none placeholder:text-slate-400"
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative">
-              <Filter className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <select
-                className="pl-12 pr-10 py-4 bg-slate-50 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer outline-none"
-                value={statusFilter}
-                onChange={(e) => handleStatusFilter(e.target.value as RepairStatus | 'Todos')}
-              >
-                <option value="Todos">Todos los estados</option>
-                {Object.values(RepairStatus).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="relative md:w-80">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Buscar por RMA, cliente, marca..."
-                className="pl-14 pr-6 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold w-full outline-none placeholder:text-slate-400"
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-            </div>
+
+          {/* Tabs: Activas / Historial */}
+          <div className="flex gap-2">
+            <button onClick={() => switchView('active')}
+              className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                viewMode === 'active'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                  : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+              }`}>
+              <Zap size={14} /> Activas
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-[9px] ${
+                viewMode === 'active' ? 'bg-white/20' : 'bg-slate-200'
+              }`}>{activeRepairs.length}</span>
+            </button>
+            <button onClick={() => switchView('history')}
+              className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                viewMode === 'history'
+                  ? 'bg-slate-700 text-white shadow-lg shadow-slate-300'
+                  : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+              }`}>
+              <Archive size={14} /> Historial
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-[9px] ${
+                viewMode === 'history' ? 'bg-white/20' : 'bg-slate-200'
+              }`}>{archivedRepairs.length}</span>
+            </button>
           </div>
         </div>
 
@@ -135,17 +184,22 @@ const RepairList: React.FC<RepairListProps> = ({
                 <tr>
                   <td colSpan={5} className="px-8 py-20 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-3">
-                      <Smartphone size={32} className="text-slate-200" />
+                      {viewMode === 'active' ? <Smartphone size={32} className="text-slate-200" /> : <Archive size={32} className="text-slate-200" />}
                       <p className="text-[11px] font-black uppercase tracking-widest">
-                        {searchTerm || statusFilter !== 'Todos' ? 'No hay resultados para este filtro' : 'No hay reparaciones registradas'}
+                        {searchTerm || statusFilter !== 'Todos'
+                          ? 'No hay resultados para este filtro'
+                          : viewMode === 'active'
+                            ? 'No hay reparaciones activas'
+                            : 'No hay órdenes en el historial'}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : paginatedRepairs.map((repair) => {
                 const budget = budgets.find(b => b.repairId === repair.id);
+                const isArchived = ARCHIVED_STATUSES.includes(repair.status);
                 return (
-                  <tr key={repair.id} className="hover:bg-blue-50/20 transition-colors group">
+                  <tr key={repair.id} className={`transition-colors group ${isArchived ? 'opacity-70 hover:opacity-100' : 'hover:bg-blue-50/20'}`}>
                     <td className="px-8 py-7">
                       <div className="flex items-center gap-2 mb-1.5">
                         <p className="text-[12px] font-black text-slate-900 leading-none">
