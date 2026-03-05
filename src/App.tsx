@@ -15,12 +15,13 @@ import CalendarView from './components/CalendarView';
 import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
 import TechFieldView from './components/TechFieldView';
+import FieldModeApp from './components/FieldModeApp';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp } from './types';
 import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '5.8.0 UNIFIED';
+const APP_VERSION = '5.9.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -36,6 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
+  const [fieldMode, setFieldMode] = useState(false);
   const [repairs, setRepairs] = useState<RepairItem[] | null>(null);
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -189,7 +191,14 @@ const App: React.FC = () => {
   );
 
   // Pantalla de PIN
-  if (!unlocked) return <PinScreen onUnlock={() => setUnlocked(true)} />;
+  if (!unlocked && !fieldMode) return (
+    <PinScreen
+      onUnlock={() => setUnlocked(true)}
+      onFieldMode={() => setFieldMode(true)}
+    />
+  );
+
+  if (fieldMode) return <FieldModeApp onExit={() => { setFieldMode(false); setUnlocked(false); }} />;
 
   return (
     <div className={`flex min-h-screen bg-slate-50 text-slate-900 no-print ${isTechMode ? '' : ''}`}>

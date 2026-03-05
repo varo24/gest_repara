@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, Delete, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, Delete, ShieldCheck, Eye, EyeOff, Navigation } from 'lucide-react';
 
 const PIN_KEY = 'reparapro_pin_hash';
 const SESSION_KEY = 'reparapro_session';
@@ -15,11 +15,12 @@ const hashPin = async (pin: string): Promise<string> => {
 
 interface PinScreenProps {
   onUnlock: () => void;
+  onFieldMode?: () => void;
 }
 
 type PinMode = 'unlock' | 'setup' | 'confirm';
 
-const PinScreen: React.FC<PinScreenProps> = ({ onUnlock }) => {
+const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode }) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [mode, setMode] = useState<PinMode>('unlock');
@@ -218,6 +219,17 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock }) => {
             className="w-full text-center text-[10px] font-bold text-slate-600 hover:text-slate-400 uppercase tracking-widest transition-colors py-2"
           >
             ¿Olvidaste el PIN? Restablecer acceso
+          </button>
+        )}
+
+        {/* Modo Campo button */}
+        {onFieldMode && (
+          <button
+            onClick={onFieldMode}
+            className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all active:scale-95 shadow-xl shadow-amber-500/20 mt-2"
+          >
+            <Navigation size={18} />
+            Modo Campo — Técnico a Domicilio
           </button>
         )}
       </div>
