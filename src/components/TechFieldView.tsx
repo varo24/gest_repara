@@ -183,7 +183,8 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
 
   return (
     <div className="max-w-lg mx-auto space-y-4 pb-28">
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleFileChange} />
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+      <input id="gallery-input-tech" type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
 
       {/* Header mínimo */}
       <div className="flex items-center gap-3">
