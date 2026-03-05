@@ -48,7 +48,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const pendingBudgets = budgets.filter(b => b.status === 'pending');
   const waitingParts = repairs.filter(r => r.status === RepairStatus.WAITING_PARTS);
   const citasHoy = useMemo(() => (citas || []).filter(c => {
-    try { return isSameDay(new Date(c.fecha), today) && c.estado === CitaEstado.Confirmada; } catch { return false; }
+    try { return isSameDay(new Date(c.fecha), today) && c.estado !== CitaEstado.Cancelada; } catch { return false; }
   }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()), [citas]);
 
   const citasProximas = useMemo(() => {
@@ -59,7 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     return (citas || []).filter(c => {
       try {
         const d = new Date(c.fecha);
-        return d >= tomorrow && d <= limit && c.estado === CitaEstado.Confirmada;
+        return d >= tomorrow && d <= limit && c.estado !== CitaEstado.Cancelada;
       } catch { return false; }
     }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   }, [citas]);

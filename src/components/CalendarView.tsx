@@ -155,11 +155,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const cycleEstadoVisita = (cita: Cita) => {
     const order = [EstadoVisita.Pendiente, EstadoVisita.EnCamino, EstadoVisita.EnSitio, EstadoVisita.Finalizada];
     const idx = order.indexOf(cita.estadoVisita);
-    const next = order[Math.min(idx + 1, order.length - 1)];
+    const next = order[(idx + 1) % order.length]; // loops back to Pendiente after Finalizada
     const updated: Cita = {
       ...cita,
       estadoVisita: next,
-      estado: next === EstadoVisita.Finalizada ? CitaEstado.Completada : cita.estado,
+      estado: next === EstadoVisita.Finalizada ? CitaEstado.Completada : CitaEstado.Confirmada,
     };
     onSaveCita(updated);
   };
