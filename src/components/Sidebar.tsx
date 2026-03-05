@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Wrench, PlusCircle, FileText, 
   Settings, TrendingUp, Users, Cpu, Wifi, WifiOff,
-  Calendar, AppWindow, Search, ClipboardCheck
+  Calendar, AppWindow, Search, ClipboardCheck, RefreshCw
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita } from '../types';
 import { storage } from '../services/persistence';
@@ -22,6 +22,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onNewRepair, onEditRepair, appName, version, repairs, budgets, citas }) => {
   const [online, setOnline] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const check = () => setOnline(storage.isOnline());
@@ -89,21 +90,36 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onNewRepair, on
       </nav>
 
       <div className="p-6 border-t border-slate-900 space-y-3">
-        {/* Indicador de conexión Supabase */}
-        <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border ${online ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/50'}`}>
-          {online
-            ? <Wifi size={14} className="text-emerald-500 shrink-0" />
-            : <WifiOff size={14} className="text-slate-600 shrink-0" />
+        {/* Sync indicator + button */}
+        <button
+          onClick={async () => {
+            setSyncing(true);
+            try {
+              const result = await storage.syncNow();
+              console.log('[Sidebar] Sync result:', result);
+            } catch (e) { console.warn('[Sidebar] Sync error:', e); }
+            finally { setSyncing(false); setOnline(storage.isOnline()); }
+          }}
+          disabled={syncing}
+          className={`w-full flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all active:scale-95 ${
+            online ? 'border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10' : 'border-slate-800 bg-slate-900/50 hover:bg-slate-800'
+          }`}
+        >
+          {syncing
+            ? <RefreshCw size={14} className="text-blue-400 shrink-0 animate-spin" />
+            : online
+              ? <Wifi size={14} className="text-emerald-500 shrink-0" />
+              : <WifiOff size={14} className="text-slate-600 shrink-0" />
           }
-          <div>
-            <span className={`text-[8px] font-black uppercase tracking-widest block ${online ? 'text-emerald-500' : 'text-slate-600'}`}>
-              {online ? 'Supabase conectado' : 'Modo local'}
+          <div className="text-left">
+            <span className={`text-[8px] font-black uppercase tracking-widest block ${syncing ? 'text-blue-400' : online ? 'text-emerald-500' : 'text-slate-600'}`}>
+              {syncing ? 'Sincronizando...' : online ? 'Supabase conectado' : 'Modo local'}
             </span>
             <span className="text-[7px] text-slate-700 uppercase tracking-widest">
-              {online ? 'Sync activo · 3s' : 'Sin conexión nube'}
+              {syncing ? 'Enviando y recibiendo datos' : 'Pulsar para sincronizar'}
             </span>
           </div>
-        </div>
+        </button>
 
         <button 
           onClick={() => setView('settings')} 
