@@ -269,6 +269,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                 <PartsSearch
                   deviceBrand={repair.brand}
                   deviceModel={repair.model}
+                  deviceType={repair.deviceType}
                   onAddPart={addPartFromSearch}
                 />
               </div>
