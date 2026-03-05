@@ -88,10 +88,10 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
   };
 
   const createRepairFromCita = (cita: Cita) => {
-    const maxRma = repairs.reduce((max, r) => Math.max(max, r.rmaNumber || 0), 0);
+    const newRma = storage.nextRmaNumber();
     const newRepair: RepairItem = {
       id: `RMA-${Date.now()}`,
-      rmaNumber: maxRma + 1,
+      rmaNumber: newRma,
       repairType: 'domicilio',
       customerName: cita.clienteNombre,
       customerPhone: cita.telefono || '',
@@ -109,7 +109,7 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
 
   const handleSaveRepair = async (data: Partial<RepairItem>, rma?: number) => {
     const id = data.id || `RMA-${Date.now()}`;
-    const rmaNum = rma || repairs.reduce((max, r) => Math.max(max, r.rmaNumber || 0), 0) + 1;
+    const rmaNum = rma || storage.nextRmaNumber();
     const saved: RepairItem = { ...data as RepairItem, id, rmaNumber: rmaNum, repairType: data.repairType || 'domicilio' };
     await storage.save('repairs', id, saved);
     setView('home');

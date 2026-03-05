@@ -220,4 +220,11 @@ export const storage = {
       });
     } catch { return false; }
   },
+
+  // Atomic RMA number generator — reads directly from memory, never duplicates
+  nextRmaNumber: (): number => {
+    const repairs = localDB.getAll('repairs');
+    const max = repairs.reduce((m: number, r: any) => Math.max(m, r.rmaNumber || 0), 0);
+    return max + 1;
+  },
 };

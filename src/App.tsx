@@ -21,7 +21,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '5.9.0 UNIFIED';
+const APP_VERSION = '6.0.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -152,11 +152,7 @@ const App: React.FC = () => {
 
   const handleSaveRepair = async (data: Partial<RepairItem>, rma?: number) => {
     const id = data.id || `RMA-${Date.now()}`;
-    let rmaNum = rma;
-    if (!rmaNum) {
-      const maxRma = (repairs ?? []).reduce((max, r) => Math.max(max, r.rmaNumber || 0), 0);
-      rmaNum = maxRma + 1;
-    }
+    const rmaNum = rma || storage.nextRmaNumber();
     const savedRepair: RepairItem = {
       ...data as RepairItem,
       id,
@@ -424,8 +420,7 @@ const App: React.FC = () => {
                 onNavigateToRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
                 onCreateRepairFromCita={(cita) => {
                   // Generate new RMA number
-                  const maxRma = (repairs ?? []).reduce((max, r) => Math.max(max, r.rmaNumber || 0), 0);
-                  const newRma = maxRma + 1;
+                  const newRma = storage.nextRmaNumber();
                   const repairId = `RMA-${Date.now()}`;
 
                   // Create repair from cita data
