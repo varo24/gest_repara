@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings } from '../types';
 import { getSmartDiagnosis } from '../services/geminiService';
+import CameraCapture from './CameraCapture';
 
 interface RepairFormProps {
   onSave: (repair: Omit<RepairItem, 'rmaNumber'>, rma?: number) => void;
@@ -31,8 +32,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
   const [aiLoading, setAiLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isDomicilio = formData.repairType === 'domicilio';
   const images = formData.images || [];
@@ -98,9 +99,17 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
 
   return (
     <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 max-w-5xl mx-auto flex flex-col">
-      {/* Camera input — opens camera directly on mobile */}
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoAdd} />
-      {/* Gallery input — opens file picker / gallery */}
+      {/* Camera capture fullscreen */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={(base64) => {
+            setFormData(prev => ({ ...prev, images: [...(prev.images || []), base64] }));
+            setShowCamera(false);
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+      {/* Gallery input */}
       <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoAdd} />
 
       <div className="bg-slate-900 px-8 py-6 flex justify-between items-center text-white">
@@ -207,7 +216,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
               <Camera size={14} /> Fotos del Equipo ({images.length})
             </h3>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all">
+              <button type="button" onClick={() => setShowCamera(true)} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all">
                 <Camera size={14} /> Cámara
               </button>
               <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all">
@@ -226,7 +235,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
                 <p className="text-[9px] font-bold mt-1">Fotografíe el equipo o la avería</p>
               </div>
               <div className="flex items-center gap-3">
-                <button type="button" onClick={() => cameraInputRef.current?.click()} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-200">
+                <button type="button" onClick={() => setShowCamera(true)} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-200">
                   <Camera size={16} /> Abrir Cámara
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-200">
@@ -244,7 +253,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => cameraInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center text-emerald-400 hover:border-emerald-400 hover:text-emerald-600 transition-all cursor-pointer gap-1">
+              <button type="button" onClick={() => setShowCamera(true)} className="aspect-square rounded-xl border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center text-emerald-400 hover:border-emerald-400 hover:text-emerald-600 transition-all cursor-pointer gap-1">
                 <Camera size={20} />
                 <span className="text-[7px] font-black uppercase">Cámara</span>
               </button>

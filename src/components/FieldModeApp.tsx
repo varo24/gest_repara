@@ -345,6 +345,28 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
                         <MapPin size={10} /> {r.address}{r.city ? `, ${r.city}` : ''}
                       </p>
                     )}
+                    {/* Quick actions: GPS, WhatsApp, Call */}
+                    <div className="flex gap-2">
+                      {r.address && (
+                        <button onClick={() => openMaps(r.address || '', r.city)}
+                          className="flex-1 py-2.5 bg-blue-50 rounded-lg text-[9px] font-black uppercase text-blue-600 flex items-center justify-center gap-1 active:scale-95">
+                          <Navigation size={12} /> GPS
+                        </button>
+                      )}
+                      {r.customerPhone && (
+                        <button onClick={() => openWhatsApp(r.customerPhone, r.customerName)}
+                          className="flex-1 py-2.5 bg-emerald-50 rounded-lg text-[9px] font-black uppercase text-emerald-600 flex items-center justify-center gap-1 active:scale-95">
+                          <MessageCircle size={12} /> WhatsApp
+                        </button>
+                      )}
+                      {r.customerPhone && (
+                        <a href={`tel:${r.customerPhone}`}
+                          className="flex-1 py-2.5 bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600 flex items-center justify-center gap-1 active:scale-95">
+                          <Phone size={12} /> Llamar
+                        </a>
+                      )}
+                    </div>
+                    {/* Management actions */}
                     <div className="flex gap-2">
                       <button onClick={() => { setEditingRepair(r); setView('repair-form'); }}
                         className="flex-1 py-2.5 bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600 flex items-center justify-center gap-1 active:scale-95">

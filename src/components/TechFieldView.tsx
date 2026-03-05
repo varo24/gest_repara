@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings, FieldNote } from '../types';
 import SignaturePad from './SignaturePad';
+import CameraCapture from './CameraCapture';
 
 interface TechFieldViewProps {
   repairs: RepairItem[];
@@ -31,6 +32,7 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showSignature, setShowSignature] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeRepairs = useMemo(() => {
@@ -183,8 +185,13 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
 
   return (
     <div className="max-w-lg mx-auto space-y-4 pb-28">
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
-      <input id="gallery-input-tech" type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+      {showCamera && (
+        <CameraCapture
+          onCapture={(base64) => { setNotePhotos(prev => [...prev, base64]); setShowCamera(false); }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
 
       {/* Header mínimo */}
       <div className="flex items-center gap-3">
@@ -323,7 +330,7 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
       {/* Input fijo */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-3 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         <div className="max-w-lg mx-auto flex items-center gap-2">
-          <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-slate-100 text-slate-500 rounded-xl shrink-0 active:scale-95">
+          <button onClick={() => setShowCamera(true)} className="p-3 bg-slate-100 text-slate-500 rounded-xl shrink-0 active:scale-95">
             <Camera size={18} />
           </button>
           <input
