@@ -28,6 +28,53 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer, 
   const [editingName, setEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
+
+  const customers = useMemo(() => {
+    const map = new Map<string, CustomerRecord>();
+    repairs.forEach(r => {
+      const key = r.customerPhone;
+      if (!map.has(key)) {
+        map.set(key, {
+          name: r.customerName, phone: r.customerPhone, repairs: [],
+          lastVisit: r.entryDate, totalSpent: 0,
+          addresses: [],
+        });
+      }
+      const c = map.get(key)!;
+      c.repairs.push(r);
+      if (new Date(r.entryDate) > new Date(c.lastVisit)) c.lastVisit = r.entryDate;
+      if (r.customerName && r.customerName.length > c.name.length) c.name = r.customerName;
+      if (r.address && !c.addresses.includes(r.address)) c.addresses.push(r.address);
+    });
+    let arr = Array.from(map.values());
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      arr = arr.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+    }
+    return arr.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [repairs, searchTerm]);
+
+  const allLetters = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ#'.split('');
+
+  const grouped = useMemo(() => {
+    const g: Record<string, CustomerRecord[]> = {};
+    customers.forEach(c => {
+      const first = c.name.charAt(0).toUpperCase();
+      const letter = allLetters.includes(first) ? first : '#';
+      if (!g[letter]) g[letter] = [];
+      g[letter].push(c);
+    });
+    return g;
+  }, [customers]);
+
+  const letters = allLetters.filter(l => grouped[l]);
+
+  const scrollToLetter = (l: string) => {
+    setActiveLetter(l);
+    sectionRefs.current[l]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const statusColor = (s: RepairStatus) => {
     const c: Record<string, string> = {
