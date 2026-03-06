@@ -22,6 +22,13 @@ interface CustomerRecord {
   addresses: string[];
 }
 
+const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer, onEditRepair, onSaveCustomerName }) => {
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const statusColor = (s: RepairStatus) => {
     const c: Record<string, string> = {
       [RepairStatus.PENDING]: 'bg-yellow-400 text-yellow-900',
