@@ -114,7 +114,7 @@ const sendViaWeb = (phone: string, message: string): void => {
   const cleanedPhone = cleanPhone(phone);
   // Usar la API URL nativa del navegador para codificar correctamente
   // incluyendo emojis, acentos y caracteres especiales de WhatsApp
-  const url = new URL(`https://wa.me/${cleanedPhone}`);
+  const url = new URL(`https://api.whatsapp.com/send?phone=${cleanedPhone}`);
   url.searchParams.set('text', message);
   // searchParams.set usa encodeURIComponent internamente pero
   // WhatsApp Web decodifica correctamente todos los caracteres Unicode

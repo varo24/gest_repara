@@ -16,12 +16,13 @@ interface TechFieldViewProps {
 }
 
 const statusColors: Record<string, string> = {
-  [RepairStatus.PENDING]: 'bg-amber-100 text-amber-700',
-  [RepairStatus.DIAGNOSING]: 'bg-indigo-100 text-indigo-700',
-  [RepairStatus.IN_PROGRESS]: 'bg-blue-100 text-blue-700',
-  [RepairStatus.WAITING_PARTS]: 'bg-orange-100 text-orange-700',
-  [RepairStatus.READY]: 'bg-emerald-100 text-emerald-700',
-  [RepairStatus.DELIVERED]: 'bg-slate-100 text-slate-500',
+  [RepairStatus.PENDING]: 'bg-yellow-400 text-yellow-900',
+  [RepairStatus.DIAGNOSING]: 'bg-cyan-400 text-cyan-900',
+  [RepairStatus.IN_PROGRESS]: 'bg-blue-500 text-white',
+  [RepairStatus.WAITING_PARTS]: 'bg-orange-500 text-white',
+  [RepairStatus.READY]: 'bg-emerald-500 text-white',
+  [RepairStatus.DELIVERED]: 'bg-slate-400 text-white',
+  [RepairStatus.CANCELLED]: 'bg-red-600 text-white',
 };
 
 const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpdateRepair, onBack }) => {
@@ -55,7 +56,7 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
 
   const handleWhatsApp = (r: RepairItem) => {
     const phone = r.customerPhone.replace(/\D/g, '');
-    window.open(`https://wa.me/34${phone}?text=${encodeURIComponent(`Hola ${r.customerName}, soy técnico de ${settings.appName}.`)}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=34${phone}&text=${encodeURIComponent(`Hola ${r.customerName}, soy técnico de ${settings.appName}.`)}`);
   };
 
   const handleStatusChange = (status: RepairStatus) => {

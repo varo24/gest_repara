@@ -20,15 +20,20 @@ type Section = null | 'ready' | 'inprogress' | 'domicilio' | 'waiting' | 'budget
 const isSameDay = (d1: Date, d2: Date) => d1.toDateString() === d2.toDateString();
 const fmtTime = (iso: string) => { try { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); } catch { return '--:--'; } };
 
-const statusColor = (s: RepairStatus) => {
-  switch (s) {
-    case RepairStatus.READY: return 'bg-emerald-100 text-emerald-700';
-    case RepairStatus.IN_PROGRESS: case RepairStatus.DIAGNOSING: return 'bg-blue-100 text-blue-700';
-    case RepairStatus.PENDING: return 'bg-amber-100 text-amber-700';
-    case RepairStatus.WAITING_PARTS: return 'bg-orange-100 text-orange-700';
-    case RepairStatus.BUDGET_PENDING: return 'bg-purple-100 text-purple-700';
-    default: return 'bg-slate-100 text-slate-500';
-  }
+const statusColor = (s: RepairStatus | string) => {
+  const c: Record<string, string> = {
+    [RepairStatus.PENDING]: "bg-yellow-400 text-yellow-900",
+    [RepairStatus.DIAGNOSING]: "bg-cyan-400 text-cyan-900",
+    [RepairStatus.BUDGET_PENDING]: "bg-violet-500 text-white",
+    [RepairStatus.BUDGET_ACCEPTED]: "bg-lime-400 text-lime-900",
+    [RepairStatus.BUDGET_REJECTED]: "bg-rose-500 text-white",
+    [RepairStatus.WAITING_PARTS]: "bg-orange-500 text-white",
+    [RepairStatus.IN_PROGRESS]: "bg-blue-500 text-white",
+    [RepairStatus.READY]: "bg-emerald-500 text-white",
+    [RepairStatus.DELIVERED]: "bg-slate-400 text-white",
+    [RepairStatus.CANCELLED]: "bg-red-600 text-white",
+  };
+  return c[s] || "bg-slate-200 text-slate-600";
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings, setView, onNewRepair, onEditRepair }) => {
@@ -192,10 +197,10 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {citasHoy.map(c => {
               const estadoColors: Record<string, string> = {
-                'Pendiente': 'bg-amber-100 text-amber-700',
-                'En Camino': 'bg-blue-100 text-blue-700',
-                'En Sitio': 'bg-purple-100 text-purple-700',
-                'Finalizada': 'bg-emerald-100 text-emerald-700',
+                'Pendiente': 'bg-yellow-400 text-yellow-900',
+                'En Camino': 'bg-sky-500 text-white',
+                'En Sitio': 'bg-violet-500 text-white',
+                'Finalizada': 'bg-emerald-500 text-white',
               };
               const isDone = c.estadoVisita === 'Finalizada';
               return (

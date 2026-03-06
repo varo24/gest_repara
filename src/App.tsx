@@ -21,7 +21,7 @@ import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '6.1.0 UNIFIED';
+const APP_VERSION = '6.2.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',

@@ -129,7 +129,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const phone = (cita.telefono || '').replace(/\D/g, '');
     if (!phone) return;
     const msg = encodeURIComponent(`Hola ${cita.clienteNombre}, soy el técnico de ${settings.appName}. Te informo que voy de camino. Estaré allí en breve.`);
-    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${msg}`);
   };
 
   const handleGoogleCalendar = (cita: Cita) => {
@@ -143,10 +143,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // ── Estado visita badge ──
   const estadoBadge = (ev: EstadoVisita) => {
     const m: Record<string, string> = {
-      [EstadoVisita.Pendiente]: 'bg-amber-100 text-amber-700',
-      [EstadoVisita.EnCamino]: 'bg-blue-100 text-blue-700',
-      [EstadoVisita.EnSitio]: 'bg-purple-100 text-purple-700',
-      [EstadoVisita.Finalizada]: 'bg-emerald-100 text-emerald-700',
+      [EstadoVisita.Pendiente]: 'bg-yellow-400 text-yellow-900',
+      [EstadoVisita.EnCamino]: 'bg-sky-500 text-white',
+      [EstadoVisita.EnSitio]: 'bg-violet-500 text-white',
+      [EstadoVisita.Finalizada]: 'bg-emerald-500 text-white',
     };
     return m[ev] || 'bg-slate-100 text-slate-500';
   };

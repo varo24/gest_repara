@@ -74,7 +74,7 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
   const openWhatsApp = (phone: string, name: string) => {
     const p = phone.replace(/\D/g, '');
     if (!p) return;
-    window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hola ${name}, soy el técnico de ${settings.appName}. Voy de camino.`)}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${p}&text=${encodeURIComponent(`Hola ${name}, soy el técnico de ${settings.appName}. Voy de camino.`)}`);
   };
 
   const cycleEstado = (cita: Cita) => {
@@ -124,10 +124,10 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
   };
 
   const estadoColor: Record<string, string> = {
-    'Pendiente': 'bg-amber-100 text-amber-700',
-    'En Camino': 'bg-blue-100 text-blue-700',
-    'En Sitio': 'bg-purple-100 text-purple-700',
-    'Finalizada': 'bg-emerald-100 text-emerald-700',
+    'Pendiente': 'bg-yellow-400 text-yellow-900',
+    'En Camino': 'bg-sky-500 text-white',
+    'En Sitio': 'bg-violet-500 text-white',
+    'Finalizada': 'bg-emerald-500 text-white',
   };
 
   if (loading) return (
@@ -334,10 +334,10 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
                         <p className="text-[9px] text-slate-400 font-bold truncate">{r.customerName} · {r.deviceType}</p>
                       </div>
                       <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-lg shrink-0 ${
-                        r.status === RepairStatus.READY ? 'bg-emerald-100 text-emerald-700' :
-                        r.status === RepairStatus.PENDING ? 'bg-amber-100 text-amber-700' :
-                        r.status === RepairStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-500'
+                        r.status === RepairStatus.READY ? 'bg-emerald-500 text-white' :
+                        r.status === RepairStatus.PENDING ? 'bg-yellow-400 text-yellow-900' :
+                        r.status === RepairStatus.IN_PROGRESS ? 'bg-blue-500 text-white' :
+                        'bg-slate-400 text-white'
                       }`}>{r.status}</span>
                     </div>
                     {r.address && (

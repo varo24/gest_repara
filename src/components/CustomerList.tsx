@@ -22,70 +22,17 @@ interface CustomerRecord {
   addresses: string[];
 }
 
-const statusColor = (s: RepairStatus) => {
-  switch (s) {
-    case RepairStatus.READY: return 'bg-emerald-100 text-emerald-700';
-    case RepairStatus.IN_PROGRESS: case RepairStatus.DIAGNOSING: return 'bg-blue-100 text-blue-700';
-    case RepairStatus.PENDING: return 'bg-amber-100 text-amber-700';
-    case RepairStatus.DELIVERED: return 'bg-slate-100 text-slate-400';
-    case RepairStatus.WAITING_PARTS: return 'bg-orange-100 text-orange-700';
-    case RepairStatus.CANCELLED: return 'bg-red-100 text-red-400';
-    default: return 'bg-purple-100 text-purple-700';
-  }
-};
-
-const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer, onEditRepair, onSaveCustomerName }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
-  const [editingName, setEditingName] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  // Build customer records
-  const customers = useMemo(() => {
-    const map = repairs.reduce((acc, repair) => {
-      const phone = repair.customerPhone;
-      if (!acc[phone]) {
-        acc[phone] = { name: repair.customerName, phone, repairs: [], lastVisit: repair.entryDate, totalSpent: 0, addresses: [] };
-      }
-      acc[phone].repairs.push(repair);
-      if (new Date(repair.entryDate) > new Date(acc[phone].lastVisit)) {
-        acc[phone].lastVisit = repair.entryDate;
-      }
-      // Collect unique addresses
-      if (repair.address && !acc[phone].addresses.includes(repair.address)) {
-        acc[phone].addresses.push(repair.address);
-      }
-      return acc;
-    }, {} as Record<string, CustomerRecord>);
-
-    return (Object.values(map) as CustomerRecord[])
-      .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  }, [repairs, searchTerm]);
-
-  // Group by first letter
-  const grouped = useMemo(() => {
-    const groups: Record<string, CustomerRecord[]> = {};
-    customers.forEach(c => {
-      const letter = c.name.charAt(0).toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/i, '#');
-      const key = /[A-ZÁÉÍÓÚÑ]/i.test(letter) ? letter : '#';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(c);
-    });
-    return groups;
-  }, [customers]);
-
-  const letters = useMemo(() => Object.keys(grouped).sort((a, b) => a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b, 'es')), [grouped]);
-
-  // All possible letters for the sidebar
-  const allLetters = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ#'.split('');
-
-  const scrollToLetter = (letter: string) => {
-    setActiveLetter(letter);
-    const el = sectionRefs.current[letter];
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const statusColor = (s: RepairStatus) => {
+    const c: Record<string, string> = {
+      [RepairStatus.PENDING]: 'bg-yellow-400 text-yellow-900',
+      [RepairStatus.DIAGNOSING]: 'bg-cyan-400 text-cyan-900',
+      [RepairStatus.IN_PROGRESS]: 'bg-blue-500 text-white',
+      [RepairStatus.WAITING_PARTS]: 'bg-orange-500 text-white',
+      [RepairStatus.READY]: 'bg-emerald-500 text-white',
+      [RepairStatus.DELIVERED]: 'bg-slate-400 text-white',
+      [RepairStatus.CANCELLED]: 'bg-red-600 text-white',
+    };
+    return c[s] || 'bg-slate-200 text-slate-600';
   };
 
   const handleOpenCustomer = (c: CustomerRecord) => {
@@ -105,7 +52,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, onSelectCustomer, 
 
   const handleWhatsApp = (phone: string, name: string) => {
     const p = phone.replace(/\D/g, '');
-    window.open(`https://wa.me/34${p}?text=${encodeURIComponent(`Hola ${name}`)}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=34${p}&text=${encodeURIComponent(`Hola ${name}`)}`);
   };
 
   const handleCall = (phone: string) => window.open(`tel:${phone}`, '_self');
