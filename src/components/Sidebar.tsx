@@ -116,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onNewRepair, on
               {syncing ? 'Sincronizando...' : online ? 'Supabase conectado' : 'Modo local'}
             </span>
             <span className="text-[7px] text-slate-700 uppercase tracking-widest">
-              {syncing ? 'Enviando y recibiendo datos' : 'Pulsar para sincronizar'}
+              {syncing ? 'Enviando y recibiendo datos' : `Pulsar para sincronizar${storage.getPendingCount() > 0 ? ` · ${storage.getPendingCount()} pendientes` : ''}`}
             </span>
           </div>
         </button>

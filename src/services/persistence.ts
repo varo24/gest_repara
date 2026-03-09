@@ -1,15 +1,14 @@
 // ============================================================
-// ReparaPro — Persistence v10 — MULTI-DEVICE SYNC
+// ReparaPro — Persistence v11 — RELIABLE MULTI-DEVICE SYNC
 //
-// Strategy:
-// 1. On startup: load IDB (instant) → show UI → then fetch Supabase
-//    and MERGE (remote wins only if updatedAt is strictly newer)
-// 2. On save: write memory → IDB → broadcast → Supabase (background)
-// 3. ZERO polling — no automatic reads from Supabase after init
-// 4. To sync from another device: reload the page
-//
-// This prevents the status-revert bug (no polling) while allowing
-// multi-device sync (initial load merges by updatedAt).
+// Features:
+// 1. On startup: IDB → memory → UI, then pull from Supabase + merge
+// 2. Every save: memory + IDB + Supabase
+// 3. RETRY QUEUE: if Supabase save fails, record goes to pending queue
+//    Queue is persisted in IDB so it survives page close
+//    Auto-flushes when connection recovers
+// 4. Connection monitor: checks every 30s, flushes queue when back online
+// 5. ZERO polling of data — no status revert bug
 // ============================================================
 
 import { localDB } from './localDB';
@@ -22,15 +21,59 @@ let initialized = false;
 
 const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'] as const;
 const tableFor = (col: string) => col === 'settings' ? 'rp_settings' : col;
+const PENDING_KEY = 'rp_pending_sync';
 
-const broadcast = (col: string) => {
-  const data = localDB.getAll(col);
-  subs[col]?.forEach(cb => {
-    try { cb(data); } catch (e) { console.error('[broadcast]', e); }
-  });
+// ── Pending sync queue (survives page reload) ──
+interface PendingItem { col: string; record: any; timestamp: number; }
+let pendingQueue: PendingItem[] = [];
+
+const loadPendingQueue = () => {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    pendingQueue = raw ? JSON.parse(raw) : [];
+    if (pendingQueue.length > 0) console.log(`[Sync] ${pendingQueue.length} operaciones pendientes en cola`);
+  } catch { pendingQueue = []; }
 };
 
-// ── MERGE: remote into local, remote wins ONLY if strictly newer ──
+const savePendingQueue = () => {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(pendingQueue)); } catch {}
+};
+
+const addToPending = (col: string, record: any) => {
+  // Replace if same col+id already in queue
+  const idx = pendingQueue.findIndex(p => p.col === col && p.record?.id === record?.id);
+  if (idx >= 0) pendingQueue[idx] = { col, record, timestamp: Date.now() };
+  else pendingQueue.push({ col, record, timestamp: Date.now() });
+  savePendingQueue();
+  console.log(`[Sync] ⏳ Añadido a cola pendiente: ${col}/${record.id} (${pendingQueue.length} en cola)`);
+};
+
+const flushPendingQueue = async (): Promise<number> => {
+  if (pendingQueue.length === 0) return 0;
+  console.log(`[Sync] Procesando ${pendingQueue.length} operaciones pendientes...`);
+  const failed: PendingItem[] = [];
+  let ok = 0;
+
+  for (const item of pendingQueue) {
+    const { _rowId, ...clean } = item.record;
+    const success = await supabase.save(tableFor(item.col), clean);
+    if (success) { ok++; }
+    else { failed.push(item); }
+  }
+
+  pendingQueue = failed;
+  savePendingQueue();
+  if (ok > 0) console.log(`[Sync] ✅ ${ok} operaciones sincronizadas, ${failed.length} pendientes`);
+  return ok;
+};
+
+// ── Broadcast ──
+const broadcast = (col: string) => {
+  const data = localDB.getAll(col);
+  subs[col]?.forEach(cb => { try { cb(data); } catch (e) { console.error('[broadcast]', e); } });
+};
+
+// ── Merge remote into local ──
 const mergeRemoteData = (col: string, remoteItems: any[]): boolean => {
   let changed = false;
   const localItems = localDB.getAll(col);
@@ -39,134 +82,135 @@ const mergeRemoteData = (col: string, remoteItems: any[]): boolean => {
   for (const remoteRaw of remoteItems) {
     const { _rowId, ...remote } = remoteRaw;
     if (!remote.id) continue;
-
     const local = localMap.get(remote.id);
 
     if (!local) {
-      // New record from cloud — add locally
       localDB.put(col, remote);
       changed = true;
     } else {
-      // Both exist — compare updatedAt timestamps
-      const localTime = new Date(local.updatedAt || '2000-01-01').getTime();
-      const remoteTime = new Date(remote.updatedAt || '2000-01-01').getTime();
-
-      if (remoteTime > localTime) {
-        // Remote is strictly newer — update local
-        localDB.put(col, remote);
-        changed = true;
-      }
-      // If local is same or newer → keep local (don't overwrite)
+      const lt = new Date(local.updatedAt || '2000-01-01').getTime();
+      const rt = new Date(remote.updatedAt || '2000-01-01').getTime();
+      if (rt > lt) { localDB.put(col, remote); changed = true; }
     }
   }
   return changed;
 };
 
-// ── Push all local records to Supabase (for records that may not exist remotely) ──
-const pushLocalToCloud = async (col: string) => {
-  const items = localDB.getAll(col);
-  const table = tableFor(col);
-  for (const item of items) {
-    const { _rowId, ...clean } = item;
-    supabase.save(table, clean).catch(() => {});
-  }
-};
-
-// ── Cloud write ──
+// ── Cloud write with retry ──
 const syncToCloud = async (col: string, record: any): Promise<boolean> => {
-  if (!supabaseAvailable) return false;
-  const table = tableFor(col);
+  if (!supabaseAvailable) {
+    addToPending(col, record);
+    return false;
+  }
   const { _rowId, ...clean } = record;
-  return supabase.save(table, clean);
+  const ok = await supabase.save(tableFor(col), clean);
+  if (!ok) addToPending(col, record);
+  return ok;
 };
 
 const syncDeleteToCloud = (col: string, id: string) => {
   if (!supabaseAvailable) return;
-  const table = tableFor(col);
-  supabase.remove(table, id).catch(() => {});
+  supabase.remove(tableFor(col), id).catch(() => {});
 };
+
+// ── Connection monitor ──
+let monitorTimer: ReturnType<typeof setInterval> | null = null;
+
+const startConnectionMonitor = () => {
+  if (monitorTimer) return;
+  monitorTimer = setInterval(async () => {
+    const wasOnline = supabaseAvailable;
+    const isOnline = await supabase.test();
+    supabaseAvailable = isOnline;
+
+    if (!wasOnline && isOnline) {
+      console.log('[Sync] 🔄 Conexión recuperada — sincronizando cola pendiente...');
+      await flushPendingQueue();
+    }
+  }, 30000); // Check every 30 seconds
+};
+
+// Also flush when browser comes back online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', async () => {
+    console.log('[Sync] 🌐 Navegador online — comprobando Supabase...');
+    const ok = await supabase.test();
+    supabaseAvailable = ok;
+    if (ok) flushPendingQueue();
+  });
+}
 
 export const storage = {
   init: async () => {
-    if (initialized) {
-      console.log('[Storage] Already initialized, skipping');
-      return;
-    }
+    if (initialized) { console.log('[Storage] Already initialized'); return; }
     initialized = true;
 
-    // 1. Load from IDB → memory (instant, shows data immediately)
     await localDB.init();
+    loadPendingQueue();
 
-    // 2. Test Supabase, then merge remote data
     try {
       const ok = await supabase.test();
       supabaseAvailable = ok;
 
       if (ok) {
-        console.log('[Storage] Supabase disponible ✅ — sincronizando...');
+        console.log('[Storage] Supabase ✅ — sincronizando...');
 
+        // Flush any pending operations first
+        if (pendingQueue.length > 0) await flushPendingQueue();
+
+        // Pull + merge from Supabase
         for (const col of COLLECTIONS) {
           try {
-            const remoteData = await supabase.getAll(tableFor(col));
-            if (remoteData.length > 0) {
-              const changed = mergeRemoteData(col, remoteData);
+            const remote = await supabase.getAll(tableFor(col));
+            if (remote.length > 0) {
+              const changed = mergeRemoteData(col, remote);
               if (changed) {
-                console.log(`[Storage] Merged ${col}: new/updated records from cloud`);
+                console.log(`[Storage] ↓ Merged ${col} from cloud`);
                 broadcast(col);
               }
             }
-            // Push local records to cloud (in case this device has records the cloud doesn't)
-            pushLocalToCloud(col);
-          } catch (e) {
-            console.warn(`[Storage] Sync ${col} error:`, e);
-          }
+            // Push local to cloud
+            const locals = localDB.getAll(col);
+            const table = tableFor(col);
+            for (const item of locals) {
+              const { _rowId, ...clean } = item;
+              await supabase.save(table, clean);
+            }
+          } catch (e) { console.warn(`[Storage] Sync ${col}:`, e); }
         }
 
         console.log('[Storage] Sincronización completa ✅');
       } else {
-        console.warn('[Storage] Supabase no disponible — modo local');
+        console.warn('[Storage] Supabase no disponible — modo local (cola activa)');
       }
     } catch {
       console.warn('[Storage] Error de conexión — modo local');
     }
+
+    startConnectionMonitor();
   },
 
   isOnline: () => supabaseAvailable,
+  getPendingCount: () => pendingQueue.length,
 
   subscribe: (col: string, cb: CB): (() => void) => {
     if (!subs[col]) subs[col] = [];
     subs[col].push(cb);
-    // Fire immediately with current data
     cb(localDB.getAll(col));
     return () => { subs[col] = (subs[col] || []).filter(fn => fn !== cb); };
   },
 
   save: async (col: string, id: string, data: any): Promise<void> => {
-    console.log(`[Storage] SAVE ${col}/${id} status=${data.status || ''}`);
+    console.log(`[Storage] SAVE ${col}/${id}`);
 
-    // 1. Get existing from memory
     const existing = localDB.getAll(col).find((x: any) => x.id === id);
-
-    // 2. Merge
     const { _rowId, ...cleanData } = data;
-    const full: any = {
-      ...(existing || {}),
-      ...cleanData,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
+    const full: any = { ...(existing || {}), ...cleanData, id, updatedAt: new Date().toISOString() };
     delete full._rowId;
 
-    // 3. Write to memory + IDB
     localDB.put(col, full);
-
-    // 4. Broadcast immediately
     broadcast(col);
-
-    // 5. Write to Supabase in background
-    syncToCloud(col, full).then(ok => {
-      if (!ok) console.warn(`[Storage] ⚠️ Cloud save failed for ${col}/${id} — will retry on next sync`);
-    });
+    syncToCloud(col, full);
   },
 
   remove: async (col: string, id: string): Promise<void> => {
@@ -175,23 +219,23 @@ export const storage = {
     syncDeleteToCloud(col, id);
   },
 
-  // Manual full sync (can be called from UI)
   syncNow: async (): Promise<{ pulled: number; pushed: number }> => {
-    let pulled = 0;
-    let pushed = 0;
+    let pulled = 0, pushed = 0;
 
-    if (!supabaseAvailable) {
-      const ok = await supabase.test();
-      supabaseAvailable = ok;
-      if (!ok) return { pulled: 0, pushed: 0 };
-    }
+    // Re-test connection
+    supabaseAvailable = await supabase.test();
+    if (!supabaseAvailable) return { pulled: 0, pushed: 0 };
+
+    // Flush pending queue first
+    const flushed = await flushPendingQueue();
+    if (flushed > 0) pushed++;
 
     for (const col of COLLECTIONS) {
       try {
         // Pull
-        const remoteData = await supabase.getAll(tableFor(col));
-        if (remoteData.length > 0) {
-          const changed = mergeRemoteData(col, remoteData);
+        const remote = await supabase.getAll(tableFor(col));
+        if (remote.length > 0) {
+          const changed = mergeRemoteData(col, remote);
           if (changed) { broadcast(col); pulled++; }
         }
         // Push
@@ -208,32 +252,30 @@ export const storage = {
   },
 
   exportData: async () => {
-    const repairs = localDB.getAll('repairs');
-    const budgets = localDB.getAll('budgets');
-    const settings = localDB.getAll('settings');
-    const citas = localDB.getAll('citas');
-    const apps_externas = localDB.getAll('apps_externas');
-    return JSON.stringify({ repairs, budgets, settings, citas, apps_externas, exportDate: new Date().toISOString() }, null, 2);
+    return JSON.stringify({
+      repairs: localDB.getAll('repairs'),
+      budgets: localDB.getAll('budgets'),
+      settings: localDB.getAll('settings'),
+      citas: localDB.getAll('citas'),
+      apps_externas: localDB.getAll('apps_externas'),
+      exportDate: new Date().toISOString(),
+    }, null, 2);
   },
 
   forceBackup: async (): Promise<boolean> => {
     try {
-      const repairs = localDB.getAll('repairs');
-      const budgets = localDB.getAll('budgets');
-      const settings = localDB.getAll('settings');
       return await supabase.saveBackup({
-        repairs, budgets, settings,
+        repairs: localDB.getAll('repairs'),
+        budgets: localDB.getAll('budgets'),
+        settings: localDB.getAll('settings'),
         backupDate: new Date().toISOString(),
-        totalRecords: repairs.length + budgets.length,
-        version: 'v10',
+        version: 'v11',
       });
     } catch { return false; }
   },
 
-  // Atomic RMA number generator — reads directly from memory, never duplicates
   nextRmaNumber: (): number => {
     const repairs = localDB.getAll('repairs');
-    const max = repairs.reduce((m: number, r: any) => Math.max(m, r.rmaNumber || 0), 0);
-    return max + 1;
+    return repairs.reduce((m: number, r: any) => Math.max(m, r.rmaNumber || 0), 0) + 1;
   },
 };
