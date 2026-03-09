@@ -18,6 +18,7 @@ import { supabase } from './supabaseService';
 type CB = (data: any[]) => void;
 const subs: Record<string, CB[]> = {};
 let supabaseAvailable = false;
+let initialized = false;
 
 const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'] as const;
 const tableFor = (col: string) => col === 'settings' ? 'rp_settings' : col;
@@ -71,12 +72,12 @@ const pushLocalToCloud = async (col: string) => {
   }
 };
 
-// ── Cloud write (fire & forget) ──
-const syncToCloud = (col: string, record: any) => {
-  if (!supabaseAvailable) return;
+// ── Cloud write ──
+const syncToCloud = async (col: string, record: any): Promise<boolean> => {
+  if (!supabaseAvailable) return false;
   const table = tableFor(col);
   const { _rowId, ...clean } = record;
-  supabase.save(table, clean).catch(() => {});
+  return supabase.save(table, clean);
 };
 
 const syncDeleteToCloud = (col: string, id: string) => {
@@ -87,6 +88,12 @@ const syncDeleteToCloud = (col: string, id: string) => {
 
 export const storage = {
   init: async () => {
+    if (initialized) {
+      console.log('[Storage] Already initialized, skipping');
+      return;
+    }
+    initialized = true;
+
     // 1. Load from IDB → memory (instant, shows data immediately)
     await localDB.init();
 
@@ -157,7 +164,9 @@ export const storage = {
     broadcast(col);
 
     // 5. Write to Supabase in background
-    syncToCloud(col, full);
+    syncToCloud(col, full).then(ok => {
+      if (!ok) console.warn(`[Storage] ⚠️ Cloud save failed for ${col}/${id} — will retry on next sync`);
+    });
   },
 
   remove: async (col: string, id: string): Promise<void> => {
