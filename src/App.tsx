@@ -379,6 +379,7 @@ const App: React.FC = () => {
                 onSave={handleSaveRepair}
                 onCancel={() => navigateTo('repairs')}
                 initialData={editingRepair || undefined}
+                repairs={repairs ?? []}
               />
             )}
             {currentView === 'budgets' && (

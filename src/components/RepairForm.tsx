@@ -1,21 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   X, Camera, Trash2, User, Smartphone, 
   BrainCircuit, Loader2, Save,
-  Building2, Home, MapPin, Navigation, Image, Plus
+  Building2, Home, MapPin, Navigation, Image, Plus, Search, Users
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings } from '../types';
 import { getSmartDiagnosis } from '../services/geminiService';
 import CameraCapture from './CameraCapture';
+
+interface CustomerSuggestion {
+  name: string;
+  phone: string;
+  address?: string;
+  city?: string;
+  repairCount: number;
+}
 
 interface RepairFormProps {
   onSave: (repair: Omit<RepairItem, 'rmaNumber'>, rma?: number) => void;
   onCancel: () => void;
   initialData?: RepairItem;
   settings?: AppSettings;
+  repairs?: RepairItem[];
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, settings }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, settings, repairs = [] }) => {
   const [formData, setFormData] = useState<Partial<RepairItem>>(() => {
     if (initialData) {
       return { ...initialData, repairType: initialData.repairType || 'taller', images: initialData.images || [] };
@@ -33,7 +42,53 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Build unique customer database from repairs ──
+  const customerDB = useMemo((): CustomerSuggestion[] => {
+    const map = new Map<string, CustomerSuggestion>();
+    for (const r of repairs) {
+      if (!r.customerPhone) continue;
+      const existing = map.get(r.customerPhone);
+      if (!existing) {
+        map.set(r.customerPhone, {
+          name: r.customerName || '',
+          phone: r.customerPhone,
+          address: r.address,
+          city: r.city,
+          repairCount: 1,
+        });
+      } else {
+        existing.repairCount++;
+        if (r.customerName && r.customerName.length > existing.name.length) existing.name = r.customerName;
+        if (r.address && !existing.address) existing.address = r.address;
+        if (r.city && !existing.city) existing.city = r.city;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [repairs]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerQuery.trim()) return customerDB.slice(0, 20);
+    const q = customerQuery.toLowerCase();
+    return customerDB.filter(c =>
+      c.name.toLowerCase().includes(q) || c.phone.includes(q)
+    ).slice(0, 10);
+  }, [customerDB, customerQuery]);
+
+  const handleSelectCustomer = (c: CustomerSuggestion) => {
+    setFormData(prev => ({
+      ...prev,
+      customerName: c.name,
+      customerPhone: c.phone,
+      ...(c.address ? { address: c.address } : {}),
+      ...(c.city ? { city: c.city } : {}),
+    }));
+    setShowCustomerSearch(false);
+    setCustomerQuery('');
+  };
 
   const isDomicilio = formData.repairType === 'domicilio';
   const images = formData.images || [];
@@ -160,7 +215,64 @@ const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {/* ── CLIENTE ── */}
           <div className="space-y-6">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2"><User size={14} /> Cliente</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2"><User size={14} /> Cliente</h3>
+              {!initialData && customerDB.length > 0 && (
+                <button type="button" onClick={() => setShowCustomerSearch(!showCustomerSearch)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    showCustomerSearch 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                  }`}>
+                  <Users size={12} /> {showCustomerSearch ? 'Cerrar' : `Buscar (${customerDB.length})`}
+                </button>
+              )}
+            </div>
+
+            {/* ── Customer Search Dropdown ── */}
+            {showCustomerSearch && !initialData && (
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400" size={14} />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Buscar por nombre o teléfono..."
+                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-blue-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400"
+                    value={customerQuery}
+                    onChange={e => setCustomerQuery(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1 scrollbar-thin">
+                  {filteredCustomers.length === 0 ? (
+                    <p className="text-[10px] text-blue-400 font-bold text-center py-3">Sin resultados</p>
+                  ) : (
+                    filteredCustomers.map(c => (
+                      <button
+                        key={c.phone}
+                        type="button"
+                        onClick={() => handleSelectCustomer(c)}
+                        className="w-full text-left px-4 py-2.5 bg-white rounded-xl border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all flex items-center gap-3 group"
+                      >
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-[10px] font-black group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                          {c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-slate-800 text-xs uppercase truncate">{c.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">{c.phone} · {c.repairCount} rep.</p>
+                        </div>
+                        {c.address && (
+                          <span className="text-[8px] text-slate-300 font-bold truncate max-w-[100px] hidden sm:block">
+                            <MapPin size={8} className="inline mr-0.5" />{c.city || c.address}
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <input required type="text" placeholder="Nombre completo" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} />
               <input required type="tel" placeholder="Teléfono" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" value={formData.customerPhone} onChange={e => setFormData({...formData, customerPhone: e.target.value})} />
