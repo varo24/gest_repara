@@ -16,12 +16,13 @@ import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
 import TechFieldView from './components/TechFieldView';
 import FieldModeApp from './components/FieldModeApp';
+import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp } from './types';
 import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '6.4.0 UNIFIED';
+const APP_VERSION = '6.5.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -489,6 +490,9 @@ const App: React.FC = () => {
                 }}
                 onBack={() => navigateTo('dashboard')}
               />
+            )}
+            {currentView === 'diagnostic' && (
+              <SupabaseDiagnostic onClose={() => navigateTo('settings')} />
             )}
           </>
         )}

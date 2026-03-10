@@ -131,6 +131,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onNewRepair, on
           <span className="text-[10px] font-black uppercase tracking-[0.15em]">Ajustes</span>
         </button>
 
+        <button 
+          onClick={() => setView('diagnostic' as any)} 
+          className={`w-full flex items-center space-x-4 px-5 py-3 rounded-2xl transition-all text-slate-600 hover:text-amber-400 hover:bg-slate-900`}
+        >
+          <Cpu size={16} />
+          <span className="text-[9px] font-bold uppercase tracking-[0.15em]">Diagnóstico</span>
+        </button>
+
         {version && (
           <div className="text-center">
             <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">v {version}</span>

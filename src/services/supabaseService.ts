@@ -1,9 +1,9 @@
 // ============================================================
-// ReparaPro — Supabase Service v5
+// ReparaPro — Supabase Service v6
 //
-// FIX: save() now uses PATCH (update) first, then INSERT if new.
-// This works regardless of whether business_id has a UNIQUE constraint.
-// getAll() deduplicates by business_id (keeps newest updated_at).
+// CRITICAL FIX: save() only updates Supabase if the record
+// being sent has a NEWER updatedAt than what exists there.
+// This prevents Terminal B from overwriting Terminal A's changes.
 // ============================================================
 
 const BASE = 'https://bglmkckpopcuxmafting.supabase.co/rest/v1';
@@ -24,127 +24,109 @@ const call = async (path: string, opts: RequestInit = {}, timeoutMs = 8000): Pro
       headers: { ...H, ...(opts.headers as Record<string, string> || {}) },
       signal: ctrl.signal,
     });
-  } finally {
-    clearTimeout(t);
-  }
+  } finally { clearTimeout(t); }
 };
 
 export const supabase = {
   async test(): Promise<boolean> {
     try {
       const res = await call('repairs?limit=1&select=id', {}, 5000);
-      console.log(`[Supabase] test: ${res.status}`);
       return res.status < 500;
-    } catch (e) {
-      console.warn('[Supabase] test failed:', e);
-      return false;
-    }
+    } catch { return false; }
   },
 
   async getAll(table: string): Promise<any[]> {
     try {
       const res = await call(`${table}?select=*&order=updated_at.desc`);
-      if (!res.ok) {
-        console.warn(`[Supabase] getAll ${table}: ${res.status}`);
-        return [];
-      }
+      if (!res.ok) return [];
       const rows: any[] = await res.json();
 
-      // Deduplicate by business_id — keep the one with newest updated_at
+      // Deduplicate by business_id (keep newest = first because sorted desc)
       const seen = new Map<string, any>();
       for (const r of rows) {
         const d = r.data && typeof r.data === 'object' ? r.data : {};
         const bid = r.business_id || d.id;
-        if (!bid) continue;
-
-        if (!seen.has(bid)) {
-          seen.set(bid, { ...d, _rowId: r.id });
-        }
-        // First one wins because ordered by updated_at desc (newest first)
+        if (!bid || seen.has(bid)) continue;
+        seen.set(bid, { ...d, _rowId: r.id, _remoteUpdatedAt: r.updated_at });
       }
-
-      const result = Array.from(seen.values());
-      console.log(`[Supabase] getAll ${table}: ${rows.length} rows → ${result.length} unique`);
-      return result;
+      console.log(`[Supabase] getAll ${table}: ${rows.length} rows → ${seen.size} unique`);
+      return Array.from(seen.values());
     } catch (e) {
-      console.warn(`[Supabase] getAll ${table} error:`, e);
+      console.warn(`[Supabase] getAll ${table}:`, e);
       return [];
     }
   },
 
   async save(table: string, record: any): Promise<boolean> {
     try {
-      const { _rowId, ...clean } = record;
+      const { _rowId, _remoteUpdatedAt, ...clean } = record;
       const bid = clean.id;
-      if (!bid) { console.warn('[Supabase] save: no id'); return false; }
+      if (!bid) return false;
 
-      const body = JSON.stringify({
-        data: clean,
-        updated_at: new Date().toISOString(),
-      });
+      const now = new Date().toISOString();
+      const body = JSON.stringify({ data: clean, updated_at: now });
 
-      // Strategy: Try PATCH first (update existing), then POST (insert new)
-      // PATCH updates where business_id matches
-      const patchRes = await call(
-        `${table}?business_id=eq.${encodeURIComponent(bid)}`,
-        {
-          method: 'PATCH',
-          headers: { 'Prefer': 'return=headers-only' },
-          body,
+      // First: check if record exists in Supabase and get its updated_at
+      let existsRemote = false;
+      let remoteNewer = false;
+      try {
+        const checkRes = await call(`${table}?business_id=eq.${encodeURIComponent(bid)}&select=updated_at&limit=1`);
+        if (checkRes.ok) {
+          const rows = await checkRes.json();
+          if (rows.length > 0) {
+            existsRemote = true;
+            const remoteTime = new Date(rows[0].updated_at || '2000-01-01').getTime();
+            const localTime = new Date(clean.updatedAt || '2000-01-01').getTime();
+            if (remoteTime > localTime) {
+              // Remote is newer — DON'T overwrite
+              remoteNewer = true;
+            }
+          }
         }
-      );
+      } catch { /* assume doesn't exist */ }
 
-      if (patchRes.ok) {
-        // Check if any row was actually updated via content-range header
-        const range = patchRes.headers.get('content-range');
-        // Format: "*/0" means 0 rows updated (doesn't exist yet)
-        // Format: "0-0/*" or "*/1" means 1+ rows updated
-        const noRowsUpdated = range && range.includes('/0');
-
-        if (!noRowsUpdated) {
-          // Updated successfully
-          console.log(`[Supabase] ✅ PATCH ${table}/${bid}`);
-          return true;
-        }
-
-        // No rows matched — need to INSERT
-        console.log(`[Supabase] PATCH ${table}/${bid} — no match, inserting...`);
-      } else {
-        console.warn(`[Supabase] PATCH ${table}/${bid} failed: ${patchRes.status}, trying INSERT...`);
+      if (remoteNewer) {
+        console.log(`[Supabase] SKIP ${table}/${bid} — remote is newer`);
+        return true; // Not an error, just nothing to do
       }
 
-      // INSERT new record
-      const postRes = await call(table, {
+      if (existsRemote) {
+        // UPDATE existing
+        const res = await call(
+          `${table}?business_id=eq.${encodeURIComponent(bid)}`,
+          { method: 'PATCH', headers: { 'Prefer': 'return=minimal' }, body }
+        );
+        if (res.ok) {
+          console.log(`[Supabase] ✅ UPDATE ${table}/${bid}`);
+          return true;
+        }
+        console.warn(`[Supabase] PATCH ${table}/${bid}: ${res.status}`);
+        return false;
+      }
+
+      // INSERT new
+      const res = await call(table, {
         method: 'POST',
         headers: { 'Prefer': 'return=minimal' },
-        body: JSON.stringify({
-          business_id: bid,
-          data: clean,
-          updated_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ business_id: bid, data: clean, updated_at: now }),
       });
 
-      if (postRes.ok) {
+      if (res.ok) {
         console.log(`[Supabase] ✅ INSERT ${table}/${bid}`);
         return true;
       }
 
-      const errTxt = await postRes.text().catch(() => '');
-      console.warn(`[Supabase] ❌ INSERT ${table}/${bid} failed: ${postRes.status} ${errTxt}`);
-
-      // If INSERT fails with 409 (conflict/duplicate), try PATCH one more time
-      if (postRes.status === 409) {
-        console.log(`[Supabase] 409 conflict, retrying PATCH...`);
+      // If 409 conflict, try PATCH
+      if (res.status === 409) {
         const retry = await call(
           `${table}?business_id=eq.${encodeURIComponent(bid)}`,
           { method: 'PATCH', headers: { 'Prefer': 'return=minimal' }, body }
         );
-        if (retry.ok) {
-          console.log(`[Supabase] ✅ PATCH retry ${table}/${bid}`);
-          return true;
-        }
+        if (retry.ok) { console.log(`[Supabase] ✅ UPDATE (retry) ${table}/${bid}`); return true; }
       }
 
+      const err = await res.text().catch(() => '');
+      console.warn(`[Supabase] ❌ ${table}/${bid}: ${res.status} ${err}`);
       return false;
     } catch (e) {
       console.warn('[Supabase] save error:', e);
@@ -158,32 +140,23 @@ export const supabase = {
         `${table}?business_id=eq.${encodeURIComponent(businessId)}`,
         { method: 'DELETE', headers: { 'Prefer': 'return=minimal' } }
       );
-      console.log(`[Supabase] DELETE ${table}/${businessId}: ${res.status}`);
       return res.ok;
     } catch { return false; }
   },
 
   async saveBackup(backupData: any): Promise<boolean> {
     try {
-      const backupId = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
       const res = await call('backups', {
         method: 'POST',
         headers: { 'Prefer': 'return=minimal' },
         body: JSON.stringify({
-          backup_id: backupId,
+          backup_id: `backup-${Date.now()}`,
           data: backupData,
           created_at: new Date().toISOString(),
         }),
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        console.warn(`[Supabase] saveBackup ${res.status}: ${txt}`);
-      }
       return res.ok;
-    } catch (e) {
-      console.warn('[Supabase] saveBackup error:', e);
-      return false;
-    }
+    } catch { return false; }
   },
 
   async getLatestBackup(): Promise<any | null> {
@@ -191,8 +164,7 @@ export const supabase = {
       const res = await call('backups?select=*&order=created_at.desc&limit=1');
       if (!res.ok) return null;
       const rows: any[] = await res.json();
-      if (rows.length === 0) return null;
-      return rows[0].data || null;
+      return rows.length > 0 ? rows[0].data || null : null;
     } catch { return null; }
   },
 };
