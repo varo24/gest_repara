@@ -95,10 +95,42 @@ const syncToCloud = async (col: string, record: any): Promise<void> => {
   if (!ok) addPending(col, record);
 };
 
-// ── Connection monitor ──
+// ── Auto-Sync: pull changes every 15s + connection monitor ──
+const AUTO_SYNC_INTERVAL = 15000; // 15 seconds
 let monitor: ReturnType<typeof setInterval> | null = null;
+let autoSync: ReturnType<typeof setInterval> | null = null;
+let isSyncing = false; // prevent overlapping syncs
+
+const autoSyncPull = async () => {
+  if (isSyncing || !supabaseAvailable) return;
+  isSyncing = true;
+  try {
+    let anyChanged = false;
+    for (const col of COLLECTIONS) {
+      try {
+        const remote = await supabase.getAll(tableFor(col));
+        if (remote.length > 0) {
+          const changed = mergeRemote(col, remote);
+          if (changed) {
+            broadcast(col);
+            anyChanged = true;
+          }
+        }
+      } catch {}
+    }
+    // Also flush any pending saves
+    if (pendingQueue.length > 0) await flushPending();
+    if (anyChanged) console.log('[AutoSync] ↓ Datos actualizados desde la nube');
+  } catch (e) {
+    console.warn('[AutoSync] Error:', e);
+  } finally {
+    isSyncing = false;
+  }
+};
+
 const startMonitor = () => {
   if (monitor) return;
+  // Connection check every 30s
   monitor = setInterval(async () => {
     const was = supabaseAvailable;
     supabaseAvailable = await supabase.test();
@@ -109,10 +141,27 @@ const startMonitor = () => {
   }, 30000);
 };
 
+const startAutoSync = () => {
+  if (autoSync) return;
+  autoSync = setInterval(autoSyncPull, AUTO_SYNC_INTERVAL);
+  console.log(`[AutoSync] ✅ Activado — pull cada ${AUTO_SYNC_INTERVAL / 1000}s`);
+};
+
 if (typeof window !== 'undefined') {
   window.addEventListener('online', async () => {
     supabaseAvailable = await supabase.test();
     if (supabaseAvailable) flushPending();
+  });
+  // Pause auto-sync when tab is hidden to save resources
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (autoSync) { clearInterval(autoSync); autoSync = null; }
+      console.log('[AutoSync] ⏸ Pausado (pestaña oculta)');
+    } else {
+      startAutoSync();
+      autoSyncPull(); // immediate pull when tab becomes visible again
+      console.log('[AutoSync] ▶ Reanudado');
+    }
   });
 }
 
@@ -156,6 +205,7 @@ export const storage = {
     } catch { console.warn('[Storage] Error conexión'); }
 
     startMonitor();
+    startAutoSync();
   },
 
   isOnline: () => supabaseAvailable,
