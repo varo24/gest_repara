@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText } from 'lucide-react';
-import { Budget, RepairItem } from '../types';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle } from 'lucide-react';
+import { Budget, RepairItem, AppSettings } from '../types';
 
 interface BudgetListProps {
   budgets: Budget[];
   repairs: RepairItem[];
+  settings?: AppSettings;
   onViewBudget: (budget: Budget) => void;
   onPrintBudget: (budget: Budget) => void;
   onDeleteBudget: (budgetId: string) => void;
+  onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
 }
 
-const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, onViewBudget, onPrintBudget, onDeleteBudget }) => {
+const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, settings, onViewBudget, onPrintBudget, onDeleteBudget, onSendWhatsApp }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
@@ -78,6 +80,9 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, onViewBudget,
                   <td className="px-4 py-6 text-[10px] font-bold text-slate-500">{new Date(budget.date).toLocaleDateString('es-ES')}</td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-2">
+                      {repair && onSendWhatsApp && (
+                        <button onClick={() => onSendWhatsApp(budget, repair)} className="p-2.5 bg-white text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white border border-slate-100 transition-all" title="Enviar WhatsApp"><MessageCircle size={14} /></button>
+                      )}
                       <button onClick={() => onViewBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white border border-slate-100 transition-all" title="Ver / Editar"><Eye size={14} /></button>
                       <button onClick={() => onPrintBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all" title="Imprimir"><Printer size={14} /></button>
                       <button onClick={() => onDeleteBudget(budget.id)} className="p-2.5 bg-white text-slate-200 rounded-xl hover:bg-red-600 hover:text-white border border-slate-100 transition-all" title="Eliminar"><Trash2 size={14} /></button>

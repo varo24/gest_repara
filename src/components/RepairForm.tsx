@@ -22,19 +22,25 @@ interface RepairFormProps {
   initialData?: RepairItem;
   settings?: AppSettings;
   repairs?: RepairItem[];
+  prefillCustomer?: { name: string; phone: string; address?: string; city?: string } | null;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, settings, repairs = [] }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ onSave, onCancel, initialData, settings, repairs = [], prefillCustomer }) => {
   const [formData, setFormData] = useState<Partial<RepairItem>>(() => {
     if (initialData) {
       return { ...initialData, repairType: initialData.repairType || 'taller', images: initialData.images || [] };
     }
     return {
-      customerName: '', customerPhone: '', deviceType: '', brand: '', model: '', serialNumber: '',
+      customerName: prefillCustomer?.name || '',
+      customerPhone: prefillCustomer?.phone || '',
+      deviceType: '', brand: '', model: '', serialNumber: '',
       problemDescription: '', status: RepairStatus.PENDING,
       entryDate: new Date().toISOString().split('T')[0],
       technician: settings?.technicians?.[0] || '',
-      images: [], repairType: 'taller', address: '', city: '', fieldNotes: [],
+      images: [], repairType: 'taller',
+      address: prefillCustomer?.address || '',
+      city: prefillCustomer?.city || '',
+      fieldNotes: [],
     };
   });
 

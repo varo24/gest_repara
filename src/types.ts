@@ -103,6 +103,18 @@ export interface AppSettings {
   email?: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  city?: string;
+  address?: string;
+  email?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AppNotification {
   id: string;
   type: 'success' | 'error' | 'info';

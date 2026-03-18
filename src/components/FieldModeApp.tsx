@@ -74,7 +74,7 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
   const openWhatsApp = (phone: string, name: string) => {
     const p = phone.replace(/\D/g, '');
     if (!p) return;
-    window.open(`https://api.whatsapp.com/send?phone=${p}&text=${encodeURIComponent(`Hola ${name}, soy el técnico de ${settings.appName}. Voy de camino.`)}`);
+    window.open(`whatsapp://send?phone=${p}&text=${encodeURIComponent(`Hola ${name}, soy el técnico de ${settings.appName}. Voy de camino.`)}`);
   };
 
   const cycleEstado = (cita: Cita) => {

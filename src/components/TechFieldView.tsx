@@ -56,7 +56,7 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
 
   const handleWhatsApp = (r: RepairItem) => {
     const phone = r.customerPhone.replace(/\D/g, '');
-    window.open(`https://api.whatsapp.com/send?phone=34${phone}&text=${encodeURIComponent(`Hola ${r.customerName}, soy técnico de ${settings.appName}.`)}`);
+    window.open(`whatsapp://send?phone=34${phone}&text=${encodeURIComponent(`Hola ${r.customerName}, soy técnico de ${settings.appName}.`)}`);
   };
 
   const handleStatusChange = (status: RepairStatus) => {

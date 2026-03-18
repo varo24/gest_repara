@@ -129,7 +129,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const phone = (cita.telefono || '').replace(/\D/g, '');
     if (!phone) return;
     const msg = encodeURIComponent(`Hola ${cita.clienteNombre}, soy el técnico de ${settings.appName}. Te informo que voy de camino. Estaré allí en breve.`);
-    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${msg}`);
+    window.open(`whatsapp://send?phone=${phone}&text=${msg}`);
   };
 
   const handleGoogleCalendar = (cita: Cita) => {

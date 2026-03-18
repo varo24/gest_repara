@@ -17,12 +17,12 @@ import ExternalAppViewer from './components/ExternalAppViewer';
 import TechFieldView from './components/TechFieldView';
 import FieldModeApp from './components/FieldModeApp';
 import SupabaseDiagnostic from './components/SupabaseDiagnostic';
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp } from './types';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer } from './types';
 import { storage } from './services/persistence';
-import { notifyReady, notifyCancelled } from './services/whatsappService';
+import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
-const APP_VERSION = '6.5.0 UNIFIED';
+const APP_VERSION = '6.6.0 UNIFIED';
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -50,6 +50,7 @@ const App: React.FC = () => {
   const [canInstall, setCanInstall] = useState(false);
 
   const [editingRepair, setEditingRepair] = useState<RepairItem | null>(null);
+  const [prefillCustomer, setPrefillCustomer] = useState<{ name: string; phone: string; address?: string; city?: string } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{msg: string; onYes: () => void} | null>(null);
 
   const confirm2 = (msg: string, onYes: () => void) => setConfirmModal({ msg, onYes });
@@ -60,6 +61,7 @@ const App: React.FC = () => {
   const [citas, setCitas] = useState<Cita[] | null>(null);
   const [externalApps, setExternalApps] = useState<ExternalApp[] | null>(null);
   const [activeExternalApp, setActiveExternalApp] = useState<ExternalApp | null>(null);
+  const [customersDB, setCustomersDB] = useState<Customer[]>([]);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -108,6 +110,7 @@ const App: React.FC = () => {
         });
         storage.subscribe('citas', setCitas);
         storage.subscribe('apps_externas', setExternalApps);
+        storage.subscribe('customers', setCustomersDB);
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
@@ -118,7 +121,7 @@ const App: React.FC = () => {
 
   const navigateTo = (view: ViewType) => {
     setCurrentView(view);
-    if (view !== 'new-repair') setEditingRepair(null);
+    if (view !== 'new-repair') { setEditingRepair(null); setPrefillCustomer(null); }
     setEditingBudget(null);
     setActiveBudgetRepair(null);
     if (view !== 'external-app-view') setActiveExternalApp(null);
@@ -380,12 +383,14 @@ const App: React.FC = () => {
                 onCancel={() => navigateTo('repairs')}
                 initialData={editingRepair || undefined}
                 repairs={repairs ?? []}
+                prefillCustomer={prefillCustomer}
               />
             )}
             {currentView === 'budgets' && (
               <BudgetList
                 budgets={budgets ?? []}
                 repairs={repairs ?? []}
+                settings={settings}
                 onViewBudget={(b) => {
                   const r = repairs?.find(rep => rep.id === b.repairId);
                   if (r) { setEditingBudget(b); setActiveBudgetRepair(r); }
@@ -395,19 +400,40 @@ const App: React.FC = () => {
                   if (r) { setEditingBudget(budget); setActiveBudgetRepair(r); }
                 }}
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
+                onSendWhatsApp={async (budget, repair) => {
+                  const msg = buildBudgetMessage(repair, budget, settings);
+                  await sendWhatsApp(repair.customerPhone, msg);
+                  notify('success', `Presupuesto enviado a ${repair.customerName}`);
+                }}
               />
             )}
             {currentView === 'customers' && (
               <CustomerList 
-                repairs={repairs ?? []} 
+                repairs={repairs ?? []}
+                customers={customersDB}
                 onSelectCustomer={() => {}}
                 onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
-                onSaveCustomerName={async (phone, newName) => {
-                  const customerRepairs = (repairs ?? []).filter(r => r.customerPhone === phone);
+                onSaveCustomer={async (customer) => {
+                  await storage.save('customers', customer.id, customer);
+                  // Also update name in all repairs with same phone
+                  const customerRepairs = (repairs ?? []).filter(r => r.customerPhone === customer.phone);
                   for (const r of customerRepairs) {
-                    await storage.save('repairs', r.id, { ...r, customerName: newName });
+                    if (r.customerName !== customer.name) {
+                      await storage.save('repairs', r.id, { ...r, customerName: customer.name });
+                    }
                   }
-                  notify('success', `Nombre actualizado para ${customerRepairs.length} reparaciones.`);
+                  notify('success', 'Cliente guardado correctamente.');
+                }}
+                onDeleteCustomer={async (id) => {
+                  confirm2('¿Eliminar este cliente de la agenda?', async () => {
+                    await storage.remove('customers', id);
+                    notify('success', 'Cliente eliminado.');
+                  });
+                }}
+                onNewRepairForCustomer={(customer) => {
+                  setPrefillCustomer(customer);
+                  setEditingRepair(null);
+                  navigateTo('new-repair');
                 }}
               />
             )}

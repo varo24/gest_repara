@@ -21,7 +21,7 @@ const subs: Record<string, CB[]> = {};
 let supabaseAvailable = false;
 let initialized = false;
 
-const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'] as const;
+const COLLECTIONS = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas', 'customers'] as const;
 const tableFor = (col: string) => col === 'settings' ? 'rp_settings' : col;
 const PENDING_KEY = 'rp_pending_sync';
 

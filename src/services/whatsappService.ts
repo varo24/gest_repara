@@ -112,13 +112,9 @@ _${settings.appName}_`;
 
 const sendViaWeb = (phone: string, message: string): void => {
   const cleanedPhone = cleanPhone(phone);
-  // Usar la API URL nativa del navegador para codificar correctamente
-  // incluyendo emojis, acentos y caracteres especiales de WhatsApp
-  const url = new URL(`https://api.whatsapp.com/send?phone=${cleanedPhone}`);
-  url.searchParams.set('text', message);
-  // searchParams.set usa encodeURIComponent internamente pero
-  // WhatsApp Web decodifica correctamente todos los caracteres Unicode
-  window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  const encoded = encodeURIComponent(message);
+  // Use whatsapp:// protocol to open native app instead of web browser
+  window.open(`whatsapp://send?phone=${cleanedPhone}&text=${encoded}`, '_self');
 };
 
 // ============================================================
