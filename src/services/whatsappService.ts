@@ -55,17 +55,43 @@ _${settings.appName} · ${settings.phone || ''}_`;
 export const buildBudgetMessage = (repair: RepairItem, budget: Budget, settings: AppSettings, budgetUrl?: string): string => {
   const rma = `RMA-${repair.rmaNumber.toString().padStart(5, '0')}`;
   const total = budget.total.toFixed(2);
+
+  // Detalle de piezas/materiales
+  let detailLines = '';
+  if (budget.items && budget.items.length > 0) {
+    detailLines += '\n🔧 *Trabajos y materiales:*\n';
+    for (const item of budget.items) {
+      const lineTotal = (item.quantity * item.unitPrice).toFixed(2);
+      detailLines += `  • ${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''} — ${lineTotal}€\n`;
+    }
+  }
+
+  // Detalle de mano de obra
+  if (budget.laborItems && budget.laborItems.length > 0) {
+    detailLines += '\n👨‍🔧 *Mano de obra:*\n';
+    for (const labor of budget.laborItems) {
+      const lineTotal = (labor.hours * labor.hourlyRate).toFixed(2);
+      detailLines += `  • ${labor.description} (${labor.hours}h) — ${lineTotal}€\n`;
+    }
+  }
+
+  // Base imponible
+  const subtotal = (budget.total / (1 + budget.taxRate / 100)).toFixed(2);
+  const iva = (budget.total - parseFloat(subtotal)).toFixed(2);
+
   return `💰 *Presupuesto de reparación - ${settings.appName}*
 
 Hola *${repair.customerName}*, hemos completado el diagnóstico de tu equipo.
 
 📋 *Número de trabajo:* ${rma}
 📱 *Equipo:* ${repair.brand} ${repair.model}
-💶 *Importe total: ${total}€*
+${detailLines}
+💶 *Base imponible:* ${subtotal}€
+💶 *IVA (${budget.taxRate}%):* ${iva}€
+💶 *TOTAL: ${total}€*
 ⏳ *Validez del presupuesto:* 15 días
 
-${budgetUrl ? `🔗 Ver presupuesto detallado:\n${budgetUrl}\n` : ''}
-Por favor, confirma si deseas proceder con la reparación respondiendo *SÍ* o *NO*.
+${budgetUrl ? `🔗 Ver presupuesto detallado:\n${budgetUrl}\n` : ''}Por favor, confirma si deseas proceder con la reparación respondiendo *SÍ* o *NO*.
 
 _${settings.appName} · ${settings.phone || ''}_`;
 };
