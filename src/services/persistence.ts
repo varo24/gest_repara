@@ -65,7 +65,7 @@ const broadcast = (col: string) => {
   subs[col]?.forEach(cb => { try { cb(data); } catch {} });
 };
 
-// ── Merge: remote wins ONLY if strictly newer ──
+// ── Merge: remote wins if newer OR if local doesn't have the record ──
 const mergeRemote = (col: string, remoteItems: any[]): boolean => {
   let changed = false;
   const localMap = new Map(localDB.getAll(col).map(i => [i.id, i]));
@@ -76,12 +76,17 @@ const mergeRemote = (col: string, remoteItems: any[]): boolean => {
     const local = localMap.get(remote.id);
 
     if (!local) {
+      // New record from another terminal
       localDB.put(col, remote);
       changed = true;
     } else {
-      const lt = new Date(local.updatedAt || '2000-01-01').getTime();
-      const rt = new Date(remote.updatedAt || '2000-01-01').getTime();
-      if (rt > lt) { localDB.put(col, remote); changed = true; }
+      // Use updatedAt from inside data, fallback to _remoteUpdatedAt from Supabase row
+      const lt = new Date(local.updatedAt || local.createdAt || '2000-01-01').getTime();
+      const rt = new Date(remote.updatedAt || _remoteUpdatedAt || '2000-01-01').getTime();
+      if (rt > lt) {
+        localDB.put(col, remote);
+        changed = true;
+      }
     }
   }
   return changed;
@@ -102,27 +107,39 @@ let autoSync: ReturnType<typeof setInterval> | null = null;
 let isSyncing = false; // prevent overlapping syncs
 
 const autoSyncPull = async () => {
-  if (isSyncing || !supabaseAvailable) return;
+  if (isSyncing) return;
   isSyncing = true;
   try {
+    // Re-check connection on every pull (don't rely on stale flag)
+    supabaseAvailable = await supabase.test();
+    if (!supabaseAvailable) {
+      isSyncing = false;
+      return;
+    }
+
     let anyChanged = false;
+    let totalPulled = 0;
     for (const col of COLLECTIONS) {
       try {
         const remote = await supabase.getAll(tableFor(col));
         if (remote.length > 0) {
+          totalPulled += remote.length;
           const changed = mergeRemote(col, remote);
           if (changed) {
             broadcast(col);
             anyChanged = true;
+            console.log(`[AutoSync] ↓ ${col} actualizado`);
           }
         }
-      } catch {}
+      } catch (e) {
+        console.warn(`[AutoSync] Error en ${col}:`, e);
+      }
     }
     // Also flush any pending saves
     if (pendingQueue.length > 0) await flushPending();
-    if (anyChanged) console.log('[AutoSync] ↓ Datos actualizados desde la nube');
+    if (anyChanged) console.log(`[AutoSync] ✅ Datos actualizados (${totalPulled} registros revisados)`);
   } catch (e) {
-    console.warn('[AutoSync] Error:', e);
+    console.warn('[AutoSync] Error general:', e);
   } finally {
     isSyncing = false;
   }

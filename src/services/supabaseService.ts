@@ -66,19 +66,20 @@ export const supabase = {
       const now = new Date().toISOString();
       const body = JSON.stringify({ data: clean, updated_at: now });
 
-      // First: check if record exists in Supabase and get its updated_at
+      // First: check if record exists in Supabase and get its data.updatedAt
       let existsRemote = false;
       let remoteNewer = false;
       try {
-        const checkRes = await call(`${table}?business_id=eq.${encodeURIComponent(bid)}&select=updated_at&limit=1`);
+        const checkRes = await call(`${table}?business_id=eq.${encodeURIComponent(bid)}&select=updated_at,data&limit=1`);
         if (checkRes.ok) {
           const rows = await checkRes.json();
           if (rows.length > 0) {
             existsRemote = true;
-            const remoteTime = new Date(rows[0].updated_at || '2000-01-01').getTime();
+            // Compare using updatedAt INSIDE the data JSON (more reliable than column)
+            const remoteData = rows[0].data && typeof rows[0].data === 'object' ? rows[0].data : {};
+            const remoteTime = new Date(remoteData.updatedAt || rows[0].updated_at || '2000-01-01').getTime();
             const localTime = new Date(clean.updatedAt || '2000-01-01').getTime();
             if (remoteTime > localTime) {
-              // Remote is newer — DON'T overwrite
               remoteNewer = true;
             }
           }

@@ -86,8 +86,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const handleSave = () => {
     if (!formData.clienteNombre || !formData.servicio) return;
     const [h, m] = formData.hora.split(':').map(Number);
-    const fechaCita = formData.fecha ? new Date(formData.fecha) : new Date(selectedDate);
-    fechaCita.setHours(h || 0, m || 0, 0, 0);
+    // Parse date parts manually to avoid UTC midnight issue
+    let fechaCita: Date;
+    if (formData.fecha) {
+      const [year, month, day] = formData.fecha.split('-').map(Number);
+      fechaCita = new Date(year, month - 1, day, h || 0, m || 0, 0, 0);
+    } else {
+      fechaCita = new Date(selectedDate);
+      fechaCita.setHours(h || 0, m || 0, 0, 0);
+    }
 
     const cita: Cita = {
       id: editingCita?.id || `cita-${Date.now()}`,

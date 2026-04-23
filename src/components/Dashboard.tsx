@@ -43,6 +43,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const todayTime = today.getTime(); // stable primitive for memo deps
+
   const pendingDiagnose = repairs.filter(r => r.status === RepairStatus.PENDING).sort((a, b) => a.rmaNumber - b.rmaNumber);
   const readyToDeliver = repairs.filter(r => r.status === RepairStatus.READY).sort((a, b) => a.rmaNumber - b.rmaNumber);
   const inProgress = repairs.filter(r =>
@@ -52,14 +54,18 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const domicilioPending = repairs.filter(r => r.repairType === 'domicilio' && r.status !== RepairStatus.DELIVERED && r.status !== RepairStatus.CANCELLED);
   const pendingBudgets = budgets.filter(b => b.status === 'pending');
   const waitingParts = repairs.filter(r => r.status === RepairStatus.WAITING_PARTS);
-  const citasHoy = useMemo(() => (citas || []).filter(c => {
-    try { return isSameDay(new Date(c.fecha), today) && c.estado !== CitaEstado.Cancelada; } catch { return false; }
-  }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()), [citas]);
+  const citasHoy = useMemo(() => {
+    const t = new Date(todayTime);
+    return (citas || []).filter(c => {
+      try { return isSameDay(new Date(c.fecha), t) && c.estado !== CitaEstado.Cancelada; } catch { return false; }
+    }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  }, [citas, todayTime]);
 
   const citasProximas = useMemo(() => {
-    const tomorrow = new Date(today);
+    const t = new Date(todayTime);
+    const tomorrow = new Date(t);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const limit = new Date(today);
+    const limit = new Date(t);
     limit.setDate(limit.getDate() + 7);
     return (citas || []).filter(c => {
       try {
@@ -67,7 +73,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
         return d >= tomorrow && d <= limit && c.estado !== CitaEstado.Cancelada;
       } catch { return false; }
     }).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-  }, [citas]);
+  }, [citas, todayTime]);
   const uniqueClients = [...new Set(repairs.map(r => r.customerPhone))].length;
 
   const toggleSection = (s: Section) => setExpandedSection(prev => prev === s ? null : s);

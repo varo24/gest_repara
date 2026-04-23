@@ -4,8 +4,8 @@
  */
 
 const DB_NAME = 'ReparaPro_LocalDB';
-const DB_VERSION = 5;
-const STORES = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas'];
+const DB_VERSION = 6;
+const STORES = ['repairs', 'budgets', 'settings', 'citas', 'apps_externas', 'customers'];
 
 class LocalDB {
   private mem: Record<string, any[]> = {};
