@@ -162,7 +162,23 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
 <div class="c" style="font-size:9px;text-transform:uppercase;letter-spacing:1px">Total a cobrar</div>
 <div class="total">${total.toFixed(2)} €</div>
 <hr class="hr">
-<div class="c" style="font-size:9px;border:1px solid #000;padding:10px;margin:6px 0">[QR: ${fmtRMA(r.rmaNumber)}]<br><span style="font-size:8px">Escanea para abrir ficha</span></div>
+<div class="c" style="margin:8px 0">
+  <canvas id="qrcode" style="width:120px;height:120px"></canvas>
+  <div style="font-size:8px;margin-top:4px">Escanea para abrir ficha · ${fmtRMA(r.rmaNumber)}</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  window.onload = function() {
+    new QRCode(document.getElementById('qrcode'), {
+      text: '${fmtRMA(r.rmaNumber)}',
+      width: 120,
+      height: 120,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  };
+</script>
 <div class="footer">${settings.letterhead || 'Garantía 3 meses en mano de obra'}<br>${new Date().toLocaleDateString('es-ES')}</div>
 </body></html>`;
     const w = window.open('', '_blank', 'width=340,height=700');
