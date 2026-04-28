@@ -121,7 +121,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'tech-field' | 'diagnostic';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'tech-field' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
@@ -161,4 +161,56 @@ export interface ExternalApp {
   activa: boolean;
   descripcion: string;
   fechaAnadida: string;
+}
+// ── Nuevos módulos v8 ─────────────────────────────────────────────────────────
+
+export interface InventoryItem {
+  id: string;
+  ref: string;
+  description: string;
+  category: 'pantallas' | 'baterias' | 'conectores' | 'camaras' | 'mecanica' | 'otros';
+  ean?: string;
+  supplierRef?: string;
+  stock: number;
+  minStock: number;
+  costPrice: number;
+  salePrice?: number;
+  location?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Warranty {
+  id: string;
+  repairId: string;
+  rmaNumber: number;
+  customerName: string;
+  customerPhone: string;
+  deviceDescription: string;
+  deliveryDate: string;
+  expiryDate: string;
+  months: number;
+  status: 'activa' | 'vencida' | 'reclamada';
+  createdAt: string;
+}
+
+export interface FullInvoice {
+  id: string;
+  invoiceNumber: string;
+  repairId?: string;
+  rmaNumber?: number;
+  customerName: string;
+  customerPhone: string;
+  date: string;
+  items: BudgetItem[];
+  laborItems: LaborItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  status: 'pendiente' | 'cobrada' | 'vencida' | 'anulada';
+  payMethod?: 'efectivo' | 'tarjeta' | 'bizum' | 'transferencia';
+  paidAt?: string;
+  isRectificativa?: boolean;
+  createdAt: string;
 }
