@@ -80,6 +80,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     if (!repair) return;
     const { subtotal, taxAmount, total, budget } = getTotals(repair);
     const now = new Date().toISOString();
+
     const allInvoices = localDB.getAll('invoices');
     const nums = allInvoices.map((i: any) => parseInt(i.invoiceNumber?.replace(/\D/g, '') || '0')).filter(Boolean);
     const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
@@ -143,14 +144,29 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
 
   const printTicket = (r: RepairItem) => {
     const { subtotal, taxAmount, total } = getTotals(r);
+    const rmaCode = fmtRMA(r.rmaNumber);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(rmaCode)}&color=000000&bgcolor=ffffff`;
+
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:5mm;font-size:11px}@page{size:80mm auto;margin:0}.c{text-align:center}.b{font-weight:700}.big{font-size:20px;font-weight:700;text-align:center;letter-spacing:2px;margin:6px 0}.total{font-size:22px;font-weight:700;text-align:center}.hr{border:none;border-top:1px dashed #000;margin:5px 0}.row{display:flex;justify-content:space-between;margin:2px 0;font-size:10px}.footer{font-size:8px;text-align:center;margin-top:6px;color:#555;line-height:1.5}</style>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;width:80mm;padding:5mm;font-size:11px}
+@page{size:80mm auto;margin:0}
+.c{text-align:center}
+.b{font-weight:700}
+.big{font-size:20px;font-weight:700;text-align:center;letter-spacing:2px;margin:6px 0}
+.total{font-size:22px;font-weight:700;text-align:center}
+.hr{border:none;border-top:1px dashed #000;margin:5px 0}
+.row{display:flex;justify-content:space-between;margin:2px 0;font-size:10px}
+.footer{font-size:8px;text-align:center;margin-top:6px;color:#555;line-height:1.5}
+img.qr{display:block;margin:6px auto;width:120px;height:120px}
+</style>
 </head><body>
 <div class="c b" style="font-size:14px;text-transform:uppercase">${settings.appName}</div>
 <div class="c" style="font-size:9px;color:#555">${settings.phone} · ${settings.address}</div>
 <hr class="hr">
 <div class="c" style="font-size:9px;text-transform:uppercase;letter-spacing:1px">Ticket de entrega</div>
-<div class="big">${fmtRMA(r.rmaNumber)}</div>
+<div class="big">${rmaCode}</div>
 <hr class="hr">
 <div class="row"><span>Cliente:</span><span class="b">${r.customerName}</span></div>
 <div class="row"><span>Teléfono:</span><span>${r.customerPhone}</span></div>
@@ -162,31 +178,20 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
 <div class="c" style="font-size:9px;text-transform:uppercase;letter-spacing:1px">Total a cobrar</div>
 <div class="total">${total.toFixed(2)} €</div>
 <hr class="hr">
-<div class="c" style="margin:8px 0">
-  <canvas id="qrcode" style="width:120px;height:120px"></canvas>
-  <div style="font-size:8px;margin-top:4px">Escanea para abrir ficha · ${fmtRMA(r.rmaNumber)}</div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>
- <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>
-  setTimeout(function() {
-    new QRCode(document.getElementById('qrcode'), {
-      text: '${fmtRMA(r.rmaNumber)}',
-      width: 120,
-      height: 120,
-      colorDark: '#000000',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.H
-    });
-    setTimeout(function() { window.print(); }, 500);
-  }, 800);
-</script>
+<img class="qr" src="${qrUrl}" alt="QR ${rmaCode}" />
+<div class="c" style="font-size:8px;margin-top:2px">Escanea para abrir ficha · ${rmaCode}</div>
+<hr class="hr">
 <div class="footer">${settings.letterhead || 'Garantía 3 meses en mano de obra'}<br>${new Date().toLocaleDateString('es-ES')}</div>
 </body></html>`;
-    const w = window.open('', '_blank', 'width=340,height=700');
+
+    const w = window.open('', '_blank', 'width=340,height=750');
     if (!w) return;
-    w.document.write(html); w.document.close(); w.focus();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    // Wait for QR image to load before printing
+    w.onload = () => setTimeout(() => { try { w.print(); } catch {} }, 500);
+    setTimeout(() => { try { w.print(); } catch {} }, 2000);
   };
 
   const zoneCls = phase === 'found' ? 'border-emerald-500' : phase === 'notfound' ? 'border-red-500' : phase === 'scanning' ? 'border-blue-500' : 'border-slate-700';
@@ -263,14 +268,14 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
                 <div className="grid grid-cols-4 gap-2">
                   {(Object.entries(PAY_LABELS) as [PayMethod, string][]).map(([k, l]) => (
                     <button key={k} onClick={() => setPay(k)}
-                      className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${pay === k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                      className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${pay === k ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
                       {l}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-3">
-                <button onClick={cobrar} className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-sm hover:bg-emerald-700 transition-all active:scale-95">
+              <div className="flex gap-3 flex-wrap">
+                <button onClick={cobrar} className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
                   <CheckCircle2 size={18} /> Cobrar {fmtMoney(total)} y entregar
                 </button>
                 <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-4 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all">
@@ -294,8 +299,8 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
           <p className="text-lg font-black text-slate-900 mb-1">Despachado correctamente</p>
           <p className="text-xs text-slate-400 mb-6">Factura generada · Garantía activada</p>
           <div className="flex gap-3 justify-center">
-            {repair && <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200"><Printer size={13} /> Ticket</button>}
-            <button onClick={() => { setPhase('idle'); setRepair(null); setRawCode(''); refocus(); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs hover:bg-black">
+            {repair && <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all"><Printer size={13} /> Ticket</button>}
+            <button onClick={() => { setPhase('idle'); setRepair(null); setRawCode(''); refocus(); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs hover:bg-black transition-all">
               Siguiente cliente
             </button>
           </div>
@@ -327,7 +332,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
                       <p className="text-sm font-black text-emerald-600">{fmtMoney(total)}</p>
                       <p className={`text-[10px] ${days > 7 ? 'text-red-400' : days > 3 ? 'text-amber-400' : 'text-slate-400'}`}>{days}d esperando</p>
                     </div>
-                    <Zap size={14} className="text-slate-200 group-hover:text-blue-400 shrink-0" />
+                    <Zap size={14} className="text-slate-200 group-hover:text-blue-400 transition-colors shrink-0" />
                   </div>
                 );
               })}
