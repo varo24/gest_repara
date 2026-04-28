@@ -168,7 +168,9 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-  window.onload = function() {
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  setTimeout(function() {
     new QRCode(document.getElementById('qrcode'), {
       text: '${fmtRMA(r.rmaNumber)}',
       width: 120,
@@ -177,14 +179,14 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.H
     });
-  };
+    setTimeout(function() { window.print(); }, 500);
+  }, 800);
 </script>
 <div class="footer">${settings.letterhead || 'Garantía 3 meses en mano de obra'}<br>${new Date().toLocaleDateString('es-ES')}</div>
 </body></html>`;
     const w = window.open('', '_blank', 'width=340,height=700');
     if (!w) return;
     w.document.write(html); w.document.close(); w.focus();
-    setTimeout(() => { try { w.print(); } catch {} }, 700);
   };
 
   const zoneCls = phase === 'found' ? 'border-emerald-500' : phase === 'notfound' ? 'border-red-500' : phase === 'scanning' ? 'border-blue-500' : 'border-slate-700';
