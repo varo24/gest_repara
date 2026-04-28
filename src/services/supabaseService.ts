@@ -6,8 +6,8 @@
 // This prevents Terminal B from overwriting Terminal A's changes.
 // ============================================================
 
-const BASE = 'https://bglmkckpopcuxmafting.supabase.co/rest/v1';
-const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnbG1rY2twb3BjdXhtYWZ0aW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDg0MzYsImV4cCI6MjA4NzE4NDQzNn0.g88wW7562dUhmzpNNPRxqxpMdykTv8A1YXBkSVNI4dA';
+const BASE = 'https://ehtvcjleikeghldgaveb.supabase.co/rest/v1';
+const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVodHZjamxlaWtlZ2hsZGdhdmViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczODM3MTMsImV4cCI6MjA5Mjk1OTcxM30.1qDCpqVPx2gSoBWdL6jQnnxrmyw7nUGGjuHt3mL57IY';
 
 const H: Record<string, string> = {
   'Content-Type': 'application/json',
