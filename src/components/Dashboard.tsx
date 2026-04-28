@@ -185,5 +185,3 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
 };
 
 export default Dashboard;
-
-export default Dashboard;
