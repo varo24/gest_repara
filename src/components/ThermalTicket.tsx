@@ -120,6 +120,7 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
       <div class="rma-number">${rmaFormatted}</div>
     </div>
     <div class="barcode-num">${barcodeDigits}</div>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(rmaFormatted)}&color=000000&bgcolor=ffffff" width="100" height="100" style="margin:3mm auto 0;display:block" alt="QR" />
   </div>
 
   <div class="line-thick"></div>
@@ -174,7 +175,7 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
       win.document.write(printContent);
       win.document.close();
       win.focus();
-      setTimeout(() => { try { win.print(); } catch(e) {} }, 600);
+      setTimeout(() => { try { win.print(); } catch(e) {} }, 1500);
       return;
     }
     // Fallback: hidden iframe

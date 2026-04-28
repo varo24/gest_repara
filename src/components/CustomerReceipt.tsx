@@ -255,6 +255,16 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({ repair, settings, onC
     </div>
   </div>
 
+  <!-- QR ESCANEO -->
+  <div style="display:flex;align-items:center;gap:16px;border:1px solid #000;border-radius:4px;padding:8px 12px;margin-bottom:10px;">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(rmaFormatted)}&color=000000&bgcolor=ffffff" width="80" height="80" alt="QR ${rmaFormatted}" style="flex-shrink:0" />
+    <div>
+      <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#555;margin-bottom:4px;">Código QR de recogida</div>
+      <div style="font-size:13px;font-weight:900;letter-spacing:2px;">${rmaFormatted}</div>
+      <div style="font-size:9px;color:#333;margin-top:4px;">Muestre este código al recoger su equipo.<br>El técnico lo escaneará para acceder a su ficha.</div>
+    </div>
+  </div>
+
   <!-- PIE -->
   <div class="footer">
     <span>Conserve este resguardo para retirar su equipo · ${settings.appName}</span>
