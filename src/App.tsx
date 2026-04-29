@@ -407,6 +407,34 @@ const App: React.FC = () => {
                   await sendWhatsApp(repair.customerPhone, msg);
                   notify('success', `Presupuesto enviado a ${repair.customerName}`);
                 }}
+                onConvertToInvoice={(budget, repair) => {
+                  const allInvoices = (localDB as any).getAll('invoices');
+                  const nums = allInvoices.map((i: any) => parseInt(i.invoiceNumber?.replace(/\D/g, '') || '0')).filter(Boolean);
+                  const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
+                  const invoiceNumber = `FAC-${String(nextNum).padStart(5, '0')}`;
+                  const now = new Date().toISOString();
+                  const invoice = {
+                    id: `INV-${Date.now()}`,
+                    invoiceNumber,
+                    repairId: repair.id,
+                    rmaNumber: repair.rmaNumber,
+                    customerName: repair.customerName,
+                    customerPhone: repair.customerPhone,
+                    date: now.slice(0, 10),
+                    items: budget.items,
+                    laborItems: budget.laborItems,
+                    subtotal: budget.subtotal,
+                    taxRate: budget.taxRate,
+                    taxAmount: budget.taxAmount,
+                    total: budget.total,
+                    status: 'pendiente',
+                    isRectificativa: false,
+                    createdAt: now,
+                  };
+                  storage.save('invoices', invoice.id, invoice);
+                  notify('success', `${invoiceNumber} creada desde presupuesto RMA-${String(repair.rmaNumber).padStart(5,'0')}`);
+                  navigateTo('invoices');
+                }}
               />
             )}
             {currentView === 'customers' && (
