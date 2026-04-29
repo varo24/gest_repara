@@ -7,7 +7,11 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ]
   }
 }
