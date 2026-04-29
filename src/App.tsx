@@ -563,7 +563,12 @@ const App: React.FC = () => {
             {currentView === 'invoices' && (
               <Facturacion
                 settings={settings}
+                customers={customersDB}
                 onNotify={notify}
+                onSaveCustomer={async (customer) => {
+                  await storage.save('customers', customer.id, customer);
+                  notify('success', `${customer.name} guardado en la agenda`);
+                }}
               />
             )}
             {['inventory','inventory-entrada','garantias'].includes(currentView) && (

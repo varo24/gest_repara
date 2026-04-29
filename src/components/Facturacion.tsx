@@ -22,7 +22,8 @@ interface FullInvoice {
   isRectificativa?: boolean; createdAt: string;
 }
 
-interface Props { settings: AppSettings; onNotify: (t: 'success'|'error'|'info', m: string) => void; }
+interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
+interface Props { settings: AppSettings; customers?: Customer[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
@@ -136,7 +137,7 @@ ${inv.status === 'cobrada' ? `<div style="margin-top:10px;text-align:right"><spa
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, onNotify }) => {
+const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSaveCustomer }) => {
   const [invoices, setInvoices]     = useState<FullInvoice[]>(() => localDB.getAll('invoices') as FullInvoice[]);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatus]   = useState('todas');
@@ -229,8 +230,20 @@ const Facturacion: React.FC<Props> = ({ settings, onNotify }) => {
 
   // ── Formulario nueva factura ───────────────────────────────────────────────
   if (showNew) return (
-    <NewInvoiceForm settings={settings}
-      onSave={(inv) => { storage.save('invoices', inv.id, inv); onNotify('success', `${inv.invoiceNumber} creada`); reload(); setShowNew(false); }}
+    <NewInvoiceForm settings={settings} customers={customers}
+      onSave={(inv, saveCustomer) => {
+        storage.save('invoices', inv.id, inv);
+        if (saveCustomer && inv.customerName && inv.customerPhone) {
+          const now = new Date().toISOString();
+          const existing = customers.find(c => c.phone === inv.customerPhone);
+          if (!existing) {
+            const newCustomer: Customer = { id: `CUST-${Date.now()}`, name: inv.customerName, phone: inv.customerPhone, address: inv.customerAddress, taxId: inv.customerTaxId, createdAt: now, updatedAt: now };
+            if (onSaveCustomer) onSaveCustomer(newCustomer);
+          }
+        }
+        onNotify('success', `${inv.invoiceNumber} creada`);
+        reload(); setShowNew(false);
+      }}
       onCancel={() => setShowNew(false)} />
   );
 
@@ -367,11 +380,15 @@ const Facturacion: React.FC<Props> = ({ settings, onNotify }) => {
 
 interface NewInvoiceFormProps {
   settings: AppSettings;
-  onSave: (inv: FullInvoice) => void;
+  customers: Customer[];
+  onSave: (inv: FullInvoice, saveCustomer: boolean) => void;
   onCancel: () => void;
 }
 
-const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, onSave, onCancel }) => {
+const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, onSave, onCancel }) => {
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [saveAsCustomer, setSaveAsCustomer] = useState(false);
   const [customerName, setCustomerName]   = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerTaxId, setCustomerTaxId] = useState('');
@@ -417,7 +434,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, onSave, onCan
       paidAt: status === 'cobrada' ? now : undefined,
       isRectificativa: false, createdAt: now,
     };
-    onSave(inv);
+    onSave(inv, saveAsCustomer);
   };
 
   return (
@@ -432,17 +449,82 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, onSave, onCan
 
       {/* Cliente */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Datos del cliente</p>
-        <div className="grid grid-cols-2 gap-4">
-          {[['Nombre *','text',customerName,setCustomerName,'Nombre completo'],['Teléfono','tel',customerPhone,setCustomerPhone,'600 000 000'],['NIF / CIF','text',customerTaxId,setCustomerTaxId,'12345678A'],['Dirección','text',customerAddress,setCustomerAddress,'Calle...']]
-            .map(([label,type,val,setter,ph]) => (
-              <div key={String(label)}>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label as string}</label>
-                <input type={type as string} value={val as string} onChange={e => (setter as any)(e.target.value)} placeholder={ph as string}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"/>
-              </div>
-            ))}
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Datos del cliente</p>
+          {customers.length > 0 && (
+            <span className="text-[10px] text-slate-400">{customers.length} clientes en agenda</span>
+          )}
         </div>
+
+        {/* Buscador de cliente existente */}
+        {customers.length > 0 && (
+          <div className="relative">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Buscar cliente existente</label>
+            <input
+              type="text" value={customerSearch} placeholder="Nombre o teléfono..."
+              onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
+              onFocus={() => setShowCustomerDropdown(true)}
+              className="w-full px-3.5 py-2.5 text-sm border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-blue-50"
+            />
+            {showCustomerDropdown && customerSearch.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {customers
+                  .filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch))
+                  .slice(0, 8)
+                  .map(c => (
+                    <button key={c.id} type="button"
+                      onClick={() => {
+                        setCustomerName(c.name);
+                        setCustomerPhone(c.phone);
+                        setCustomerTaxId(c.taxId || '');
+                        setCustomerAddress(c.address || '');
+                        setCustomerSearch(c.name);
+                        setShowCustomerDropdown(false);
+                        setSaveAsCustomer(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-slate-50 last:border-0">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-blue-600">{c.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{c.name}</p>
+                        <p className="text-[10px] text-slate-400">{c.phone}{c.city ? ' · ' + c.city : ''}</p>
+                      </div>
+                    </button>
+                  ))}
+                {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch)).length === 0 && (
+                  <p className="px-4 py-3 text-xs text-slate-400">No encontrado — rellena los datos manualmente</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            ['Nombre *','text',customerName,setCustomerName,'Nombre completo'],
+            ['Teléfono','tel',customerPhone,setCustomerPhone,'600 000 000'],
+            ['NIF / CIF','text',customerTaxId,setCustomerTaxId,'12345678A'],
+            ['Dirección','text',customerAddress,setCustomerAddress,'Calle...']
+          ].map(([label,type,val,setter,ph]) => (
+            <div key={String(label)}>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label as string}</label>
+              <input type={type as string} value={val as string} onChange={e => (setter as any)(e.target.value)} placeholder={ph as string}
+                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"/>
+            </div>
+          ))}
+        </div>
+
+        {/* Guardar como cliente */}
+        {customerName && !customers.find(c => c.phone === customerPhone) && (
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <input type="checkbox" checked={saveAsCustomer} onChange={e => setSaveAsCustomer(e.target.checked)}
+              className="w-4 h-4 accent-blue-600 cursor-pointer"/>
+            <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">
+              Guardar como cliente en la agenda
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Líneas */}
