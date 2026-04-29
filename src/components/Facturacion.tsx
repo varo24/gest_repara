@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
   XCircle, Clock, Download, FileText, TrendingUp, X, Save
@@ -22,7 +22,7 @@ interface FullInvoice {
 }
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
-interface Props { settings: AppSettings; customers?: Customer[]; invoices: FullInvoice[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
+interface Props { settings: AppSettings; customers?: Customer[]; invoices?: FullInvoice[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
@@ -301,7 +301,8 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNotify, onSaveCustomer }) => {
+const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices: propInvoices = [], onNotify, onSaveCustomer }) => {
+  const [invoices, setInvoices]   = useState<FullInvoice[]>(propInvoices as FullInvoice[]);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatus] = useState('todas');
   const [selected, setSelected]   = useState<FullInvoice | null>(null);
@@ -309,13 +310,17 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
   const [payMethod, setPayMethod] = useState('efectivo');
   const [showNew, setShowNew]     = useState(false);
 
+  useEffect(() => {
+    return storage.subscribe('invoices', data => setInvoices(data as FullInvoice[]));
+  }, []);
+
   const filtered = invoices
     .filter(i => {
       if ((i as any)._deleted) return false;
       const s = `${i.invoiceNumber} ${i.customerName} ${i.customerPhone}`.toLowerCase();
       return s.includes(search.toLowerCase()) && (statusFilter === 'todas' || i.status === statusFilter);
     })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const month = new Date().toISOString().slice(0, 7);
   const visibleInvoices = invoices.filter(i => !(i as any)._deleted);
