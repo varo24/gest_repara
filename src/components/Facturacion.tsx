@@ -281,10 +281,21 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 </div>
 
 </body></html>`;
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) return;
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => { try { w.print(); } catch {} }, 900);
+  // Use iframe to avoid popup blocker
+  const frameId = 'inv-print-frame';
+  let frame = document.getElementById(frameId) as HTMLIFrameElement;
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.id = frameId;
+  frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument || frame.contentWindow?.document;
+  if (!doc) return;
+  doc.open(); doc.write(html); doc.close();
+  setTimeout(() => {
+    try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } catch {}
+    setTimeout(() => frame.remove(), 3000);
+  }, 800);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -304,15 +315,17 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
 
   const filtered = invoices
     .filter(i => {
+      if ((i as any)._deleted) return false;
       const s = `${i.invoiceNumber} ${i.customerName} ${i.customerPhone}`.toLowerCase();
       return s.includes(search.toLowerCase()) && (statusFilter === 'todas' || i.status === statusFilter);
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const month = new Date().toISOString().slice(0, 7);
-  const mesCobrado   = invoices.filter(i => i.status === 'cobrada' && i.date?.startsWith(month)).reduce((s,i) => s+i.total, 0);
-  const totalCobrado = invoices.filter(i => i.status === 'cobrada').reduce((s,i) => s+i.total, 0);
-  const pendiente    = invoices.filter(i => i.status === 'pendiente').reduce((s,i) => s+i.total, 0);
+  const visibleInvoices = invoices.filter(i => !(i as any)._deleted);
+  const mesCobrado   = visibleInvoices.filter(i => i.status === 'cobrada' && i.date?.startsWith(month)).reduce((s,i) => s+i.total, 0);
+  const totalCobrado = visibleInvoices.filter(i => i.status === 'cobrada').reduce((s,i) => s+i.total, 0);
+  const pendiente    = visibleInvoices.filter(i => i.status === 'pendiente').reduce((s,i) => s+i.total, 0);
 
   const marcarCobrada = async () => {
     if (!payModal) return;
@@ -335,6 +348,16 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
     reload(); if (selected?.id === inv.id) setSelected(null);
   };
 
+  const deleteInvoice = (inv: FullInvoice) => {
+    if (!window.confirm(
+      `¿Eliminar ${inv.invoiceNumber}?\n\nEl número quedará reservado y no se reutilizará para mantener la correlación fiscal.`
+    )) return;
+    // Mark as deleted but keep the number reserved
+    storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, deletedAt: new Date().toISOString() });
+    onNotify('info', `${inv.invoiceNumber} eliminada — número reservado`);
+    reload(); if (selected?.id === inv.id) setSelected(null);
+  };
+
   // ── Vista detalle ──────────────────────────────────────────────────────────
   if (selected) return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -344,6 +367,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
           <button onClick={() => printInvoice(selected, settings)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all"><Printer size={13}/> Imprimir</button>
           {selected.status === 'pendiente' && <button onClick={() => { setPayModal(selected); setPayMethod('efectivo'); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all"><CheckCircle2 size={13}/> Cobrar</button>}
           {selected.status !== 'anulada' && <button onClick={() => anular(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-black uppercase hover:bg-red-100 transition-all"><XCircle size={13}/> Anular</button>}
+          <button onClick={() => deleteInvoice(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase hover:bg-red-700 transition-all"><Trash2 size={13}/> Eliminar</button>
         </div>
       </div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -487,6 +511,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
                         <button onClick={() => setSelected(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Ver"><Eye size={13}/></button>
                         <button onClick={() => printInvoice(inv, settings)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
                         {inv.status === 'pendiente' && <button onClick={() => { setPayModal(inv); setPayMethod('efectivo'); }} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="Cobrar"><CheckCircle2 size={13}/></button>}
+                        <button onClick={() => deleteInvoice(inv)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all" title="Eliminar"><Trash2 size={13}/></button>
                       </div>
                     </td>
                   </tr>
