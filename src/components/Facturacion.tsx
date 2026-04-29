@@ -4,7 +4,7 @@ import {
   XCircle, Clock, Download, FileText, TrendingUp, X, Save
 } from 'lucide-react';
 import { AppSettings } from '../types';
-import { storage, localDB } from '../lib/dataService';
+import { storage } from '../lib/dataService';
 
 interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; }
 interface LaborLine  { id: string; description: string; hours: number; hourlyRate: number; }
@@ -22,7 +22,7 @@ interface FullInvoice {
 }
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
-interface Props { settings: AppSettings; customers?: Customer[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
+interface Props { settings: AppSettings; customers?: Customer[]; invoices: FullInvoice[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
@@ -301,16 +301,13 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSaveCustomer }) => {
-  const [invoices, setInvoices]     = useState<FullInvoice[]>(() => localDB.getAll('invoices') as FullInvoice[]);
-  const [search, setSearch]         = useState('');
-  const [statusFilter, setStatus]   = useState('todas');
-  const [selected, setSelected]     = useState<FullInvoice | null>(null);
-  const [payModal, setPayModal]     = useState<FullInvoice | null>(null);
-  const [payMethod, setPayMethod]   = useState('efectivo');
-  const [showNew, setShowNew]       = useState(false);
-
-  const reload = () => setInvoices(localDB.getAll('invoices') as FullInvoice[]);
+const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNotify, onSaveCustomer }) => {
+  const [search, setSearch]       = useState('');
+  const [statusFilter, setStatus] = useState('todas');
+  const [selected, setSelected]   = useState<FullInvoice | null>(null);
+  const [payModal, setPayModal]   = useState<FullInvoice | null>(null);
+  const [payMethod, setPayMethod] = useState('efectivo');
+  const [showNew, setShowNew]     = useState(false);
 
   const filtered = invoices
     .filter(i => {
@@ -337,14 +334,14 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
       amount: updated.total, payMethod, date: now.slice(0,10), category: 'reparacion', createdAt: now,
     });
     onNotify('success', `${payModal.invoiceNumber} cobrada correctamente`);
-    setPayModal(null); reload();
+    setPayModal(null);
   };
 
   const anular = (inv: FullInvoice) => {
     if (!window.confirm(`¿Anular ${inv.invoiceNumber}? No se puede deshacer.`)) return;
     storage.save('invoices', inv.id, { ...inv, status: 'anulada' });
     onNotify('info', `${inv.invoiceNumber} anulada`);
-    reload(); if (selected?.id === inv.id) setSelected(null);
+    if (selected?.id === inv.id) setSelected(null);
   };
 
   const deleteInvoice = (inv: FullInvoice) => {
@@ -354,7 +351,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
     // Mark as deleted but keep the number reserved
     storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, deletedAt: new Date().toISOString() });
     onNotify('info', `${inv.invoiceNumber} eliminada — número reservado`);
-    reload(); if (selected?.id === inv.id) setSelected(null);
+    if (selected?.id === inv.id) setSelected(null);
   };
 
   // ── Vista detalle ──────────────────────────────────────────────────────────
@@ -407,7 +404,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
 
   // ── Formulario nueva factura ───────────────────────────────────────────────
   if (showNew) return (
-    <NewInvoiceForm settings={settings} customers={customers}
+    <NewInvoiceForm settings={settings} customers={customers} invoices={invoices}
       onSave={(inv, saveCustomer) => {
         storage.save('invoices', inv.id, inv);
         if (saveCustomer && inv.customerName && inv.customerPhone) {
@@ -419,7 +416,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
           }
         }
         onNotify('success', `${inv.invoiceNumber} creada`);
-        reload(); setShowNew(false);
+        setShowNew(false);
       }}
       onCancel={() => setShowNew(false)} />
   );
@@ -559,11 +556,12 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], onNotify, onSa
 interface NewInvoiceFormProps {
   settings: AppSettings;
   customers: Customer[];
+  invoices: FullInvoice[];
   onSave: (inv: FullInvoice, saveCustomer: boolean) => void;
   onCancel: () => void;
 }
 
-const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, onSave, onCancel }) => {
+const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, invoices, onSave, onCancel }) => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [saveAsCustomer, setSaveAsCustomer] = useState(false);
@@ -588,8 +586,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, on
   const total     = Math.round((subtotal + taxAmount) * 100) / 100;
 
   const nextInvoiceNumber = () => {
-    const all = localDB.getAll('invoices');
-    const nums = all.map((i:any) => parseInt(i.invoiceNumber?.replace(/\D/g,'') || '0')).filter(Boolean);
+    const nums = invoices.map((i:any) => parseInt(i.invoiceNumber?.replace(/\D/g,'') || '0')).filter(Boolean);
     const next = nums.length ? Math.max(...nums)+1 : 1;
     return `FAC-${String(next).padStart(5,'0')}`;
   };

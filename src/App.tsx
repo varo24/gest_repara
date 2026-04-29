@@ -60,6 +60,7 @@ const App: React.FC = () => {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
   // New module states
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [citas, setCitas] = useState<Cita[] | null>(null);
   const [externalApps, setExternalApps] = useState<ExternalApp[] | null>(null);
   const [activeExternalApp, setActiveExternalApp] = useState<ExternalApp | null>(null);
@@ -110,6 +111,7 @@ const App: React.FC = () => {
         storage.subscribe('settings', (data) => {
           if (data && data.length > 0) setSettings(data[0]);
         });
+        storage.subscribe('invoices', setInvoices);
         storage.subscribe('citas', setCitas);
         storage.subscribe('apps_externas', setExternalApps);
         storage.subscribe('customers', setCustomersDB);
@@ -564,6 +566,7 @@ const App: React.FC = () => {
               <Facturacion
                 settings={settings}
                 customers={customersDB}
+                invoices={invoices}
                 onNotify={notify}
                 onSaveCustomer={async (customer) => {
                   await storage.save('customers', customer.id, customer);
