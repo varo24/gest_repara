@@ -343,4 +343,11 @@ export const storage = {
   nextRmaNumber: (): number => {
     return localStore.getAll('repairs').reduce((m: number, r: any) => Math.max(m, r.rmaNumber || 0), 0) + 1;
   },
+
+  exportData: async (): Promise<string> => {
+    const BACKUP_COLS = ['repairs', 'budgets', 'invoices', 'cash_movements', 'inventory', 'customers', 'warranties', 'settings'];
+    const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v1-firestore' };
+    for (const col of BACKUP_COLS) result[col] = localStore.getAll(col);
+    return JSON.stringify(result, null, 2);
+  },
 };
