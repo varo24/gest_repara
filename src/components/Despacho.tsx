@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, CheckCircle2, X, Printer, MessageCircle } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
-import { storage } from '../services/persistence';
-import { localDB } from '../services/localDB';
+import { storage, localDB } from '../lib/dataService';
 
 interface DespachoProps {
   repairs: RepairItem[];

@@ -20,8 +20,7 @@ import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem } from './types';
-import { storage } from './services/persistence';
-import { localDB } from './services/localDB';
+import { storage, localDB } from './lib/dataService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 

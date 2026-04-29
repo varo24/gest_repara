@@ -5,7 +5,7 @@ import {
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload
 } from 'lucide-react';
 import { AppSettings } from '../types';
-import { storage } from '../services/persistence';
+import { storage } from '../lib/dataService';
 import { supabase } from '../services/supabaseService';
 
 interface SettingsFormProps {

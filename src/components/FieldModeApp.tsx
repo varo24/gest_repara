@@ -5,7 +5,7 @@ import {
   RefreshCw, LogOut, Wifi, WifiOff, Home, User, AlertCircle
 } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings, Cita, CitaEstado, EstadoVisita } from '../types';
-import { storage } from '../services/persistence';
+import { storage } from '../lib/dataService';
 import RepairForm from './RepairForm';
 import BudgetCreator from './BudgetCreator';
 import SignaturePad from './SignaturePad';

@@ -4,8 +4,7 @@ import {
   XCircle, Clock, Download, FileText, TrendingUp, X, Save
 } from 'lucide-react';
 import { AppSettings } from '../types';
-import { localDB } from '../services/localDB';
-import { storage } from '../services/persistence';
+import { storage, localDB } from '../lib/dataService';
 
 interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; }
 interface LaborLine  { id: string; description: string; hours: number; hourlyRate: number; }

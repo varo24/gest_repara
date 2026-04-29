@@ -6,7 +6,7 @@ import {
   Zap, Package, Receipt, ShieldCheck
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita } from '../types';
-import { storage } from '../services/persistence';
+import { storage } from '../lib/dataService';
 import GlobalSearch from './GlobalSearch';
 
 interface SidebarProps {
