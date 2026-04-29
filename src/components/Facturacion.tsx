@@ -24,7 +24,7 @@ interface FullInvoice {
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
 interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n) + ' €';
+const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n || 0) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
 const fmtRMA   = (n: number)   => `RMA-${String(n).padStart(5, '0')}`;
 const uid      = ()             => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
