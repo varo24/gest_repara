@@ -18,7 +18,8 @@ import TechFieldView from './components/TechFieldView';
 import FieldModeApp from './components/FieldModeApp';
 import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer } from './types';
+import Facturacion from './components/Facturacion';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem } from './types';
 import { storage } from './services/persistence';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
@@ -408,24 +409,6 @@ const App: React.FC = () => {
                 }}
               />
             )}
-            {currentView === 'despacho' && (
-  <Despacho
-    repairs={repairs ?? []}
-    budgets={budgets ?? []}
-    settings={settings}
-    onStatusChange={async (id, status) => {
-      const repair = repairs?.find(r => r.id === id);
-      if (repair) await storage.save('repairs', id, { ...repair, status });
-    }}
-    onNotify={notify}
-  />
-)}
-{['inventory','inventory-entrada','invoices','garantias'].includes(currentView) && (
-  <div className="text-center py-20">
-    <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Módulo en desarrollo</p>
-    <p className="text-slate-300 text-xs mt-2">Disponible en la próxima actualización</p>
-  </div>
-)}
             {currentView === 'customers' && (
               <CustomerList 
                 repairs={repairs ?? []}
@@ -536,6 +519,30 @@ const App: React.FC = () => {
                 }}
                 onBack={() => navigateTo('dashboard')}
               />
+            )}
+            {currentView === 'despacho' && (
+              <Despacho
+                repairs={repairs ?? []}
+                budgets={budgets ?? []}
+                settings={settings}
+                onStatusChange={async (id, status) => {
+                  const repair = repairs?.find(r => r.id === id);
+                  if (repair) await storage.save('repairs', id, { ...repair, status });
+                }}
+                onNotify={notify}
+              />
+            )}
+            {currentView === 'invoices' && (
+              <Facturacion
+                settings={settings}
+                onNotify={notify}
+              />
+            )}
+            {['inventory','inventory-entrada','garantias'].includes(currentView) && (
+              <div className="text-center py-20">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Módulo en desarrollo</p>
+                <p className="text-slate-300 text-xs mt-2">Disponible en la próxima actualización</p>
+              </div>
             )}
             {currentView === 'diagnostic' && (
               <SupabaseDiagnostic onClose={() => navigateTo('settings')} />
