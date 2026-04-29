@@ -61,76 +61,230 @@ const exportCSV = (invoices: FullInvoice[]) => {
 
 // ── Print invoice ─────────────────────────────────────────────────────────────
 const printInvoice = (inv: FullInvoice, settings: AppSettings) => {
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  const isSimplificada = !inv.customerTaxId;
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:white;color:#000;width:210mm;padding:14mm;font-size:11px}
+body{font-family:'Inter',sans-serif;background:white;color:#111;width:210mm;min-height:297mm;padding:12mm 14mm;font-size:10px;position:relative}
 @page{size:A4 portrait;margin:0}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:12px;margin-bottom:16px}
-.shop-name{font-size:20px;font-weight:900;text-transform:uppercase}
-.shop-info{font-size:10px;color:#333;margin-top:4px;line-height:1.8}
-.inv-badge{background:#000;color:#fff;padding:6px 14px;border-radius:4px;text-align:right}
-.inv-num{font-size:22px;font-weight:900}
-.inv-label{font-size:8px;text-transform:uppercase;letter-spacing:2px;opacity:0.7}
-.section{border:1px solid #000;border-radius:4px;margin-bottom:12px;overflow:hidden}
-.section-title{background:#000;color:#fff;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:2px;padding:4px 10px}
-.section-body{padding:10px}
-table{width:100%;border-collapse:collapse;margin-bottom:12px}
-th{background:#f0f0f0;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:6px 8px;text-align:left;border-bottom:2px solid #000}
-td{padding:6px 8px;border-bottom:1px solid #e0e0e0;font-size:10px}
-.total-box{background:#000;color:#fff;padding:12px 16px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.total-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;opacity:0.7}
-.total-amount{font-size:28px;font-weight:900}
-.footer{border-top:2px solid #000;padding-top:8px;margin-top:16px;font-size:9px;color:#555;display:flex;justify-content:space-between}
-.status-ok{background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:10px;font-weight:700;font-size:10px}
+
+/* HEADER */
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm;padding-bottom:6mm;border-bottom:2px solid #000}
+.logo-area{display:flex;align-items:center;gap:8px}
+.logo-box{width:72px;height:72px;border:1.5px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8f8f8}
+.logo-box img{width:100%;height:100%;object-fit:contain}
+.logo-initials{font-size:26px;font-weight:900;color:#111;letter-spacing:-1px}
+.shop-data{margin-left:4px}
+.shop-name{font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:-0.3px;line-height:1}
+.shop-sub{font-size:8.5px;color:#555;margin-top:3px;line-height:1.7}
+.doc-type-block{text-align:right}
+.doc-type{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;border:2px solid #111;padding:4px 12px;display:inline-block;margin-bottom:6px}
+.doc-meta{font-size:8px;color:#666;line-height:2}
+.doc-meta strong{color:#111;font-weight:700}
+
+/* PARTIES */
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:8mm}
+.party-box{border:1px solid #e0e0e0;border-radius:4px;overflow:hidden}
+.party-title{background:#111;color:#fff;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px}
+.party-body{padding:8px;font-size:9px;line-height:1.9;color:#333}
+.party-name{font-size:11px;font-weight:800;color:#111;text-transform:uppercase;line-height:1.2;margin-bottom:3px}
+.party-cif{font-size:8px;color:#888;margin-top:2px}
+
+/* TABLE */
+.items-table{width:100%;border-collapse:collapse;margin-bottom:6mm;font-size:9px}
+.items-table thead tr{background:#111;color:#fff}
+.items-table thead th{padding:5px 8px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:left}
+.items-table thead th.r{text-align:right}
+.items-table tbody tr{border-bottom:1px solid #eee}
+.items-table tbody tr:nth-child(even){background:#fafafa}
+.items-table tbody td{padding:6px 8px;vertical-align:top}
+.items-table tbody td.r{text-align:right;font-weight:600}
+.items-table tbody td.c{text-align:center}
+.item-code{font-size:7.5px;color:#888;font-family:monospace;display:block;margin-top:1px}
+.items-table tfoot tr{border-top:2px solid #ddd}
+.items-table tfoot td{padding:4px 8px;font-size:9px}
+
+/* TOTALS */
+.totals-section{display:flex;justify-content:flex-end;margin-bottom:8mm}
+.totals-box{width:80mm}
+.totals-row{display:flex;justify-content:space-between;padding:3px 0;font-size:9px;border-bottom:1px solid #f0f0f0}
+.totals-row.subtotal{color:#555}
+.totals-row.iva{color:#555}
+.totals-row.total{border-top:2px solid #111;border-bottom:none;margin-top:3px;padding-top:6px}
+.totals-row.total .label{font-size:11px;font-weight:800;text-transform:uppercase}
+.totals-row.total .amount{font-size:18px;font-weight:900;color:#111}
+
+/* PAYMENT */
+.payment-section{border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:6mm}
+.payment-title{background:#f5f5f5;border-bottom:1px solid #e0e0e0;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px;color:#555}
+.payment-body{padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:8.5px;color:#333}
+.pay-item{display:flex;flex-direction:column}
+.pay-label{font-size:7px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:1px}
+.pay-value{font-weight:600;color:#111}
+.vencimiento{grid-column:1/-1;background:#f9f9f9;border:1px solid #e8e8e8;border-radius:3px;padding:5px 8px;display:flex;justify-content:space-between;align-items:center}
+.venc-label{font-size:7px;text-transform:uppercase;letter-spacing:1px;color:#999}
+.venc-amount{font-size:13px;font-weight:800;color:#111}
+.venc-date{font-size:9px;font-weight:600;color:#555}
+
+/* FOOTER */
+.footer{position:absolute;bottom:10mm;left:14mm;right:14mm;border-top:1px solid #ddd;padding-top:5mm}
+.footer-text{font-size:7.5px;color:#888;line-height:1.7}
+.footer-legal{font-size:7px;color:#aaa;margin-top:3px}
+.page-num{text-align:right;font-size:7.5px;color:#bbb;margin-top:3px}
+
+/* STATUS STAMP */
+.stamp{position:absolute;top:80mm;right:20mm;border:3px solid #16a34a;color:#16a34a;padding:4px 12px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:2px;transform:rotate(-15deg);opacity:0.35;border-radius:3px}
+.stamp-void{position:absolute;top:80mm;right:20mm;border:3px solid #dc2626;color:#dc2626;padding:4px 12px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:2px;transform:rotate(-15deg);opacity:0.35;border-radius:3px}
 </style></head><body>
+
+${inv.status === 'cobrada' ? '<div class="stamp">PAGADA</div>' : ''}
+${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
+
+<!-- HEADER -->
 <div class="header">
-  <div>
-    <div class="shop-name">${settings.appName}</div>
-    <div class="shop-info">
-      ${settings.address || ''}<br>
-      Tel: ${settings.phone || ''}${settings.taxId ? ' · NIF/CIF: ' + settings.taxId : ''}
+  <div class="logo-area">
+    ${settings.logoUrl
+      ? `<div class="logo-box"><img src="${settings.logoUrl}" alt="Logo"/></div>`
+      : `<div class="logo-box"><span class="logo-initials">${(settings.appName||'G').charAt(0)}</span></div>`}
+    <div class="shop-data">
+      <div class="shop-name">${settings.appName}</div>
+      <div class="shop-sub">
+        ${settings.address ? settings.address + '<br>' : ''}
+        ${settings.phone ? 'Tel. ' + settings.phone : ''}
+        ${settings.email ? '<br>e-Mail ' + settings.email : ''}
+        ${settings.taxId ? '<br>C.I.F. ' + settings.taxId : ''}
+      </div>
     </div>
   </div>
-  <div class="inv-badge">
-    <div class="inv-label">${inv.isRectificativa ? 'Factura Rectificativa' : 'Factura'}</div>
-    <div class="inv-num">${inv.invoiceNumber}</div>
-    <div style="font-size:10px;margin-top:4px;opacity:0.8">${fmtDate(inv.date)}</div>
+  <div class="doc-type-block">
+    <div class="doc-type">${inv.isRectificativa ? 'Factura Rectificativa' : isSimplificada ? 'Fact. Simplificada' : 'Factura'}</div>
+    <div class="doc-meta">
+      <strong>Nº Fact.</strong> &nbsp; ${inv.invoiceNumber}<br>
+      <strong>Fecha</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${fmtDate(inv.date)}<br>
+      <strong>Fecha Valor</strong> ${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}<br>
+      ${inv.rmaNumber ? `<strong>Referencia</strong> ${fmtRMA(inv.rmaNumber)}` : ''}
+    </div>
   </div>
 </div>
-<div class="section">
-  <div class="section-title">▶ Cliente</div>
-  <div class="section-body">
-    <div style="font-size:14px;font-weight:800;text-transform:uppercase">${inv.customerName}</div>
-    <div style="font-size:11px;margin-top:4px">Tel: ${inv.customerPhone}${inv.customerTaxId ? ' · NIF: ' + inv.customerTaxId : ''}${inv.customerAddress ? '<br>' + inv.customerAddress : ''}</div>
-    ${inv.rmaNumber ? `<div style="font-size:10px;color:#555;margin-top:4px">Reparación: ${fmtRMA(inv.rmaNumber)}</div>` : ''}
+
+<!-- PARTIES -->
+<div class="parties">
+  <div class="party-box">
+    <div class="party-title">Emisor</div>
+    <div class="party-body">
+      <div class="party-name">${settings.appName}</div>
+      ${settings.address ? settings.address + '<br>' : ''}
+      ${settings.phone ? 'Tel. ' + settings.phone : ''}
+      ${settings.email ? '<br>' + settings.email : ''}
+      <div class="party-cif">${settings.taxId ? 'C.I.F. ' + settings.taxId : ''}</div>
+    </div>
+  </div>
+  <div class="party-box">
+    <div class="party-title">Cliente</div>
+    <div class="party-body">
+      <div class="party-name">${inv.customerName}</div>
+      ${inv.customerAddress ? inv.customerAddress + '<br>' : ''}
+      Tel. ${inv.customerPhone}
+      ${inv.customerTaxId ? '<div class="party-cif">' + inv.customerTaxId + '</div>' : ''}
+    </div>
   </div>
 </div>
-<table>
-  <thead><tr><th style="width:50%">Descripción</th><th>Cant.</th><th>Precio unit.</th><th style="text-align:right">Total</th></tr></thead>
+
+<!-- ITEMS TABLE -->
+<table class="items-table">
+  <thead>
+    <tr>
+      <th>Cantidad</th>
+      <th>Código</th>
+      <th>Artículo / Descripción</th>
+      <th class="r">Precio</th>
+      <th class="r">IVA</th>
+      <th class="r">Subtotal</th>
+    </tr>
+  </thead>
   <tbody>
-    ${inv.items.map(i => `<tr><td>${i.description}</td><td>${i.quantity}</td><td>${fmtMoney(i.unitPrice)}</td><td style="text-align:right">${fmtMoney(i.quantity * i.unitPrice)}</td></tr>`).join('')}
-    ${inv.laborItems.map(i => `<tr><td>${i.description} (M.O.)</td><td>${i.hours}h</td><td>${fmtMoney(i.hourlyRate)}/h</td><td style="text-align:right">${fmtMoney(i.hours * i.hourlyRate)}</td></tr>`).join('')}
+    ${inv.items.map((item, i) => `
+    <tr>
+      <td class="c">${item.quantity}</td>
+      <td><span class="item-code">${String(i+1).padStart(4,'0')}</span></td>
+      <td>${item.description}</td>
+      <td class="r">${item.unitPrice.toFixed(2)}</td>
+      <td class="r">${inv.taxRate.toFixed(2)}%</td>
+      <td class="r">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+    </tr>`).join('')}
+    ${inv.laborItems.map((item, i) => `
+    <tr>
+      <td class="c">${item.hours}h</td>
+      <td><span class="item-code">MO${String(i+1).padStart(3,'0')}</span></td>
+      <td>${item.description} <em style="color:#888;font-size:8px">(Mano de obra)</em></td>
+      <td class="r">${item.hourlyRate.toFixed(2)}</td>
+      <td class="r">${inv.taxRate.toFixed(2)}%</td>
+      <td class="r">${(item.hours * item.hourlyRate).toFixed(2)}</td>
+    </tr>`).join('')}
   </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="4"></td>
+      <td style="font-size:8px;font-weight:700;color:#555;text-align:right">Subtotal</td>
+      <td style="font-weight:700;text-align:right">${inv.subtotal.toFixed(2)}</td>
+    </tr>
+  </tfoot>
 </table>
-<div style="text-align:right;margin-bottom:4px;font-size:10px">Base imponible: <strong>${fmtMoney(inv.subtotal)}</strong></div>
-<div style="text-align:right;margin-bottom:8px;font-size:10px">IVA ${inv.taxRate}%: <strong>${fmtMoney(inv.taxAmount)}</strong></div>
-<div class="total-box">
-  <div class="total-label">Total factura</div>
-  <div class="total-amount">${fmtMoney(inv.total)}</div>
+
+<!-- TOTALS -->
+<div class="totals-section">
+  <div class="totals-box">
+    <div class="totals-row subtotal"><span>Descuento</span><span>—</span></div>
+    <div class="totals-row subtotal"><span>Dto. P.Pago</span><span>—</span></div>
+    <div class="totals-row iva">
+      <span>Base Imponible</span><span>${inv.subtotal.toFixed(2)} €</span>
+    </div>
+    <div class="totals-row iva">
+      <span>IVA ${inv.taxRate}%</span><span>${inv.taxAmount.toFixed(2)} €</span>
+    </div>
+    <div class="totals-row total">
+      <span class="label">Total Factura</span>
+      <span class="amount">${inv.total.toFixed(2)} €</span>
+    </div>
+  </div>
 </div>
-${inv.status === 'cobrada' ? `<div style="margin-top:10px;text-align:right"><span class="status-ok">✓ Cobrada · ${PAY_LABELS[inv.payMethod||'']||inv.payMethod} · ${inv.paidAt ? fmtDate(inv.paidAt) : ''}</span></div>` : ''}
+
+<!-- PAYMENT -->
+<div class="payment-section">
+  <div class="payment-title">Forma de Pago y Vencimientos</div>
+  <div class="payment-body">
+    <div class="pay-item">
+      <span class="pay-label">Forma de Pago</span>
+      <span class="pay-value">${PAY_LABELS[inv.payMethod||''] || inv.payMethod || 'Pendiente'}</span>
+    </div>
+    <div class="pay-item">
+      <span class="pay-label">Estado</span>
+      <span class="pay-value">${inv.status === 'cobrada' ? '✓ Cobrada' : inv.status === 'anulada' ? '✗ Anulada' : '⏳ Pendiente'}</span>
+    </div>
+    <div class="vencimiento">
+      <div>
+        <div class="venc-label">Vencimiento</div>
+        <div class="venc-date">${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}</div>
+      </div>
+      <div class="venc-amount">${inv.total.toFixed(2)} €</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
 <div class="footer">
-  <span>${settings.letterhead || 'Gracias por su confianza'}</span>
-  <span>${settings.appName} · ${new Date().toLocaleDateString('es-ES')}</span>
+  <div class="footer-text">${settings.letterhead || 'La reparación realizada tiene una garantía de 3 meses desde la fecha de emisión de esta factura.'}</div>
+  <div class="footer-legal">Documento generado por ${settings.appName} · ${new Date().toLocaleDateString('es-ES')}</div>
+  <div class="page-num">Página 1 / 1</div>
 </div>
+
 </body></html>`;
-  const w = window.open('', '_blank', 'width=850,height=1100');
+  const w = window.open('', '_blank', 'width=900,height=1200');
   if (!w) return;
   w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => { try { w.print(); } catch {} }, 800);
+  setTimeout(() => { try { w.print(); } catch {} }, 900);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
