@@ -44,7 +44,7 @@ const exportCSV = (invoices: FullInvoice[]) => {
     ...invoices.map(i => [
       i.invoiceNumber, i.customerName, i.customerPhone, i.customerTaxId || '',
       fmtDate(i.date),
-      i.subtotal.toFixed(2), String(i.taxRate), i.taxAmount.toFixed(2), i.total.toFixed(2),
+      (i.subtotal||0).toFixed(2), String(i.taxRate||21), (i.taxAmount||0).toFixed(2), (i.total||0).toFixed(2),
       i.status, PAY_LABELS[i.payMethod||''] || i.payMethod || '',
       i.paidAt ? fmtDate(i.paidAt) : '',
       i.rmaNumber ? fmtRMA(i.rmaNumber) : '',
@@ -209,25 +209,25 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       <td class="c">${item.quantity}</td>
       <td><span class="item-code">${String(i+1).padStart(4,'0')}</span></td>
       <td>${item.description}</td>
-      <td class="r">${item.unitPrice.toFixed(2)}</td>
-      <td class="r">${inv.taxRate.toFixed(2)}%</td>
-      <td class="r">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+      <td class="r">${(item.unitPrice||0).toFixed(2)}</td>
+      <td class="r">${(inv.taxRate||21).toFixed(2)}%</td>
+      <td class="r">${(item.quantity * (item.unitPrice||0)).toFixed(2)}</td>
     </tr>`).join('')}
     ${inv.laborItems.map((item, i) => `
     <tr>
       <td class="c">${item.hours}h</td>
       <td><span class="item-code">MO${String(i+1).padStart(3,'0')}</span></td>
       <td>${item.description} <em style="color:#888;font-size:8px">(Mano de obra)</em></td>
-      <td class="r">${item.hourlyRate.toFixed(2)}</td>
-      <td class="r">${inv.taxRate.toFixed(2)}%</td>
-      <td class="r">${(item.hours * item.hourlyRate).toFixed(2)}</td>
+      <td class="r">${(item.hourlyRate||0).toFixed(2)}</td>
+      <td class="r">${(inv.taxRate||21).toFixed(2)}%</td>
+      <td class="r">${((item.hours||0) * (item.hourlyRate||0)).toFixed(2)}</td>
     </tr>`).join('')}
   </tbody>
   <tfoot>
     <tr>
       <td colspan="4"></td>
       <td style="font-size:8px;font-weight:700;color:#555;text-align:right">Subtotal</td>
-      <td style="font-weight:700;text-align:right">${inv.subtotal.toFixed(2)}</td>
+      <td style="font-weight:700;text-align:right">${(inv.subtotal||0).toFixed(2)}</td>
     </tr>
   </tfoot>
 </table>
@@ -238,14 +238,14 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
     <div class="totals-row subtotal"><span>Descuento</span><span>—</span></div>
     <div class="totals-row subtotal"><span>Dto. P.Pago</span><span>—</span></div>
     <div class="totals-row iva">
-      <span>Base Imponible</span><span>${inv.subtotal.toFixed(2)} €</span>
+      <span>Base Imponible</span><span>${(inv.subtotal||0).toFixed(2)} €</span>
     </div>
     <div class="totals-row iva">
-      <span>IVA ${inv.taxRate}%</span><span>${inv.taxAmount.toFixed(2)} €</span>
+      <span>IVA ${inv.taxRate||21}%</span><span>${(inv.taxAmount||0).toFixed(2)} €</span>
     </div>
     <div class="totals-row total">
       <span class="label">Total Factura</span>
-      <span class="amount">${inv.total.toFixed(2)} €</span>
+      <span class="amount">${(inv.total||0).toFixed(2)} €</span>
     </div>
   </div>
 </div>
@@ -267,7 +267,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
         <div class="venc-label">Vencimiento</div>
         <div class="venc-date">${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}</div>
       </div>
-      <div class="venc-amount">${inv.total.toFixed(2)} €</div>
+      <div class="venc-amount">${(inv.total||0).toFixed(2)} €</div>
     </div>
   </div>
 </div>
