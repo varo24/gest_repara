@@ -55,6 +55,7 @@ export interface BudgetItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  inventoryItemId?: string;
 }
 
 export interface LaborItem {
@@ -102,6 +103,8 @@ export interface AppSettings {
   logoUrl?: string;
   letterhead?: string;
   email?: string;
+  inventoryCategories?: string[];
+  anthropicApiKey?: string;
 }
 
 export interface Customer {
@@ -170,7 +173,7 @@ export interface InventoryItem {
   id: string;
   ref: string;
   description: string;
-  category: 'pantallas' | 'baterias' | 'conectores' | 'camaras' | 'mecanica' | 'otros';
+  category: string;
   ean?: string;
   supplierRef?: string;
   stock: number;
@@ -180,6 +183,20 @@ export interface InventoryItem {
   location?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StockMovement {
+  id: string;
+  itemId: string;
+  ref: string;
+  description: string;
+  type: 'entrada' | 'salida' | 'ajuste';
+  qty: number;
+  costPrice: number;
+  date: string;
+  origin: 'manual' | 'entrada-stock' | 'presupuesto';
+  notes?: string;
+  createdAt: string;
 }
 
 export interface Warranty {

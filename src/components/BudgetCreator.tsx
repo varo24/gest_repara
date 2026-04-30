@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Search
 } from 'lucide-react';
-import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings } from '../types';
+import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings, InventoryItem } from '../types';
 import SignaturePad from './SignaturePad';
 import PartsSearch from './PartsSearch';
 
@@ -23,11 +23,12 @@ interface BudgetCreatorProps {
   repair: RepairItem;
   settings: AppSettings;
   initialBudget?: Budget;
+  inventoryItems?: InventoryItem[];
   onSave: (budget: Budget) => void;
   onClose: () => void;
 }
 
-const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initialBudget, onSave, onClose }) => {
+const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initialBudget, inventoryItems = [], onSave, onClose }) => {
   const [items, setItems] = useState<BudgetItem[]>(initialBudget?.items || []);
   const [laborItems, setLaborItems] = useState<LaborItem[]>(initialBudget?.laborItems || []);
   const [signature, setSignature] = useState(initialBudget?.signature || '');
@@ -36,6 +37,8 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
   const [activeTab, setActiveTab] = useState<'repuestos' | 'mano-obra' | 'firma' | 'resumen'>(initialBudget?.id ? 'resumen' : 'repuestos');
   const [isSaving, setIsSaving] = useState(false);
   const [showPartsSearch, setShowPartsSearch] = useState(false);
+  const [invSearch, setInvSearch] = useState('');
+  const [showInvDropdown, setShowInvDropdown] = useState(false);
 
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
 
@@ -49,6 +52,27 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
     };
     setItems(prev => [...prev, newItem]);
   };
+
+  const addFromInventory = (inv: InventoryItem) => {
+    const newItem: BudgetItem = {
+      id: crypto.randomUUID(),
+      repairId: repair.id,
+      description: inv.description,
+      quantity: 1,
+      unitPrice: inv.salePrice || inv.costPrice,
+      inventoryItemId: inv.id,
+    };
+    setItems(prev => [...prev, newItem]);
+    setInvSearch('');
+    setShowInvDropdown(false);
+  };
+
+  const filteredInvItems = invSearch.trim()
+    ? inventoryItems.filter(i => {
+        const q = invSearch.toLowerCase();
+        return i.ref.toLowerCase().includes(q) || i.description.toLowerCase().includes(q) || (i.ean || '').toLowerCase().includes(q);
+      }).slice(0, 6)
+    : [];
 
   const printBudget = () => {
     const pSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) + laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
@@ -256,6 +280,43 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                 </button>
               </div>
             </div>
+
+            {/* Búsqueda en inventario local */}
+            {inventoryItems.length > 0 && (
+              <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setShowInvDropdown(false); }}>
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar en inventario local..."
+                    className="w-full pl-9 pr-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    value={invSearch}
+                    onChange={e => { setInvSearch(e.target.value); setShowInvDropdown(true); }}
+                    onFocus={() => setShowInvDropdown(true)}
+                  />
+                  {invSearch && <button onMouseDown={() => { setInvSearch(''); setShowInvDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XIcon size={12} /></button>}
+                </div>
+                {showInvDropdown && filteredInvItems.length > 0 && (
+                  <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                    {filteredInvItems.map(inv => (
+                      <button
+                        key={inv.id}
+                        onMouseDown={() => addFromInventory(inv)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 transition-all text-left"
+                      >
+                        <div>
+                          <p className="text-xs font-black text-slate-900">{inv.description}</p>
+                          <p className="text-[9px] text-slate-400">{inv.ref} · Stock: {inv.stock} · {(inv.salePrice || inv.costPrice).toFixed(2)}€</p>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${inv.stock === 0 ? 'bg-red-50 text-red-600' : inv.stock <= inv.minStock ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {inv.stock} uds
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Buscador de piezas online */}
             {showPartsSearch && (

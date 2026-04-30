@@ -19,7 +19,9 @@ import FieldModeApp from './components/FieldModeApp';
 import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem } from './types';
+import Inventario from './components/Inventario';
+import EntradaStock from './components/EntradaStock';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement } from './types';
 import { storage } from './lib/dataService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
@@ -65,6 +67,8 @@ const App: React.FC = () => {
   const [externalApps, setExternalApps] = useState<ExternalApp[] | null>(null);
   const [activeExternalApp, setActiveExternalApp] = useState<ExternalApp | null>(null);
   const [customersDB, setCustomersDB] = useState<Customer[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -115,6 +119,8 @@ const App: React.FC = () => {
         storage.subscribe('citas', setCitas);
         storage.subscribe('apps_externas', setExternalApps);
         storage.subscribe('customers', setCustomersDB);
+        storage.subscribe('inventory', setInventoryItems);
+        storage.subscribe('stock_movements', setStockMovements);
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
@@ -327,6 +333,7 @@ const App: React.FC = () => {
             repair={activeBudgetRepair}
             settings={settings}
             initialBudget={editingBudget || undefined}
+            inventoryItems={inventoryItems}
             onSave={handleSaveBudget}
             onClose={() => navigateTo('repairs')}
           />
@@ -409,7 +416,7 @@ const App: React.FC = () => {
                   await sendWhatsApp(repair.customerPhone, msg);
                   notify('success', `Presupuesto enviado a ${repair.customerName}`);
                 }}
-                onConvertToInvoice={(budget, repair) => {
+                onConvertToInvoice={async (budget, repair) => {
                   const effectiveTaxRate = budget.taxEnabled === false ? 0 : (budget.taxRate || 21);
                   const budgetSubtotal = [
                     ...budget.items.map(i => i.quantity * i.unitPrice),
@@ -438,6 +445,28 @@ const App: React.FC = () => {
                     createdAt: now,
                   };
                   storage.save('invoices', invoice.id, invoice);
+                  // Deduct inventory stock for linked items
+                  for (const item of budget.items) {
+                    if (!item.inventoryItemId) continue;
+                    const invItem = inventoryItems.find(i => i.id === item.inventoryItemId);
+                    if (!invItem) continue;
+                    const newStock = Math.max(0, invItem.stock - item.quantity);
+                    await storage.save('inventory', invItem.id, { ...invItem, stock: newStock, updatedAt: now });
+                    const movement: StockMovement = {
+                      id: crypto.randomUUID(),
+                      itemId: invItem.id,
+                      ref: invItem.ref,
+                      description: invItem.description,
+                      type: 'salida',
+                      qty: -item.quantity,
+                      costPrice: invItem.costPrice,
+                      date: now.slice(0, 10),
+                      origin: 'presupuesto',
+                      notes: `RMA-${String(repair.rmaNumber).padStart(5, '0')}`,
+                      createdAt: now,
+                    };
+                    await storage.save('stock_movements', movement.id, movement);
+                  }
                   notify('success', `${invoiceNumber} creada desde presupuesto RMA-${String(repair.rmaNumber).padStart(5,'0')}`);
                   navigateTo('invoices');
                 }}
@@ -578,7 +607,23 @@ const App: React.FC = () => {
                 }}
               />
             )}
-            {['inventory','inventory-entrada','garantias'].includes(currentView) && (
+            {currentView === 'inventory' && (
+              <Inventario
+                settings={settings}
+                inventoryItems={inventoryItems}
+                stockMovements={stockMovements}
+                onNotify={notify}
+              />
+            )}
+            {currentView === 'inventory-entrada' && (
+              <EntradaStock
+                settings={settings}
+                inventoryItems={inventoryItems}
+                onNotify={notify}
+                onBack={() => navigateTo('inventory')}
+              />
+            )}
+            {currentView === 'garantias' && (
               <div className="text-center py-20">
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Módulo en desarrollo</p>
                 <p className="text-slate-300 text-xs mt-2">Disponible en la próxima actualización</p>

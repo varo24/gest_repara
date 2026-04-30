@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { 
-  Save, Building2, Download, Upload, Globe, Copy, CheckCircle2, 
-  Monitor, Camera, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
-  ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload
+import {
+  Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
+  Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
+  ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
+  Package, Brain, Plus
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -189,6 +190,80 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               placeholder="Ej: Este presupuesto tiene validez de 15 días. Garantía de 3 meses en mano de obra..."
             />
           </div>
+        </div>
+      </div>
+
+      {/* INVENTARIO */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg">
+            <Package size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Inventario</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Categorías de artículos y configuración IA</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categorías de artículos</label>
+          <div className="space-y-2">
+            {(formData.inventoryCategories && formData.inventoryCategories.length > 0
+              ? formData.inventoryCategories
+              : ['pantallas', 'baterias', 'conectores', 'camaras', 'mecanica', 'otros']
+            ).map((cat, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <input
+                  className="flex-1 px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-emerald-500/10 outline-none"
+                  value={cat}
+                  onChange={e => {
+                    const cats = [...(formData.inventoryCategories || ['pantallas', 'baterias', 'conectores', 'camaras', 'mecanica', 'otros'])];
+                    cats[idx] = e.target.value;
+                    setFormData({ ...formData, inventoryCategories: cats });
+                  }}
+                  placeholder={`Categoría ${idx + 1}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cats = (formData.inventoryCategories || ['pantallas', 'baterias', 'conectores', 'camaras', 'mecanica', 'otros']).filter((_, i) => i !== idx);
+                    setFormData({ ...formData, inventoryCategories: cats });
+                  }}
+                  className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const base = formData.inventoryCategories && formData.inventoryCategories.length > 0
+                ? formData.inventoryCategories
+                : ['pantallas', 'baterias', 'conectores', 'camaras', 'mecanica', 'otros'];
+              setFormData({ ...formData, inventoryCategories: [...base, ''] });
+            }}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all"
+          >
+            <Plus size={12} /> Añadir categoría
+          </button>
+        </div>
+
+        <div className="space-y-3 pt-4 border-t border-slate-50">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+            <Brain size={12} className="text-violet-500" /> Clave API Anthropic (análisis IA de facturas)
+          </label>
+          <input
+            type="password"
+            className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-violet-500/10 outline-none"
+            placeholder="sk-ant-api03-..."
+            value={formData.anthropicApiKey || ''}
+            onChange={e => setFormData({ ...formData, anthropicApiKey: e.target.value })}
+          />
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+            Necesaria para el módulo de Entrada de Stock → pestaña IA / Factura
+          </p>
         </div>
       </div>
 

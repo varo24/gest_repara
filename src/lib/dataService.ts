@@ -14,6 +14,7 @@ const ALL_STORES = [
   'repairs', 'budgets', 'invoices', 'cash_movements', 'inventory',
   'inventory_entries', 'purchase_orders', 'warranties', 'time_entries',
   'customers', 'appointments', 'reminders', 'surveys', 'settings',
+  'stock_movements',
   // legacy collections
   'citas', 'apps_externas',
 ];
