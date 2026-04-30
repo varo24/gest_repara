@@ -78,15 +78,46 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     setIsSaving(true);
     try {
       const now = new Date().toISOString();
+      let updated = 0;
+      let created = 0;
       for (const line of lines) {
-        const item = inventoryItems.find(i => i.id === line.inventoryItemId);
-        if (!item) continue;
-        await storage.save('inventory', item.id, { ...item, stock: item.stock + line.qty, updatedAt: now });
+        let itemId = line.inventoryItemId;
+        let ref = line.ref;
+        let description = line.description;
+
+        if (!itemId) {
+          // Create new inventory item
+          itemId = crypto.randomUUID();
+          if (!ref) ref = `REF-${Date.now()}`;
+          const newItem: InventoryItem = {
+            id: itemId,
+            ref,
+            description,
+            category: 'Otros',
+            stock: line.qty,
+            minStock: 2,
+            costPrice: line.costPrice,
+            salePrice: Math.round(line.costPrice * 2.5 * 100) / 100,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await storage.save('inventory', itemId, newItem);
+          created++;
+        } else {
+          // Update existing: add stock and refresh costPrice
+          const item = inventoryItems.find(i => i.id === itemId);
+          if (!item) continue;
+          ref = item.ref;
+          description = item.description;
+          await storage.save('inventory', item.id, { ...item, stock: item.stock + line.qty, costPrice: line.costPrice, updatedAt: now });
+          updated++;
+        }
+
         const movement: StockMovement = {
           id: crypto.randomUUID(),
-          itemId: item.id,
-          ref: item.ref,
-          description: item.description,
+          itemId,
+          ref,
+          description,
           type: 'entrada',
           qty: line.qty,
           costPrice: line.costPrice,
@@ -97,7 +128,11 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         };
         await storage.save('stock_movements', movement.id, movement);
       }
-      onNotify('success', `${lines.length} artículo(s) añadidos al stock`);
+
+      const parts: string[] = [];
+      if (updated > 0) parts.push(`${updated} artículo(s) actualizados`);
+      if (created > 0) parts.push(`${created} referencia(s) nueva(s) creadas`);
+      onNotify('success', parts.join(' · ') || 'Entrada guardada');
     } catch {
       onNotify('error', 'Error al guardar la entrada');
     } finally {
@@ -186,16 +221,13 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   };
 
   const handleAiSave = async () => {
-    const valid = aiLines.filter(l => l.inventoryItemId);
-    const skipped = aiLines.length - valid.length;
-    if (skipped > 0) onNotify('info', `${skipped} artículo(s) sin coincidencia en catálogo serán ignorados`);
     const notesStr = [
       'Gemini IA',
       aiMeta?.proveedor,
       aiMeta?.numero_factura,
       aiFile?.name,
     ].filter(Boolean).join(' · ');
-    await commitEntries(valid, notesStr, entryDate);
+    await commitEntries(aiLines, notesStr, entryDate);
     setAiLines([]);
     setAiFile(null);
     setAiRawText('');
