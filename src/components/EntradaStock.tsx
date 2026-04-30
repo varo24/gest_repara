@@ -21,7 +21,11 @@ interface EntryLine {
   description: string;
   qty: number;
   costPrice: number;
+  category: string;
+  location: string;
 }
+
+const DEFAULT_CATS = ['Pantallas', 'Baterías', 'Conectores', 'Cámaras', 'Mecánica', 'Otros'];
 
 const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, onNotify, onBack }) => {
   const [activeTab, setActiveTab] = useState<'manual' | 'scanner' | 'ai'>('manual');
@@ -49,6 +53,8 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const categories = settings.inventoryCategories?.length ? settings.inventoryCategories : DEFAULT_CATS;
+
   useEffect(() => {
     if (activeTab === 'scanner') barcodeInputRef.current?.focus();
   }, [activeTab]);
@@ -68,10 +74,25 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     setter(prev => {
       const idx = prev.findIndex(l => l.inventoryItemId === item.id);
       if (idx >= 0) return prev.map((l, i) => i === idx ? { ...l, qty: l.qty + 1 } : l);
-      return [...prev, { inventoryItemId: item.id, ref: item.ref, description: item.description, qty: 1, costPrice: item.costPrice }];
+      return [...prev, {
+        inventoryItemId: item.id,
+        ref: item.ref,
+        description: item.description,
+        qty: 1,
+        costPrice: item.costPrice,
+        category: item.category,
+        location: item.location || '',
+      }];
     });
     if (target === 'manual') { setManualSearch(''); setShowDropdown(false); }
   };
+
+  const updateLine = (
+    setter: React.Dispatch<React.SetStateAction<EntryLine[]>>,
+    idx: number,
+    field: keyof EntryLine,
+    value: EntryLine[keyof EntryLine],
+  ) => setter(prev => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
 
   const commitEntries = async (lines: EntryLine[], notes: string, date: string) => {
     if (!lines.length) return;
@@ -86,30 +107,38 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         let description = line.description;
 
         if (!itemId) {
-          // Create new inventory item
+          // Create new inventory item using all user-edited values
           itemId = crypto.randomUUID();
           if (!ref) ref = `REF-${Date.now()}`;
           const newItem: InventoryItem = {
             id: itemId,
             ref,
             description,
-            category: 'Otros',
+            category: line.category || 'Otros',
             stock: line.qty,
             minStock: 2,
             costPrice: line.costPrice,
             salePrice: Math.round(line.costPrice * 2.5 * 100) / 100,
+            location: line.location || undefined,
             createdAt: now,
             updatedAt: now,
           };
           await storage.save('inventory', itemId, newItem);
           created++;
         } else {
-          // Update existing: add stock and refresh costPrice
+          // Update existing: add stock, refresh costPrice, category, location
           const item = inventoryItems.find(i => i.id === itemId);
           if (!item) continue;
           ref = item.ref;
           description = item.description;
-          await storage.save('inventory', item.id, { ...item, stock: item.stock + line.qty, costPrice: line.costPrice, updatedAt: now });
+          await storage.save('inventory', item.id, {
+            ...item,
+            stock: item.stock + line.qty,
+            costPrice: line.costPrice,
+            category: line.category || item.category,
+            location: line.location !== '' ? line.location : item.location,
+            updatedAt: now,
+          });
           updated++;
         }
 
@@ -190,6 +219,8 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         description: l.descripcion || found?.description || '',
         qty: Math.max(1, Math.round(l.cantidad) || 1),
         costPrice: parseFloat(String(l.precio_unitario)) || 0,
+        category: found?.category || categories[categories.length - 1] || 'Otros',
+        location: found?.location || '',
       };
     });
 
@@ -210,9 +241,8 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         result = await analyzeInvoiceText(text, apiKey);
       }
       setAiMeta({ proveedor: result.proveedor, numero_factura: result.numero_factura, fecha: result.fecha, total: result.total });
-      const lines = mapGeminiResult(result);
-      setAiLines(lines);
-      onNotify('success', `${lines.length} artículo(s) detectados · ${result.proveedor || 'Proveedor desconocido'}`);
+      setAiLines(mapGeminiResult(result));
+      onNotify('success', `${result.lineas.length} artículo(s) detectados · ${result.proveedor || 'Proveedor desconocido'}`);
     } catch (err: any) {
       onNotify('error', `Error Gemini: ${err?.message || 'Verifica la clave API'}`);
     } finally {
@@ -221,12 +251,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   };
 
   const handleAiSave = async () => {
-    const notesStr = [
-      'Gemini IA',
-      aiMeta?.proveedor,
-      aiMeta?.numero_factura,
-      aiFile?.name,
-    ].filter(Boolean).join(' · ');
+    const notesStr = ['Gemini IA', aiMeta?.proveedor, aiMeta?.numero_factura, aiFile?.name].filter(Boolean).join(' · ');
     await commitEntries(aiLines, notesStr, entryDate);
     setAiLines([]);
     setAiFile(null);
@@ -234,62 +259,89 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     setAiMeta(null);
   };
 
+  // ── Shared lines table with editable ref, category, location ──────────────
   const LinesTable = ({
     lines,
-    onQty,
-    onCost,
+    setter,
     onRemove,
   }: {
     lines: EntryLine[];
-    onQty: (i: number, v: number) => void;
-    onCost: (i: number, v: number) => void;
+    setter: React.Dispatch<React.SetStateAction<EntryLine[]>>;
     onRemove: (i: number) => void;
   }) => (
-    <div className="rounded-xl border border-slate-200 overflow-hidden">
-      <table className="w-full text-xs">
-        <thead className="bg-slate-50">
-          <tr>
-            <th className="text-left px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Artículo</th>
-            <th className="text-center px-3 py-2 text-[9px] font-black text-slate-400 uppercase w-20">Cant</th>
-            <th className="text-right px-3 py-2 text-[9px] font-black text-slate-400 uppercase w-28">Coste u.</th>
-            <th className="w-8" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {lines.map((line, idx) => (
-            <tr key={idx} className={!line.inventoryItemId ? 'bg-amber-50' : ''}>
-              <td className="px-4 py-2">
-                <p className="font-black text-slate-900">{line.description}</p>
-                <p className="text-[9px] text-slate-400">{line.ref}</p>
-                {!line.inventoryItemId && (
-                  <p className="text-[9px] text-amber-600 font-bold">⚠ Sin coincidencia en catálogo</p>
-                )}
-              </td>
-              <td className="px-3 py-2 text-center">
+    <div className="space-y-2">
+      {lines.map((line, idx) => (
+        <div
+          key={idx}
+          className={`rounded-xl border p-4 space-y-3 ${!line.inventoryItemId ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}
+        >
+          {/* Row 1: description + qty + cost + delete */}
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-slate-900 truncate">{line.description}</p>
+              {!line.inventoryItemId
+                ? <span className="text-[9px] font-bold text-amber-600">✦ Nueva referencia — se creará en catálogo</span>
+                : <span className="text-[9px] font-bold text-emerald-600">✓ Existe en catálogo</span>
+              }
+            </div>
+            <div className="flex items-end gap-2 shrink-0">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-slate-400 uppercase text-center">Cant</p>
                 <input
                   type="number" min="1"
-                  className="w-16 text-center px-2 py-1 border border-slate-200 rounded-lg text-xs font-black"
+                  className="w-16 text-center px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-black bg-white"
                   value={line.qty}
-                  onChange={e => onQty(idx, parseInt(e.target.value) || 1)}
+                  onChange={e => updateLine(setter, idx, 'qty', parseInt(e.target.value) || 1)}
                 />
-              </td>
-              <td className="px-3 py-2 text-right">
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-slate-400 uppercase text-right">Coste u.</p>
                 <input
                   type="number" min="0" step="0.01"
-                  className="w-24 text-right px-2 py-1 border border-slate-200 rounded-lg text-xs font-black"
+                  className="w-24 text-right px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-black bg-white"
                   value={line.costPrice}
-                  onChange={e => onCost(idx, parseFloat(e.target.value) || 0)}
+                  onChange={e => updateLine(setter, idx, 'costPrice', parseFloat(e.target.value) || 0)}
                 />
-              </td>
-              <td className="px-2 py-2">
-                <button onClick={() => onRemove(idx)} className="p-1 text-slate-300 hover:text-red-500 transition-colors">
-                  <X size={12} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              <button onClick={() => onRemove(idx)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors mb-0.5">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: ref + category + location */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Referencia</p>
+              <input
+                className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-blue-400"
+                value={line.ref}
+                onChange={e => updateLine(setter, idx, 'ref', e.target.value)}
+                placeholder="REF-..."
+              />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Categoría</p>
+              <select
+                className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold focus:outline-none"
+                value={line.category}
+                onChange={e => updateLine(setter, idx, 'category', e.target.value)}
+              >
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ubicación</p>
+              <input
+                className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-medium focus:outline-none focus:ring-1 focus:ring-blue-400"
+                value={line.location}
+                onChange={e => updateLine(setter, idx, 'location', e.target.value)}
+                placeholder="Estantería A..."
+              />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -366,8 +418,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             <>
               <LinesTable
                 lines={manualLines}
-                onQty={(i, v) => setManualLines(l => l.map((ll, idx) => idx === i ? { ...ll, qty: v } : ll))}
-                onCost={(i, v) => setManualLines(l => l.map((ll, idx) => idx === i ? { ...ll, costPrice: v } : ll))}
+                setter={setManualLines}
                 onRemove={i => setManualLines(l => l.filter((_, idx) => idx !== i))}
               />
               <div className="grid grid-cols-2 gap-4">
@@ -410,7 +461,6 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
                 {lastScan}
               </span>
             )}
-            {/* Hidden input that captures barcode keyboard wedge input */}
             <input
               ref={barcodeInputRef}
               type="text"
@@ -433,8 +483,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             <>
               <LinesTable
                 lines={scannerLines}
-                onQty={(i, v) => setScannerLines(l => l.map((ll, idx) => idx === i ? { ...ll, qty: v } : ll))}
-                onCost={(i, v) => setScannerLines(l => l.map((ll, idx) => idx === i ? { ...ll, costPrice: v } : ll))}
+                setter={setScannerLines}
                 onRemove={i => setScannerLines(l => l.filter((_, idx) => idx !== i))}
               />
               <button
@@ -462,7 +511,6 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             </div>
           )}
 
-          {/* Drop zone — accepts images and text files */}
           <div
             className={`border-2 border-dashed rounded-2xl p-8 text-center space-y-3 cursor-pointer transition-all ${
               aiDragging ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
@@ -477,10 +525,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
                 <FileText size={28} className="mx-auto text-violet-500" />
                 <p className="text-xs font-black text-violet-700">{aiFile.name}</p>
                 <p className="text-[9px] text-slate-400">{(aiFile.size / 1024).toFixed(1)} KB · {aiFile.type || 'texto'}</p>
-                <button
-                  onMouseDown={e => { e.stopPropagation(); setAiFile(null); }}
-                  className="text-[9px] text-red-500 font-bold underline"
-                >
+                <button onMouseDown={e => { e.stopPropagation(); setAiFile(null); }} className="text-[9px] text-red-500 font-bold underline">
                   Quitar archivo
                 </button>
               </>
@@ -520,7 +565,6 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             {aiParsing ? 'Analizando con Gemini...' : 'Analizar con Gemini AI'}
           </button>
 
-          {/* Invoice metadata from Gemini */}
           {aiMeta && (
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -539,12 +583,11 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
           {aiLines.length > 0 && (
             <>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                {aiLines.length} artículo(s) detectados — revisa y confirma
+                {aiLines.length} artículo(s) — revisa referencia, categoría y ubicación antes de confirmar
               </p>
               <LinesTable
                 lines={aiLines}
-                onQty={(i, v) => setAiLines(l => l.map((ll, idx) => idx === i ? { ...ll, qty: v } : ll))}
-                onCost={(i, v) => setAiLines(l => l.map((ll, idx) => idx === i ? { ...ll, costPrice: v } : ll))}
+                setter={setAiLines}
                 onRemove={i => setAiLines(l => l.filter((_, idx) => idx !== i))}
               />
               <button
