@@ -195,7 +195,7 @@ export interface StockMovement {
   qty: number;
   costPrice: number;
   date: string;
-  origin: 'manual' | 'entrada-stock' | 'presupuesto';
+  origin: 'manual' | 'entrada-stock' | 'presupuesto' | 'factura';
   notes?: string;
   createdAt: string;
 }

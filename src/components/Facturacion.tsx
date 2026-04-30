@@ -3,10 +3,10 @@ import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
   XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil
 } from 'lucide-react';
-import { AppSettings } from '../types';
+import { AppSettings, InventoryItem } from '../types';
 import { storage } from '../lib/dataService';
 
-interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; }
+interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; inventoryItemId?: string; }
 interface LaborLine  { id: string; description: string; hours: number; hourlyRate: number; }
 
 interface FullInvoice {
@@ -22,7 +22,7 @@ interface FullInvoice {
 }
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
-interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
+interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n || 0) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
@@ -308,7 +308,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNotify, onSaveCustomer }) => {
+const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inventoryItems = [], onNotify, onSaveCustomer }) => {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatus]       = useState('todas');
   const [selected, setSelected]         = useState<FullInvoice | null>(null);
@@ -414,6 +414,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
   // ── Formulario editar factura ─────────────────────────────────────────────
   if (editingInvoice) return (
     <NewInvoiceForm settings={settings} customers={customers} invoices={invoices}
+      inventoryItems={inventoryItems}
       initialInvoice={editingInvoice}
       onSave={(inv, _saveCustomer) => {
         storage.save('invoices', inv.id, inv);
@@ -426,6 +427,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
   // ── Formulario nueva factura ───────────────────────────────────────────────
   if (showNew) return (
     <NewInvoiceForm settings={settings} customers={customers} invoices={invoices}
+      inventoryItems={inventoryItems}
       onSave={(inv, saveCustomer) => {
         storage.save('invoices', inv.id, inv);
         if (saveCustomer && inv.customerName && inv.customerPhone) {
@@ -579,12 +581,13 @@ interface NewInvoiceFormProps {
   settings: AppSettings;
   customers: Customer[];
   invoices: FullInvoice[];
+  inventoryItems?: InventoryItem[];
   initialInvoice?: FullInvoice;
   onSave: (inv: FullInvoice, saveCustomer: boolean) => void;
   onCancel: () => void;
 }
 
-const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, invoices, initialInvoice, onSave, onCancel }) => {
+const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, invoices, inventoryItems = [], initialInvoice, onSave, onCancel }) => {
   const isEditing = !!initialInvoice;
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -600,6 +603,21 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
   const [status, setStatus]                 = useState<'pendiente'|'cobrada'>(initialInvoice?.status === 'cobrada' ? 'cobrada' : 'pendiente');
   const [payMethod, setPayMethod]           = useState(initialInvoice?.payMethod || 'efectivo');
   const [notes, setNotes]                   = useState('');
+  const [invSearch, setInvSearch]           = useState('');
+  const [showInvDrop, setShowInvDrop]       = useState(false);
+
+  const filteredInv = invSearch.trim()
+    ? inventoryItems.filter(i => {
+        const q = invSearch.toLowerCase();
+        return i.ref.toLowerCase().includes(q) || i.description.toLowerCase().includes(q) || (i.ean || '').toLowerCase().includes(q);
+      }).slice(0, 6)
+    : [];
+
+  const addFromInventory = (inv: InventoryItem) => {
+    setItems(p => [...p, { id: uid(), description: inv.description, quantity: 1, unitPrice: inv.salePrice || inv.costPrice, inventoryItemId: inv.id }]);
+    setInvSearch('');
+    setShowInvDrop(false);
+  };
 
   const addItem  = () => setItems(p => [...p, { id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
   const addLabor = () => setLaborItems(p => [...p, { id: uid(), description: 'Mano de obra', hours: 1, hourlyRate: settings.hourlyRate || 45 }]);
@@ -615,6 +633,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
     if (!customerName.trim()) { alert('El nombre del cliente es obligatorio'); return; }
     if (items.every(i => !i.description.trim())) { alert('Añade al menos una línea'); return; }
     const now = new Date().toISOString();
+    const filteredItems = items.filter(i => i.description.trim());
     const inv: FullInvoice = {
       id:            isEditing ? initialInvoice!.id : uid(),
       invoiceNumber: isEditing ? initialInvoice!.invoiceNumber : storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC'),
@@ -626,7 +645,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       customerTaxId: customerTaxId.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
       date: isEditing ? initialInvoice!.date : now.slice(0,10),
-      items: items.filter(i => i.description.trim()),
+      items: filteredItems,
       laborItems: laborItems.filter(i => i.description.trim()),
       subtotal, taxRate: effectiveTaxRate, taxAmount, total,
       status,
@@ -634,6 +653,32 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       paidAt: status === 'cobrada' ? (isEditing && initialInvoice!.paidAt ? initialInvoice!.paidAt : now) : undefined,
     };
     onSave(inv, !isEditing && saveAsCustomer);
+
+    // Deducir stock de inventario al guardar como cobrada (solo si no estaba ya cobrada)
+    const wasCobrada = isEditing && initialInvoice?.status === 'cobrada';
+    if (status === 'cobrada' && !wasCobrada) {
+      for (const item of filteredItems) {
+        if (!item.inventoryItemId) continue;
+        const invItem = inventoryItems.find(i => i.id === item.inventoryItemId);
+        if (!invItem) continue;
+        const newStock = Math.max(0, invItem.stock - item.quantity);
+        storage.save('inventory', invItem.id, { ...invItem, stock: newStock, updatedAt: now });
+        const mvId = uid();
+        storage.save('stock_movements', mvId, {
+          id: mvId,
+          itemId: invItem.id,
+          ref: invItem.ref,
+          description: invItem.description,
+          type: 'salida',
+          qty: -item.quantity,
+          costPrice: invItem.costPrice,
+          date: now.slice(0, 10),
+          origin: 'factura',
+          notes: `Factura: ${inv.invoiceNumber}`,
+          createdAt: now,
+        });
+      }
+    }
   };
 
   return (
@@ -739,6 +784,45 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
             <button onClick={addLabor} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"><Plus size={12}/> M.O.</button>
           </div>
         </div>
+
+        {/* Buscador inventario local */}
+        {inventoryItems.length > 0 && (
+          <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setShowInvDrop(false); }}>
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
+            <input
+              type="text"
+              placeholder="Buscar en inventario local..."
+              className="w-full pl-9 pr-8 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={invSearch}
+              onChange={e => { setInvSearch(e.target.value); setShowInvDrop(true); }}
+              onFocus={() => setShowInvDrop(true)}
+            />
+            {invSearch && (
+              <button onMouseDown={() => { setInvSearch(''); setShowInvDrop(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={12} />
+              </button>
+            )}
+            {showInvDrop && filteredInv.length > 0 && (
+              <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                {filteredInv.map(inv => (
+                  <button
+                    key={inv.id}
+                    onMouseDown={() => addFromInventory(inv)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 transition-all text-left"
+                  >
+                    <div>
+                      <p className="text-xs font-black text-slate-900">{inv.description}</p>
+                      <p className="text-[9px] text-slate-400">{inv.ref} · Stock: {inv.stock} · {(inv.salePrice || inv.costPrice).toFixed(2)}€</p>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-3 ${inv.stock === 0 ? 'bg-red-50 text-red-600' : inv.stock <= inv.minStock ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {inv.stock === 0 ? 'Sin stock' : `${inv.stock} uds`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {items.map((item, idx) => (
           <div key={item.id} className="grid grid-cols-12 gap-2 items-center">

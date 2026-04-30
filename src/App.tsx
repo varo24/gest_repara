@@ -601,6 +601,7 @@ const App: React.FC = () => {
                 settings={settings}
                 customers={customersDB}
                 invoices={invoices}
+                inventoryItems={inventoryItems}
                 onNotify={notify}
                 onSaveCustomer={async (customer) => {
                   await storage.save('customers', customer.id, customer);
