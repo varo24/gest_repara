@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
-  XCircle, Clock, Download, FileText, TrendingUp, X, Save
+  XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -61,6 +61,7 @@ const exportCSV = (invoices: FullInvoice[]) => {
 // ── Print invoice ─────────────────────────────────────────────────────────────
 const printInvoice = (inv: FullInvoice, settings: AppSettings) => {
   const isSimplificada = !inv.customerTaxId;
+  const isRecibo = (inv.invoiceNumber || '').startsWith('REC-');
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -158,9 +159,9 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
     </div>
   </div>
   <div class="doc-type-block">
-    <div class="doc-type">${inv.isRectificativa ? 'Factura Rectificativa' : isSimplificada ? 'Fact. Simplificada' : 'Factura'}</div>
+    <div class="doc-type">${isRecibo ? 'Recibo' : inv.isRectificativa ? 'Factura Rectificativa' : isSimplificada ? 'Fact. Simplificada' : 'Factura'}</div>
     <div class="doc-meta">
-      <strong>Nº Fact.</strong> &nbsp; ${inv.invoiceNumber}<br>
+      <strong>${isRecibo ? 'Nº Recibo' : 'Nº Fact.'}</strong> &nbsp; ${inv.invoiceNumber}<br>
       <strong>Fecha</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${fmtDate(inv.date)}<br>
       <strong>Fecha Valor</strong> ${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}<br>
       ${inv.rmaNumber ? `<strong>Referencia</strong> ${fmtRMA(inv.rmaNumber)}` : ''}
@@ -199,7 +200,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       <th>Código</th>
       <th>Artículo / Descripción</th>
       <th class="r">Precio</th>
-      <th class="r">IVA</th>
+      ${!isRecibo ? '<th class="r">IVA</th>' : ''}
       <th class="r">Subtotal</th>
     </tr>
   </thead>
@@ -210,7 +211,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       <td><span class="item-code">${String(i+1).padStart(4,'0')}</span></td>
       <td>${item.description}</td>
       <td class="r">${(item.unitPrice||0).toFixed(2)}</td>
-      <td class="r">${(inv.taxRate||21).toFixed(2)}%</td>
+      ${!isRecibo ? `<td class="r">${(inv.taxRate||0).toFixed(2)}%</td>` : ''}
       <td class="r">${(item.quantity * (item.unitPrice||0)).toFixed(2)}</td>
     </tr>`).join('')}
     ${inv.laborItems.map((item, i) => `
@@ -219,7 +220,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       <td><span class="item-code">MO${String(i+1).padStart(3,'0')}</span></td>
       <td>${item.description} <em style="color:#888;font-size:8px">(Mano de obra)</em></td>
       <td class="r">${(item.hourlyRate||0).toFixed(2)}</td>
-      <td class="r">${(inv.taxRate||21).toFixed(2)}%</td>
+      ${!isRecibo ? `<td class="r">${(inv.taxRate||0).toFixed(2)}%</td>` : ''}
       <td class="r">${((item.hours||0) * (item.hourlyRate||0)).toFixed(2)}</td>
     </tr>`).join('')}
   </tbody>
@@ -235,16 +236,14 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 <!-- TOTALS -->
 <div class="totals-section">
   <div class="totals-box">
+    ${!isRecibo ? `
     <div class="totals-row subtotal"><span>Descuento</span><span>—</span></div>
     <div class="totals-row subtotal"><span>Dto. P.Pago</span><span>—</span></div>
-    <div class="totals-row iva">
-      <span>Base Imponible</span><span>${(inv.subtotal||0).toFixed(2)} €</span>
-    </div>
-    <div class="totals-row iva">
-      <span>IVA ${inv.taxRate||21}%</span><span>${(inv.taxAmount||0).toFixed(2)} €</span>
-    </div>
+    <div class="totals-row iva"><span>Base Imponible</span><span>${(inv.subtotal||0).toFixed(2)} €</span></div>
+    <div class="totals-row iva"><span>IVA ${inv.taxRate||0}%</span><span>${(inv.taxAmount||0).toFixed(2)} €</span></div>
+    ` : ''}
     <div class="totals-row total">
-      <span class="label">Total Factura</span>
+      <span class="label">${isRecibo ? 'Total Recibo' : 'Total Factura'}</span>
       <span class="amount">${(inv.total||0).toFixed(2)} €</span>
     </div>
   </div>
@@ -310,12 +309,13 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 // ══════════════════════════════════════════════════════════════════════════════
 
 const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNotify, onSaveCustomer }) => {
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStatus] = useState('todas');
-  const [selected, setSelected]   = useState<FullInvoice | null>(null);
-  const [payModal, setPayModal]   = useState<FullInvoice | null>(null);
-  const [payMethod, setPayMethod] = useState('efectivo');
-  const [showNew, setShowNew]     = useState(false);
+  const [search, setSearch]             = useState('');
+  const [statusFilter, setStatus]       = useState('todas');
+  const [selected, setSelected]         = useState<FullInvoice | null>(null);
+  const [payModal, setPayModal]         = useState<FullInvoice | null>(null);
+  const [payMethod, setPayMethod]       = useState('efectivo');
+  const [showNew, setShowNew]           = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<FullInvoice | null>(null);
 
   const filtered = invoices
     .filter(i => {
@@ -369,6 +369,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
         <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">← Volver</button>
         <div className="flex gap-2">
           <button onClick={() => printInvoice(selected, settings)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all"><Printer size={13}/> Imprimir</button>
+          {selected.status !== 'anulada' && <button onClick={() => { setEditingInvoice(selected); setSelected(null); }} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-black uppercase hover:bg-amber-100 transition-all"><Pencil size={13}/> Editar</button>}
           {selected.status === 'pendiente' && <button onClick={() => { setPayModal(selected); setPayMethod('efectivo'); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all"><CheckCircle2 size={13}/> Cobrar</button>}
           {selected.status !== 'anulada' && <button onClick={() => anular(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-black uppercase hover:bg-red-100 transition-all"><XCircle size={13}/> Anular</button>}
           <button onClick={() => deleteInvoice(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase hover:bg-red-700 transition-all"><Trash2 size={13}/> Eliminar</button>
@@ -377,7 +378,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="bg-slate-950 px-7 py-5 flex justify-between items-start">
           <div>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">{selected.isRectificativa ? 'Factura Rectificativa' : 'Factura'}</p>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">{(selected.invoiceNumber||'').startsWith('REC-') ? 'Recibo' : selected.isRectificativa ? 'Factura Rectificativa' : 'Factura'}</p>
             <p className="text-3xl font-black text-white font-mono">{selected.invoiceNumber}</p>
             <p className="text-sm text-slate-400 mt-1">{fmtDate(selected.date)}</p>
           </div>
@@ -401,13 +402,25 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
           <div className="flex justify-end">
             <div className="w-64 space-y-1.5">
               <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span>{fmtMoney(selected.subtotal)}</span></div>
-              <div className="flex justify-between text-sm text-slate-500"><span>IVA {selected.taxRate}%</span><span>{fmtMoney(selected.taxAmount)}</span></div>
+              {(selected.taxRate || 0) > 0 && <div className="flex justify-between text-sm text-slate-500"><span>IVA {selected.taxRate}%</span><span>{fmtMoney(selected.taxAmount)}</span></div>}
               <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200 pt-2"><span>Total</span><span>{fmtMoney(selected.total)}</span></div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+
+  // ── Formulario editar factura ─────────────────────────────────────────────
+  if (editingInvoice) return (
+    <NewInvoiceForm settings={settings} customers={customers} invoices={invoices}
+      initialInvoice={editingInvoice}
+      onSave={(inv, _saveCustomer) => {
+        storage.save('invoices', inv.id, inv);
+        onNotify('success', `${inv.invoiceNumber} actualizada`);
+        setEditingInvoice(null);
+      }}
+      onCancel={() => setEditingInvoice(null)} />
   );
 
   // ── Formulario nueva factura ───────────────────────────────────────────────
@@ -503,7 +516,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
               <tbody className="divide-y divide-slate-50">
                 {filtered.map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3.5"><span className="text-[11px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-mono">{inv.invoiceNumber}</span></td>
+                    <td className="px-5 py-3.5"><span className={`text-[11px] font-black px-2.5 py-1 rounded-full font-mono ${(inv.invoiceNumber||'').startsWith('REC-') ? 'text-slate-600 bg-slate-100' : 'text-blue-600 bg-blue-50'}`}>{inv.invoiceNumber}</span></td>
                     <td className="px-4 py-3.5"><p className="text-sm font-bold text-slate-900">{inv.customerName}</p><p className="text-[10px] text-slate-400">{inv.customerPhone}</p></td>
                     <td className="px-4 py-3.5">{inv.rmaNumber ? <span className="text-[10px] font-mono text-slate-500">{fmtRMA(inv.rmaNumber)}</span> : <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3.5 text-sm text-slate-500">{fmtDate(inv.date)}</td>
@@ -514,6 +527,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, onNo
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => setSelected(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Ver"><Eye size={13}/></button>
                         <button onClick={() => printInvoice(inv, settings)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
+                        {inv.status !== 'anulada' && <button onClick={() => setEditingInvoice(inv)} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-all" title="Editar"><Pencil size={13}/></button>}
                         {inv.status === 'pendiente' && <button onClick={() => { setPayModal(inv); setPayMethod('efectivo'); }} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="Cobrar"><CheckCircle2 size={13}/></button>}
                         <button onClick={() => deleteInvoice(inv)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all" title="Eliminar"><Trash2 size={13}/></button>
                       </div>
@@ -565,24 +579,27 @@ interface NewInvoiceFormProps {
   settings: AppSettings;
   customers: Customer[];
   invoices: FullInvoice[];
+  initialInvoice?: FullInvoice;
   onSave: (inv: FullInvoice, saveCustomer: boolean) => void;
   onCancel: () => void;
 }
 
-const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, invoices, onSave, onCancel }) => {
+const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, invoices, initialInvoice, onSave, onCancel }) => {
+  const isEditing = !!initialInvoice;
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [saveAsCustomer, setSaveAsCustomer] = useState(false);
-  const [customerName, setCustomerName]   = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerTaxId, setCustomerTaxId] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [taxRate, setTaxRate]             = useState(settings.taxRate || 21);
-  const [items, setItems]                 = useState<InvoiceLine[]>([{ id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
-  const [laborItems, setLaborItems]       = useState<LaborLine[]>([]);
-  const [status, setStatus]               = useState<'pendiente'|'cobrada'>('pendiente');
-  const [payMethod, setPayMethod]         = useState('efectivo');
-  const [notes, setNotes]                 = useState('');
+  const [customerName, setCustomerName]     = useState(initialInvoice?.customerName || '');
+  const [customerPhone, setCustomerPhone]   = useState(initialInvoice?.customerPhone || '');
+  const [customerTaxId, setCustomerTaxId]   = useState(initialInvoice?.customerTaxId || '');
+  const [customerAddress, setCustomerAddress] = useState(initialInvoice?.customerAddress || '');
+  const [taxEnabled, setTaxEnabled]         = useState(isEditing ? (initialInvoice!.taxRate || 0) > 0 : true);
+  const [taxRate, setTaxRate]               = useState(isEditing && (initialInvoice!.taxRate || 0) > 0 ? initialInvoice!.taxRate : settings.taxRate || 21);
+  const [items, setItems]                   = useState<InvoiceLine[]>(initialInvoice?.items?.length ? initialInvoice.items : [{ id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
+  const [laborItems, setLaborItems]         = useState<LaborLine[]>(initialInvoice?.laborItems || []);
+  const [status, setStatus]                 = useState<'pendiente'|'cobrada'>(initialInvoice?.status === 'cobrada' ? 'cobrada' : 'pendiente');
+  const [payMethod, setPayMethod]           = useState(initialInvoice?.payMethod || 'efectivo');
+  const [notes, setNotes]                   = useState('');
 
   const addItem  = () => setItems(p => [...p, { id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
   const addLabor = () => setLaborItems(p => [...p, { id: uid(), description: 'Mano de obra', hours: 1, hourlyRate: settings.hourlyRate || 45 }]);
@@ -590,42 +607,45 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
   const updLabor = (id: string, k: string, v: any) => setLaborItems(p => p.map(i => i.id===id ? {...i,[k]:v} : i));
 
   const subtotal = items.reduce((s,i) => s+i.quantity*i.unitPrice, 0) + laborItems.reduce((s,i) => s+i.hours*i.hourlyRate, 0);
-  const taxAmount = Math.round(subtotal * (taxRate/100) * 100) / 100;
+  const effectiveTaxRate = taxEnabled ? taxRate : 0;
+  const taxAmount = Math.round(subtotal * (effectiveTaxRate/100) * 100) / 100;
   const total     = Math.round((subtotal + taxAmount) * 100) / 100;
-
-  const nextInvoiceNumber = () => {
-    const nums = invoices.map((i:any) => parseInt(i.invoiceNumber?.replace(/\D/g,'') || '0')).filter(Boolean);
-    const next = nums.length ? Math.max(...nums)+1 : 1;
-    return `FAC-${String(next).padStart(5,'0')}`;
-  };
 
   const handleSave = () => {
     if (!customerName.trim()) { alert('El nombre del cliente es obligatorio'); return; }
     if (items.every(i => !i.description.trim())) { alert('Añade al menos una línea'); return; }
     const now = new Date().toISOString();
     const inv: FullInvoice = {
-      id: uid(), invoiceNumber: nextInvoiceNumber(),
+      id:            isEditing ? initialInvoice!.id : uid(),
+      invoiceNumber: isEditing ? initialInvoice!.invoiceNumber : storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC'),
+      createdAt:     isEditing ? initialInvoice!.createdAt : now,
+      repairId:      initialInvoice?.repairId,
+      rmaNumber:     initialInvoice?.rmaNumber,
+      isRectificativa: initialInvoice?.isRectificativa || false,
       customerName: customerName.trim(), customerPhone: customerPhone.trim(),
       customerTaxId: customerTaxId.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
-      date: now.slice(0,10),
+      date: isEditing ? initialInvoice!.date : now.slice(0,10),
       items: items.filter(i => i.description.trim()),
       laborItems: laborItems.filter(i => i.description.trim()),
-      subtotal, taxRate, taxAmount, total,
+      subtotal, taxRate: effectiveTaxRate, taxAmount, total,
       status,
       payMethod: status === 'cobrada' ? payMethod : undefined,
-      paidAt: status === 'cobrada' ? now : undefined,
-      isRectificativa: false, createdAt: now,
+      paidAt: status === 'cobrada' ? (isEditing && initialInvoice!.paidAt ? initialInvoice!.paidAt : now) : undefined,
     };
-    onSave(inv, saveAsCustomer);
+    onSave(inv, !isEditing && saveAsCustomer);
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Nueva Factura</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Factura manual sin reparación asociada</p>
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+            {isEditing ? `Editar ${initialInvoice!.invoiceNumber}` : 'Nueva Factura'}
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {isEditing ? 'Actualiza los datos de la factura existente' : 'Factura manual sin reparación asociada'}
+          </p>
         </div>
         <button onClick={onCancel} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors"><X size={16}/> Cancelar</button>
       </div>
@@ -698,8 +718,8 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
           ))}
         </div>
 
-        {/* Guardar como cliente */}
-        {customerName && !customers.find(c => c.phone === customerPhone) && (
+        {/* Guardar como cliente — solo en creación */}
+        {!isEditing && customerName && !customers.find(c => c.phone === customerPhone) && (
           <label className="flex items-center gap-2.5 cursor-pointer group">
             <input type="checkbox" checked={saveAsCustomer} onChange={e => setSaveAsCustomer(e.target.checked)}
               className="w-4 h-4 accent-blue-600 cursor-pointer"/>
@@ -752,13 +772,27 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
         {/* Totales */}
         <div className="border-t border-slate-100 pt-4 flex justify-end">
           <div className="w-64 space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest w-24">IVA %</label>
-              <input type="number" value={taxRate} onChange={e => setTaxRate(+e.target.value)} min={0} max={100}
-                className="w-20 px-3 py-1.5 text-sm border border-slate-200 rounded-xl text-center focus:outline-none"/>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Aplicar IVA</span>
+                <button
+                  type="button"
+                  onClick={() => setTaxEnabled(v => !v)}
+                  className={`relative inline-flex h-4 w-8 flex-shrink-0 items-center rounded-full transition-colors ${taxEnabled ? 'bg-blue-500' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${taxEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {taxEnabled && (
+                <div className="flex items-center gap-1">
+                  <input type="number" value={taxRate} onChange={e => setTaxRate(+e.target.value)} min={0} max={100}
+                    className="w-16 px-2 py-1 text-sm border border-slate-200 rounded-xl text-center focus:outline-none"/>
+                  <span className="text-[9px] text-slate-400">%</span>
+                </div>
+              )}
             </div>
             <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span>{fmtMoney(subtotal)}</span></div>
-            <div className="flex justify-between text-sm text-slate-500"><span>IVA {taxRate}%</span><span>{fmtMoney(taxAmount)}</span></div>
+            {taxEnabled && <div className="flex justify-between text-sm text-slate-500"><span>IVA {taxRate}%</span><span>{fmtMoney(taxAmount)}</span></div>}
             <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200 pt-2"><span>Total</span><span>{fmtMoney(total)}</span></div>
           </div>
         </div>
@@ -794,7 +828,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       <div className="flex gap-3 justify-end">
         <button onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase hover:bg-slate-200 transition-all">Cancelar</button>
         <button onClick={handleSave} className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all">
-          <Save size={14}/> Guardar factura
+          <Save size={14}/> {isEditing ? 'Guardar cambios' : 'Guardar factura'}
         </button>
       </div>
     </div>

@@ -23,6 +23,7 @@ interface CustomerRecord {
   city?: string;
   address?: string;
   email?: string;
+  taxId?: string;
   notes?: string;
   repairs: RepairItem[];
   lastVisit: string;
@@ -33,10 +34,8 @@ interface CustomerRecord {
 const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelectCustomer, onEditRepair, onSaveCustomer, onDeleteCustomer, onNewRepairForCustomer }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingName, setEditingName] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editCity, setEditCity] = useState('');
-  const [editingCity, setEditingCity] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', phone: '', city: '', address: '', email: '', taxId: '', notes: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', city: '', address: '', email: '', notes: '' });
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -49,7 +48,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
     for (const c of customers) {
       map.set(c.phone, {
         id: c.id, name: c.name, phone: c.phone, city: c.city, address: c.address,
-        email: c.email, notes: c.notes, repairs: [], lastVisit: c.createdAt || '',
+        email: c.email, taxId: c.taxId, notes: c.notes, repairs: [], lastVisit: c.createdAt || '',
         addresses: c.address ? [c.address] : [], isStandalone: true,
       });
     }
@@ -113,23 +112,55 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
   };
 
   const handleOpenCustomer = (c: CustomerRecord) => {
-    setSelectedCustomer(c); setEditingName(false); setEditingCity(false);
-    setEditName(c.name); setEditCity(c.city || '');
+    setSelectedCustomer(c);
+    setEditingCustomer(false);
   };
 
-  const handleSaveField = (field: 'name' | 'city') => {
+  const handleEditOpen = () => {
     if (!selectedCustomer) return;
-    const updated = { ...selectedCustomer, ...(field === 'name' ? { name: editName.trim() } : { city: editCity.trim() }) };
+    setEditForm({
+      name: selectedCustomer.name || '',
+      phone: selectedCustomer.phone || '',
+      city: selectedCustomer.city || '',
+      address: selectedCustomer.address || '',
+      email: selectedCustomer.email || '',
+      taxId: selectedCustomer.taxId || '',
+      notes: selectedCustomer.notes || '',
+    });
+    setEditingCustomer(true);
+  };
+
+  const handleEditSave = () => {
+    if (!selectedCustomer || !editForm.name.trim() || !editForm.phone.trim()) return;
+    const customerId = selectedCustomer.isStandalone
+      ? selectedCustomer.id
+      : `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     if (onSaveCustomer) {
       onSaveCustomer({
-        id: selectedCustomer.isStandalone ? selectedCustomer.id : `cust-${Date.now()}`,
-        name: updated.name, phone: updated.phone, city: updated.city,
-        address: updated.address, email: updated.email, notes: updated.notes,
+        id: customerId,
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        city: editForm.city.trim() || undefined,
+        address: editForm.address.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+        taxId: editForm.taxId.trim() || undefined,
+        notes: editForm.notes.trim() || undefined,
         updatedAt: new Date().toISOString(),
       });
     }
-    setSelectedCustomer(updated);
-    if (field === 'name') setEditingName(false); else setEditingCity(false);
+    setSelectedCustomer({
+      ...selectedCustomer,
+      id: customerId,
+      isStandalone: true,
+      name: editForm.name.trim(),
+      phone: editForm.phone.trim(),
+      city: editForm.city.trim() || undefined,
+      address: editForm.address.trim() || undefined,
+      email: editForm.email.trim() || undefined,
+      taxId: editForm.taxId.trim() || undefined,
+      notes: editForm.notes.trim() || undefined,
+    });
+    setEditingCustomer(false);
   };
 
   const handleWhatsApp = (phone: string, name: string) => {
@@ -154,6 +185,75 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
     setNewCustomer({ name: '', phone: '', city: '', address: '', email: '', notes: '' });
     setShowAddForm(false);
   };
+
+  // ─── EDIT CUSTOMER FORM ──
+  if (editingCustomer && selectedCustomer) {
+    const inp = 'w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm';
+    const lbl = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1';
+    return (
+      <div className="max-w-lg animate-in fade-in">
+        <div className="flex items-center gap-4 mb-6">
+          <button onClick={() => setEditingCustomer(false)} className="p-3 bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-slate-900 shadow-sm"><ArrowLeft size={20} /></button>
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Editar Cliente</h2>
+            <p className="text-sm text-slate-400 mt-0.5">{selectedCustomer.name}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 space-y-4">
+          <div className="space-y-1.5">
+            <label className={lbl}>Nombre *</label>
+            <input type="text" className={inp} placeholder="Nombre completo"
+              value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className={lbl}>Teléfono *</label>
+              <input type="tel" className={inp} placeholder="600 000 000"
+                value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <label className={lbl}>Email</label>
+              <input type="email" className={inp} placeholder="email@ejemplo.com"
+                value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className={lbl}>Dirección</label>
+            <input type="text" className={inp} placeholder="Calle, número, piso..."
+              value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className={lbl}>Ciudad</label>
+              <input type="text" className={inp} placeholder="Ciudad"
+                value={editForm.city} onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <label className={lbl}>NIF / CIF</label>
+              <input type="text" className={inp} placeholder="12345678A"
+                value={editForm.taxId} onChange={e => setEditForm(f => ({ ...f, taxId: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className={lbl}>Notas</label>
+            <textarea rows={3} className={`${inp} resize-none`} placeholder="Observaciones sobre el cliente..."
+              value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+          <div className="flex gap-4 pt-4 border-t border-slate-100">
+            <button onClick={() => setEditingCustomer(false)}
+              className="px-6 py-3 bg-white border border-slate-200 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button onClick={handleEditSave}
+              disabled={!editForm.name.trim() || !editForm.phone.trim()}
+              className="flex-1 py-3 bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+              <Save size={16} /> Guardar cambios
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── CUSTOMER DETAIL ──
   if (selectedCustomer) {
@@ -187,43 +287,14 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
               {c.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              {editingName ? (
-                <div className="flex items-center gap-2">
-                  <input autoFocus type="text" value={editName} onChange={e => setEditName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveField('name')}
-                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white font-black text-lg uppercase outline-none w-full max-w-sm" />
-                  <button onClick={() => handleSaveField('name')} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"><Save size={16} /></button>
-                  <button onClick={() => setEditingName(false)} className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20"><X size={16} /></button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <h3 className="text-xl font-black text-white uppercase tracking-tight truncate">{c.name}</h3>
-                  <button onClick={() => { setEditName(c.name); setEditingName(true); }} className="p-1.5 bg-white/10 text-white/60 rounded-lg hover:bg-white/20 hover:text-white transition-colors">
-                    <Pencil size={14} />
-                  </button>
-                </div>
-              )}
-              <p className="text-sm font-bold text-slate-400 mt-1 flex items-center gap-2"><Phone size={14} /> {c.phone}</p>
-              {/* Ciudad editable */}
-              <div className="mt-1">
-                {editingCity ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <MapPin size={12} className="text-amber-400 shrink-0" />
-                    <input autoFocus type="text" value={editCity} onChange={e => setEditCity(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveField('city')} placeholder="Ciudad..."
-                      className="px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-white font-bold text-xs outline-none w-40" />
-                    <button onClick={() => handleSaveField('city')} className="p-1 bg-emerald-500 text-white rounded-md hover:bg-emerald-600"><Save size={12} /></button>
-                    <button onClick={() => setEditingCity(false)} className="p-1 bg-white/10 text-white rounded-md hover:bg-white/20"><X size={12} /></button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setEditCity(c.city || ''); setEditingCity(true); }}
-                    className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-amber-400 transition-colors mt-0.5">
-                    <MapPin size={12} />
-                    {c.city ? <span className="font-bold">{c.city}</span> : <span className="italic opacity-60">Añadir ciudad</span>}
-                    <Pencil size={10} className="opacity-40" />
-                  </button>
-                )}
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-black text-white uppercase tracking-tight truncate">{c.name}</h3>
+                <button onClick={handleEditOpen} className="p-1.5 bg-white/10 text-white/60 rounded-lg hover:bg-white/20 hover:text-white transition-colors" title="Editar cliente">
+                  <Pencil size={14} />
+                </button>
               </div>
+              <p className="text-sm font-bold text-slate-400 mt-1 flex items-center gap-2"><Phone size={14} /> {c.phone}</p>
+              {c.city && <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPin size={12} /> <span className="font-bold">{c.city}</span></p>}
             </div>
           </div>
 
@@ -252,9 +323,25 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
               </div>
             </div>
 
+            {(c.email || c.taxId) && (
+              <div className="grid grid-cols-2 gap-3">
+                {c.email && (
+                  <div className="p-3 bg-slate-50 rounded-xl">
+                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Email</p>
+                    <p className="text-xs font-bold text-slate-600 truncate">{c.email}</p>
+                  </div>
+                )}
+                {c.taxId && (
+                  <div className="p-3 bg-slate-50 rounded-xl">
+                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">NIF / CIF</p>
+                    <p className="text-xs font-bold text-slate-600">{c.taxId}</p>
+                  </div>
+                )}
+              </div>
+            )}
             {c.addresses.length > 0 && (
               <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1.5"><MapPin size={12} /> Direcciones</p>
+                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1.5"><MapPin size={12} /> Dirección</p>
                 {c.addresses.map((addr, i) => <p key={i} className="text-xs font-bold text-slate-600">{addr}</p>)}
               </div>
             )}

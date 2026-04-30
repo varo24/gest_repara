@@ -344,6 +344,16 @@ export const storage = {
     return localStore.getAll('repairs').reduce((m: number, r: any) => Math.max(m, r.rmaNumber || 0), 0) + 1;
   },
 
+  nextInvoiceNumber: (type: 'FAC' | 'REC'): string => {
+    const prefix = type === 'REC' ? 'REC-' : 'FAC-';
+    const nums = localStore.getAll('invoices')
+      .filter((i: any) => (i.invoiceNumber || '').startsWith(prefix))
+      .map((i: any) => parseInt((i.invoiceNumber || '').replace(/\D/g, '') || '0'))
+      .filter(Boolean);
+    const next = nums.length ? Math.max(...nums) + 1 : 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
+  },
+
   exportData: async (): Promise<string> => {
     const BACKUP_COLS = ['repairs', 'budgets', 'invoices', 'cash_movements', 'inventory', 'customers', 'warranties', 'settings'];
     const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v1-firestore' };

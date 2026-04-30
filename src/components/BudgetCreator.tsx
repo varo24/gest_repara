@@ -32,6 +32,7 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
   const [laborItems, setLaborItems] = useState<LaborItem[]>(initialBudget?.laborItems || []);
   const [signature, setSignature] = useState(initialBudget?.signature || '');
   const [tax, setTax] = useState(initialBudget?.taxRate || settings.taxRate || 21);
+  const [taxEnabled, setTaxEnabled] = useState<boolean>(initialBudget?.taxEnabled ?? true);
   const [activeTab, setActiveTab] = useState<'repuestos' | 'mano-obra' | 'firma' | 'resumen'>(initialBudget?.id ? 'resumen' : 'repuestos');
   const [isSaving, setIsSaving] = useState(false);
   const [showPartsSearch, setShowPartsSearch] = useState(false);
@@ -51,7 +52,7 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
 
   const printBudget = () => {
     const pSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) + laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
-    const pTaxAmount = Math.round(pSubtotal * (tax / 100) * 100) / 100;
+    const pTaxAmount = taxEnabled ? Math.round(pSubtotal * (tax / 100) * 100) / 100 : 0;
     const pTotal = Math.round((pSubtotal + pTaxAmount) * 100) / 100;
     const allRows = [
       ...items.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description}</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.quantity}</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.quantity * i.unitPrice).toFixed(2)}€</td></tr>`),
@@ -125,7 +126,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   </div>
   <div class="totals-box">
     <div class="total-row"><span>Subtotal</span><span>${pSubtotal.toFixed(2)}€</span></div>
-    <div class="total-row"><span>IVA (${tax}%)</span><span>${pTaxAmount.toFixed(2)}€</span></div>
+    ${taxEnabled ? `<div class="total-row"><span>IVA (${tax}%)</span><span>${pTaxAmount.toFixed(2)}€</span></div>` : ''}
     <div class="total-final"><span class="total-label">Total</span><span class="total-amount">${pTotal.toFixed(2)}€</span></div>
   </div>
 </div>
@@ -175,7 +176,8 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   const subtotalPieces = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
   const subtotalLabor = laborItems.reduce((acc, item) => acc + (item.hours * item.hourlyRate), 0);
   const subtotal = Math.round((subtotalPieces + subtotalLabor) * 100) / 100;
-  const taxAmount = Math.round((subtotal * (tax / 100)) * 100) / 100;
+  const effectiveTaxRate = taxEnabled ? tax : 0;
+  const taxAmount = Math.round((subtotal * (effectiveTaxRate / 100)) * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
 
   const handleSave = () => {
@@ -189,6 +191,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
         items,
         laborItems,
         taxRate: tax,
+        taxEnabled,
         total,
         signature,
         date: initialBudget?.date || new Date().toISOString().split('T')[0]
@@ -402,7 +405,32 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                  </div>
                  <div className="text-right space-y-2 bg-slate-50 p-6 rounded-2xl min-w-[250px]">
                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase"><span>Subtotal</span> <span>{subtotal.toFixed(2)}€</span></div>
-                   <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase"><span>IVA ({tax}%)</span> <span>{taxAmount.toFixed(2)}€</span></div>
+                   {/* Toggle IVA (no aparece al imprimir) */}
+                   <div className="flex items-center justify-between gap-3 no-print py-1 border-t border-slate-200 mt-1 pt-2">
+                     <div className="flex items-center gap-2">
+                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Aplicar IVA</span>
+                       <button
+                         onClick={() => setTaxEnabled(v => !v)}
+                         className={`relative inline-flex h-4 w-8 flex-shrink-0 items-center rounded-full transition-colors ${taxEnabled ? 'bg-blue-500' : 'bg-slate-300'}`}
+                       >
+                         <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${taxEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                       </button>
+                     </div>
+                     {taxEnabled && (
+                       <div className="flex items-center gap-1">
+                         <input
+                           type="number" min="0" max="100"
+                           value={tax}
+                           onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
+                           className="w-14 px-2 py-0.5 border border-slate-200 rounded text-[10px] font-black text-right bg-white"
+                         />
+                         <span className="text-[9px] font-bold text-slate-400">%</span>
+                       </div>
+                     )}
+                   </div>
+                   {taxEnabled && (
+                     <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase"><span>IVA ({tax}%)</span> <span>{taxAmount.toFixed(2)}€</span></div>
+                   )}
                    <div className="h-px bg-slate-200 my-2" />
                    <div className="flex justify-between items-baseline">
                      <span className="text-[10px] font-black uppercase tracking-widest">Total Presupuesto</span>

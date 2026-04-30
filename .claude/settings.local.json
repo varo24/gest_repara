@@ -11,7 +11,11 @@
       "Bash(git rm *)",
       "Bash(git commit *)",
       "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(python -m json.tool)",
+      "Bash(firebase --version)",
+      "Bash(npm list *)",
+      "Bash(node *)"
     ]
   }
 }

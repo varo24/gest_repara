@@ -20,7 +20,7 @@ import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem } from './types';
-import { storage, localDB } from './lib/dataService';
+import { storage } from './lib/dataService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
@@ -410,10 +410,14 @@ const App: React.FC = () => {
                   notify('success', `Presupuesto enviado a ${repair.customerName}`);
                 }}
                 onConvertToInvoice={(budget, repair) => {
-                  const allInvoices = (localDB as any).getAll('invoices');
-                  const nums = allInvoices.map((i: any) => parseInt(i.invoiceNumber?.replace(/\D/g, '') || '0')).filter(Boolean);
-                  const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
-                  const invoiceNumber = `FAC-${String(nextNum).padStart(5, '0')}`;
+                  const effectiveTaxRate = budget.taxEnabled === false ? 0 : (budget.taxRate || 21);
+                  const budgetSubtotal = [
+                    ...budget.items.map(i => i.quantity * i.unitPrice),
+                    ...budget.laborItems.map(i => i.hours * i.hourlyRate),
+                  ].reduce((s, v) => s + v, 0);
+                  const budgetTaxAmount = Math.round(budgetSubtotal * (effectiveTaxRate / 100) * 100) / 100;
+                  const budgetTotal = Math.round((budgetSubtotal + budgetTaxAmount) * 100) / 100;
+                  const invoiceNumber = storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC');
                   const now = new Date().toISOString();
                   const invoice = {
                     id: `INV-${Date.now()}`,
@@ -425,10 +429,10 @@ const App: React.FC = () => {
                     date: now.slice(0, 10),
                     items: budget.items,
                     laborItems: budget.laborItems,
-                   subtotal: budget.subtotal || 0,
-taxAmount: budget.taxAmount || 0,
-total: budget.total || 0,
-taxRate: budget.taxRate || 21,
+                    subtotal: budgetSubtotal,
+                    taxAmount: budgetTaxAmount,
+                    total: budgetTotal,
+                    taxRate: effectiveTaxRate,
                     status: 'pendiente',
                     isRectificativa: false,
                     createdAt: now,

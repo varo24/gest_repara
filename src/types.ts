@@ -71,6 +71,7 @@ export interface Budget {
   items: BudgetItem[];
   laborItems: LaborItem[];
   taxRate: number;
+  taxEnabled?: boolean;
   total: number;
   date: string;
   signature?: string;
@@ -110,6 +111,7 @@ export interface Customer {
   city?: string;
   address?: string;
   email?: string;
+  taxId?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
