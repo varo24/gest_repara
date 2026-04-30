@@ -77,6 +77,10 @@ export interface Budget {
   date: string;
   signature?: string;
   status?: 'pending' | 'accepted' | 'rejected';
+  // Campos para presupuestos libres (sin reparación asociada)
+  customerName?: string;
+  customerPhone?: string;
+  customerTaxId?: string;
 }
 
 export interface Invoice {

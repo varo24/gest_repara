@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const confirm2 = (msg: string, onYes: () => void) => setConfirmModal({ msg, onYes });
   const [activeBudgetRepair, setActiveBudgetRepair] = useState<RepairItem | null>(null);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [freeBudgetMode, setFreeBudgetMode] = useState(false);
 
   // New module states
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -189,7 +190,11 @@ const App: React.FC = () => {
 
   const handleSaveBudget = async (budget: Budget) => {
     storage.save('budgets', budget.id, budget);
-    notify('success', `Presupuesto para RMA-${budget.rmaNumber} guardado.`);
+    const label = budget.rmaNumber
+      ? `RMA-${String(budget.rmaNumber).padStart(5, '0')}`
+      : budget.customerName || 'libre';
+    notify('success', `Presupuesto ${label} guardado.`);
+    setFreeBudgetMode(false);
     navigateTo('budgets');
   };
 
@@ -329,14 +334,24 @@ const App: React.FC = () => {
           />
         )}
 
-        {activeBudgetRepair ? (
+        {(activeBudgetRepair || freeBudgetMode) ? (
           <BudgetCreator
-            repair={activeBudgetRepair}
+            repair={activeBudgetRepair || undefined}
             settings={settings}
             initialBudget={editingBudget || undefined}
             inventoryItems={inventoryItems}
+            customers={customersDB}
             onSave={handleSaveBudget}
-            onClose={() => navigateTo('repairs')}
+            onSaveCustomer={async (c) => {
+              await storage.save('customers', c.id, c);
+            }}
+            onClose={() => {
+              if (freeBudgetMode) {
+                setFreeBudgetMode(false);
+              } else {
+                navigateTo('repairs');
+              }
+            }}
           />
         ) : (
           <>
@@ -402,14 +417,28 @@ const App: React.FC = () => {
               <BudgetList
                 budgets={budgets ?? []}
                 repairs={repairs ?? []}
+                customers={customersDB}
                 settings={settings}
+                onNewFreeBudget={() => { setEditingBudget(null); setFreeBudgetMode(true); }}
                 onViewBudget={(b) => {
                   const r = repairs?.find(rep => rep.id === b.repairId);
-                  if (r) { setEditingBudget(b); setActiveBudgetRepair(r); }
+                  if (r) {
+                    setEditingBudget(b);
+                    setActiveBudgetRepair(r);
+                  } else {
+                    setEditingBudget(b);
+                    setFreeBudgetMode(true);
+                  }
                 }}
                 onPrintBudget={(budget) => {
                   const r = repairs?.find(rep => rep.id === budget.repairId);
-                  if (r) { setEditingBudget(budget); setActiveBudgetRepair(r); }
+                  if (r) {
+                    setEditingBudget(budget);
+                    setActiveBudgetRepair(r);
+                  } else {
+                    setEditingBudget(budget);
+                    setFreeBudgetMode(true);
+                  }
                 }}
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
                 onSendWhatsApp={async (budget, repair) => {

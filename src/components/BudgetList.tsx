@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt } from 'lucide-react';
-import { Budget, RepairItem, AppSettings } from '../types';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus } from 'lucide-react';
+import { Budget, RepairItem, AppSettings, Customer } from '../types';
 
 interface BudgetListProps {
   budgets: Budget[];
   repairs: RepairItem[];
+  customers?: Customer[];
   settings?: AppSettings;
   onViewBudget: (budget: Budget) => void;
   onPrintBudget: (budget: Budget) => void;
   onDeleteBudget: (budgetId: string) => void;
+  onNewFreeBudget?: () => void;
   onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
   onConvertToInvoice?: (budget: Budget, repair: RepairItem) => void;
 }
 
-const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, settings, onViewBudget, onPrintBudget, onDeleteBudget, onSendWhatsApp, onConvertToInvoice }) => {
+const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget, onNewFreeBudget, onSendWhatsApp, onConvertToInvoice }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
@@ -21,14 +23,15 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, settings, onV
 
   const filteredBudgets = budgets.filter(budget => {
     const repair = getRepairInfo(budget.repairId);
-    const searchStr = `${budget.id} ${repair ? formatRMA(repair.rmaNumber) : ''} ${repair?.customerName}`.toLowerCase();
+    const customerName = repair?.customerName || budget.customerName || '';
+    const searchStr = `${budget.id} ${repair ? formatRMA(repair.rmaNumber) : ''} ${customerName}`.toLowerCase();
     return searchStr.includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
-    const repairA = getRepairInfo(a.repairId);
-    const repairB = getRepairInfo(b.repairId);
-    const rmaA = repairA ? repairA.rmaNumber : 0;
-    const rmaB = repairB ? repairB.rmaNumber : 0;
-    return rmaA - rmaB;
+    // Free budgets (rmaNumber=0) go to the top by date; repair budgets sort by RMA
+    if (!a.rmaNumber && !b.rmaNumber) return (b.date || '').localeCompare(a.date || '');
+    if (!a.rmaNumber) return -1;
+    if (!b.rmaNumber) return 1;
+    return (b.rmaNumber || 0) - (a.rmaNumber || 0);
   });
 
   return (
@@ -38,9 +41,19 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, settings, onV
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Archivo de Presupuestos</h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Histórico de valoraciones técnicas</p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input type="text" placeholder="Buscar presupuesto o RMA..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input type="text" placeholder="Buscar presupuesto o cliente..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          {onNewFreeBudget && (
+            <button
+              onClick={onNewFreeBudget}
+              className="flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all whitespace-nowrap"
+            >
+              <Plus size={14} /> Presupuesto libre
+            </button>
+          )}
         </div>
       </div>
 
@@ -58,21 +71,30 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, settings, onV
           <tbody className="divide-y divide-slate-50">
             {filteredBudgets.map(budget => {
               const repair = getRepairInfo(budget.repairId);
+              const displayName = repair?.customerName || budget.customerName || 'N/A';
+              const isFreeBudget = !repair;
 
               return (
                 <tr key={budget.id} className="hover:bg-slate-50 transition-all group">
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center"><FileText size={14} /></div>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isFreeBudget ? 'bg-violet-50 text-violet-500' : 'bg-blue-50 text-blue-500'}`}>
+                        <FileText size={14} />
+                      </div>
                       <div>
-                        <p className="text-[11px] font-black text-slate-900">{repair ? formatRMA(repair.rmaNumber) : 'S/RMA'}</p>
+                        <p className="text-[11px] font-black text-slate-900">
+                          {repair ? formatRMA(repair.rmaNumber) : <span className="text-violet-600">LIBRE</span>}
+                        </p>
                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">ID: {budget.id.slice(0, 8)}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-6">
-                    <p className="text-xs font-black text-slate-900 uppercase truncate max-w-[150px]">{repair?.customerName || 'N/A'}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase truncate max-w-[150px] mt-1">{repair?.brand} {repair?.model}</p>
+                    <p className="text-xs font-black text-slate-900 uppercase truncate max-w-[150px]">{displayName}</p>
+                    {repair
+                      ? <p className="text-[9px] text-slate-400 font-bold uppercase truncate max-w-[150px] mt-1">{repair.brand} {repair.model}</p>
+                      : <p className="text-[9px] text-violet-400 font-bold uppercase mt-1">Sin RMA</p>
+                    }
                   </td>
                   <td className="px-4 py-6">
                     <p className="text-sm font-black text-blue-600">{budget.total.toFixed(2)}€</p>

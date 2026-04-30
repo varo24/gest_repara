@@ -15,20 +15,22 @@ import {
   AlertCircle,
   Search
 } from 'lucide-react';
-import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings, InventoryItem } from '../types';
+import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings, InventoryItem, Customer } from '../types';
 import SignaturePad from './SignaturePad';
 import PartsSearch from './PartsSearch';
 
 interface BudgetCreatorProps {
-  repair: RepairItem;
+  repair?: RepairItem;
   settings: AppSettings;
   initialBudget?: Budget;
   inventoryItems?: InventoryItem[];
+  customers?: Customer[];
   onSave: (budget: Budget) => void;
+  onSaveCustomer?: (c: Customer) => void;
   onClose: () => void;
 }
 
-const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initialBudget, inventoryItems = [], onSave, onClose }) => {
+const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initialBudget, inventoryItems = [], customers = [], onSave, onSaveCustomer, onClose }) => {
   const [items, setItems] = useState<BudgetItem[]>(initialBudget?.items || []);
   const [laborItems, setLaborItems] = useState<LaborItem[]>(initialBudget?.laborItems || []);
   const [signature, setSignature] = useState(initialBudget?.signature || '');
@@ -40,12 +42,26 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
   const [invSearch, setInvSearch] = useState('');
   const [showInvDropdown, setShowInvDropdown] = useState(false);
 
+  // Customer fields for free budgets (no repair)
+  const [customerName, setCustomerName]         = useState(initialBudget?.customerName || '');
+  const [customerPhone, setCustomerPhone]       = useState(initialBudget?.customerPhone || '');
+  const [customerTaxId, setCustomerTaxId]       = useState(initialBudget?.customerTaxId || '');
+  const [customerAddress, setCustomerAddress]   = useState('');
+  const [customerEmail, setCustomerEmail]       = useState('');
+  const [saveAsCustomer, setSaveAsCustomer]     = useState(false);
+  const [custSearch, setCustSearch]             = useState('');
+  const [showCustDrop, setShowCustDrop]         = useState(false);
+
+  const filteredCustomers = custSearch.trim()
+    ? customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.phone.includes(custSearch)).slice(0, 6)
+    : [];
+
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
 
   const addPartFromSearch = (name: string, price: number) => {
     const newItem: BudgetItem = {
       id: crypto.randomUUID(),
-      repairId: repair.id,
+      repairId: repair?.id || '',
       description: name,
       quantity: 1,
       unitPrice: price,
@@ -56,7 +72,7 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
   const addFromInventory = (inv: InventoryItem) => {
     const newItem: BudgetItem = {
       id: crypto.randomUUID(),
-      repairId: repair.id,
+      repairId: repair?.id || '',
       description: inv.description,
       quantity: 1,
       unitPrice: inv.salePrice || inv.costPrice,
@@ -75,6 +91,12 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
     : [];
 
   const printBudget = () => {
+    const cName  = repair?.customerName  || customerName  || '—';
+    const cPhone = repair?.customerPhone || customerPhone || '—';
+    const rmaLabel   = repair ? formatRMA(repair.rmaNumber) : 'PRES. LIBRE';
+    const deviceStr  = repair ? `${repair.brand} ${repair.model}` : '—';
+    const deviceType = repair?.deviceType || '—';
+
     const pSubtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0) + laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
     const pTaxAmount = taxEnabled ? Math.round(pSubtotal * (tax / 100) * 100) / 100 : 0;
     const pTotal = Math.round((pSubtotal + pTaxAmount) * 100) / 100;
@@ -83,7 +105,7 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
       ...laborItems.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description} (M.O.)</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.hours}h</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.hours * i.hourlyRate).toFixed(2)}€</td></tr>`)
     ].join('');
 
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto ${formatRMA(repair.rmaNumber)}</title>
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto ${rmaLabel}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -123,20 +145,20 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   </div>
   <div style="text-align:right">
     <div class="rma-label">Presupuesto Técnico</div>
-    <div class="rma">${formatRMA(repair.rmaNumber)}</div>
+    <div class="rma">${rmaLabel}</div>
     <div style="font-size:10px;font-weight:600;color:#64748b;margin-top:4px">Fecha: ${new Date().toLocaleDateString('es-ES')}</div>
   </div>
 </div>
 <div class="grid2">
   <div class="info-box">
     <div class="info-label">Cliente</div>
-    <div class="info-val">${repair.customerName}</div>
-    <div class="info-sub">${repair.customerPhone}</div>
+    <div class="info-val">${cName}</div>
+    <div class="info-sub">${cPhone}</div>
   </div>
   <div class="info-box">
     <div class="info-label">Equipo</div>
-    <div class="info-val">${repair.brand} ${repair.model}</div>
-    <div class="info-sub">${repair.deviceType}</div>
+    <div class="info-val">${deviceStr}</div>
+    <div class="info-sub">${deviceType}</div>
   </div>
 </div>
 <table>
@@ -183,7 +205,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   };
 
   const addPiece = () => {
-    const newItem: BudgetItem = { id: crypto.randomUUID(), repairId: repair.id, description: '', quantity: 1, unitPrice: 0 };
+    const newItem: BudgetItem = { id: crypto.randomUUID(), repairId: repair?.id || '', description: '', quantity: 1, unitPrice: 0 };
     setItems([...items, newItem]);
   };
 
@@ -206,21 +228,41 @@ tbody tr{border-bottom:1px solid #f1f5f9}
 
   const handleSave = () => {
     if (isSaving) return;
+    if (!repair && !customerName.trim()) { alert('El nombre del cliente es obligatorio'); return; }
     setIsSaving(true);
     try {
       const budget: Budget = {
         id: initialBudget?.id || crypto.randomUUID(),
-        repairId: repair.id,
-        rmaNumber: repair.rmaNumber,
+        repairId: repair?.id || '',
+        rmaNumber: repair?.rmaNumber || 0,
         items,
         laborItems,
         taxRate: tax,
         taxEnabled,
         total,
         signature,
-        date: initialBudget?.date || new Date().toISOString().split('T')[0]
+        date: initialBudget?.date || new Date().toISOString().split('T')[0],
+        ...(repair ? {} : {
+          customerName: customerName.trim() || undefined,
+          customerPhone: customerPhone.trim() || undefined,
+          customerTaxId: customerTaxId.trim() || undefined,
+        }),
       };
       onSave(budget);
+
+      if (!repair && saveAsCustomer && customerName.trim() && onSaveCustomer) {
+        const now = new Date().toISOString();
+        onSaveCustomer({
+          id: `CUST-${Date.now()}`,
+          name: customerName.trim(),
+          phone: customerPhone.trim(),
+          address: customerAddress.trim() || undefined,
+          email: customerEmail.trim() || undefined,
+          taxId: customerTaxId.trim() || undefined,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -234,7 +276,9 @@ tbody tr{border-bottom:1px solid #f1f5f9}
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-all">
             <ArrowLeftIcon size={20} />
           </button>
-          <h2 className="text-lg font-black uppercase tracking-tight">Presupuesto Técnico {formatRMA(repair.rmaNumber)}</h2>
+          <h2 className="text-lg font-black uppercase tracking-tight">
+            {repair ? `Presupuesto Técnico ${formatRMA(repair.rmaNumber)}` : 'Presupuesto Libre'}
+          </h2>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
@@ -244,6 +288,92 @@ tbody tr{border-bottom:1px solid #f1f5f9}
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl"><XIcon size={20} /></button>
         </div>
       </div>
+
+      {/* ── Sección cliente — sólo en presupuesto libre ── */}
+      {!repair && (
+        <div className="border-b border-slate-100 bg-slate-50 p-6 space-y-4 no-print">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datos del cliente</p>
+
+          {/* Buscador clientes existentes */}
+          {customers.length > 0 && (
+            <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setShowCustDrop(false); }}>
+              <input
+                type="text"
+                placeholder="Buscar cliente existente por nombre o teléfono..."
+                className="w-full px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                value={custSearch}
+                onChange={e => { setCustSearch(e.target.value); setShowCustDrop(true); }}
+                onFocus={() => setShowCustDrop(true)}
+              />
+              {showCustDrop && filteredCustomers.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                  {filteredCustomers.map(c => (
+                    <button
+                      key={c.id}
+                      onMouseDown={() => {
+                        setCustomerName(c.name);
+                        setCustomerPhone(c.phone);
+                        setCustomerTaxId(c.taxId || '');
+                        setCustomerAddress(c.address || '');
+                        setCustomerEmail((c as any).email || '');
+                        setCustSearch(c.name);
+                        setShowCustDrop(false);
+                        setSaveAsCustomer(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-slate-50 last:border-0"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-blue-600">{c.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{c.name}</p>
+                        <p className="text-[10px] text-slate-400">{c.phone}{c.city ? ' · ' + c.city : ''}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Campos cliente */}
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              ['Nombre *', 'text', customerName, setCustomerName, 'Nombre completo'],
+              ['Teléfono',  'tel',  customerPhone, setCustomerPhone, '600 000 000'],
+              ['NIF / CIF', 'text', customerTaxId,  setCustomerTaxId,  '12345678A'],
+              ['Email',     'email',customerEmail,  setCustomerEmail,  'correo@ejemplo.com'],
+              ['Dirección', 'text', customerAddress, setCustomerAddress, 'Calle...'],
+            ] as const).map(([label, type, val, setter, ph]) => (
+              <div key={String(label)}>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</label>
+                <input
+                  type={type}
+                  value={val}
+                  onChange={e => (setter as any)(e.target.value)}
+                  placeholder={ph}
+                  className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Checkbox guardar como cliente */}
+          {customerName.trim() && !customers.find(c => c.phone === customerPhone) && (
+            <label className="flex items-center gap-2.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={saveAsCustomer}
+                onChange={e => setSaveAsCustomer(e.target.checked)}
+                className="w-4 h-4 accent-blue-600 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">
+                Guardar como cliente en la agenda
+              </span>
+            </label>
+          )}
+        </div>
+      )}
 
       <div className="flex border-b border-slate-100 no-print bg-slate-50">
         {[
@@ -331,9 +461,9 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                   </button>
                 </div>
                 <PartsSearch
-                  deviceBrand={repair.brand}
-                  deviceModel={repair.model}
-                  deviceType={repair.deviceType}
+                  deviceBrand={repair?.brand || ''}
+                  deviceModel={repair?.model || ''}
+                  deviceType={repair?.deviceType || ''}
                   onAddPart={addPartFromSearch}
                 />
               </div>
@@ -413,7 +543,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Presupuesto Técnico</p>
-                    <p className="text-3xl font-black text-slate-900 leading-none">{formatRMA(repair.rmaNumber)}</p>
+                    <p className="text-3xl font-black text-slate-900 leading-none">{repair ? formatRMA(repair.rmaNumber) : 'LIBRE'}</p>
                     <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase">Fecha: {new Date().toLocaleDateString('es-ES')}</p>
                   </div>
                </div>
@@ -421,13 +551,13 @@ tbody tr{border-bottom:1px solid #f1f5f9}
                <div className="grid grid-cols-2 gap-8 mb-8">
                   <div className="p-6 bg-slate-50 rounded-2xl">
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
-                    <p className="text-sm font-black uppercase">{repair.customerName}</p>
-                    <p className="text-[10px] font-bold text-slate-500">{repair.customerPhone}</p>
+                    <p className="text-sm font-black uppercase">{repair?.customerName || customerName || '—'}</p>
+                    <p className="text-[10px] font-bold text-slate-500">{repair?.customerPhone || customerPhone || '—'}</p>
                   </div>
                   <div className="p-6 bg-slate-50 rounded-2xl">
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Equipo / Dispositivo</p>
-                    <p className="text-sm font-black uppercase">{repair.brand} {repair.model}</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">{repair.deviceType}</p>
+                    <p className="text-sm font-black uppercase">{repair ? `${repair.brand} ${repair.model}` : '—'}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">{repair?.deviceType || '—'}</p>
                   </div>
                </div>
 
