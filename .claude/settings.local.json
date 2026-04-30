@@ -15,7 +15,9 @@
       "Bash(python -m json.tool)",
       "Bash(firebase --version)",
       "Bash(npm list *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(python -c ' *)",
+      "Bash(python *)"
     ]
   }
 }
