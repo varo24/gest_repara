@@ -105,6 +105,7 @@ export interface AppSettings {
   email?: string;
   inventoryCategories?: string[];
   anthropicApiKey?: string;
+  geminiApiKey?: string;
 }
 
 export interface Customer {

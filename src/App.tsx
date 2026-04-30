@@ -36,7 +36,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   technicians: ['Técnico Senior', 'Ayudante'],
   hourlyRate: 45,
   taxRate: 21,
-  letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.'
+  letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.',
+  geminiApiKey: 'AIzaSyCWd8-GlAYySsWrLRrQzLpvoDSRqWfqGKE',
 };
 
 const App: React.FC = () => {

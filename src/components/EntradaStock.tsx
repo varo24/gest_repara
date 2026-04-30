@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Plus, Trash2, Search, X, Save, ScanLine,
+  Plus, X, Save, ScanLine,
   Brain, Upload, CheckCircle2, AlertTriangle, Package,
-  ArrowLeft, RefreshCw
+  ArrowLeft, RefreshCw, Search, FileText
 } from 'lucide-react';
 import { InventoryItem, StockMovement, AppSettings } from '../types';
 import { storage } from '../lib/dataService';
+import { analyzeInvoice, analyzeInvoiceText, GeminiInvoiceResult } from '../lib/gemini';
 
 interface EntradaStockProps {
   settings: AppSettings;
@@ -45,6 +46,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   const [aiParsing, setAiParsing] = useState(false);
   const [aiLines, setAiLines] = useState<EntryLine[]>([]);
   const [aiRawText, setAiRawText] = useState('');
+  const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -133,56 +135,51 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     }
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const mapGeminiResult = (result: GeminiInvoiceResult): EntryLine[] =>
+    result.lineas.map(l => {
+      const found = inventoryItems.find(i =>
+        (l.referencia && i.ref.toLowerCase() === l.referencia.toLowerCase()) ||
+        i.description.toLowerCase().includes(l.descripcion.toLowerCase().slice(0, 15))
+      );
+      return {
+        inventoryItemId: found?.id || '',
+        ref: l.referencia || found?.ref || '',
+        description: l.descripcion || found?.description || '',
+        qty: Math.max(1, Math.round(l.cantidad) || 1),
+        costPrice: parseFloat(String(l.precio_unitario)) || 0,
+      };
+    });
+
   const parseWithAI = async () => {
-    if (!aiFile && !aiRawText.trim()) { onNotify('error', 'Sube un archivo o pega el texto'); return; }
-    const apiKey = settings.anthropicApiKey;
-    if (!apiKey) { onNotify('error', 'Configura tu clave API de Anthropic en Ajustes'); return; }
+    if (!aiFile && !aiRawText.trim()) { onNotify('error', 'Sube una imagen/archivo o pega el texto'); return; }
+    const apiKey = settings.geminiApiKey;
+    if (!apiKey) { onNotify('error', 'Configura tu clave API de Gemini en Ajustes'); return; }
     setAiParsing(true);
+    setAiLines([]);
+    setAiMeta(null);
     try {
-      let text = aiRawText;
-      if (aiFile && !text) text = await aiFile.text();
-
-      const prompt = `Analiza esta factura de proveedor y extrae los artículos. Para cada uno devuelve: ref, description, qty (número), costPrice (precio unitario en euros). Responde SOLO con JSON: {"items":[{"ref":"...","description":"...","qty":1,"costPrice":0.00}]}
-
-Factura:
-${text.slice(0, 4000)}`;
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      if (!res.ok) throw new Error('API error ' + res.status);
-      const data = await res.json();
-      const raw = data.content?.[0]?.text || '';
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('No JSON');
-      const parsed = JSON.parse(match[0]);
-      const lines: EntryLine[] = (parsed.items || []).map((item: any) => {
-        const found = inventoryItems.find(i =>
-          i.ref.toLowerCase() === String(item.ref || '').toLowerCase() ||
-          i.description.toLowerCase().includes(String(item.description || '').toLowerCase().slice(0, 12))
-        );
-        return {
-          inventoryItemId: found?.id || '',
-          ref: String(item.ref || found?.ref || ''),
-          description: String(item.description || found?.description || ''),
-          qty: Math.max(1, parseInt(item.qty) || 1),
-          costPrice: parseFloat(item.costPrice) || 0,
-        };
-      });
+      let result: GeminiInvoiceResult;
+      if (aiFile && ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'].includes(aiFile.type)) {
+        const base64 = await readFileAsBase64(aiFile);
+        result = await analyzeInvoice(base64, aiFile.type, apiKey);
+      } else {
+        const text = aiRawText || (aiFile ? await aiFile.text() : '');
+        result = await analyzeInvoiceText(text, apiKey);
+      }
+      setAiMeta({ proveedor: result.proveedor, numero_factura: result.numero_factura, fecha: result.fecha, total: result.total });
+      const lines = mapGeminiResult(result);
       setAiLines(lines);
-      onNotify('success', `${lines.length} artículo(s) detectados por IA`);
-    } catch {
-      onNotify('error', 'Error al analizar con IA. Verifica la clave API.');
+      onNotify('success', `${lines.length} artículo(s) detectados · ${result.proveedor || 'Proveedor desconocido'}`);
+    } catch (err: any) {
+      onNotify('error', `Error Gemini: ${err?.message || 'Verifica la clave API'}`);
     } finally {
       setAiParsing(false);
     }
@@ -192,10 +189,17 @@ ${text.slice(0, 4000)}`;
     const valid = aiLines.filter(l => l.inventoryItemId);
     const skipped = aiLines.length - valid.length;
     if (skipped > 0) onNotify('info', `${skipped} artículo(s) sin coincidencia en catálogo serán ignorados`);
-    await commitEntries(valid, `Factura IA: ${aiFile?.name || 'texto pegado'}`, entryDate);
+    const notesStr = [
+      'Gemini IA',
+      aiMeta?.proveedor,
+      aiMeta?.numero_factura,
+      aiFile?.name,
+    ].filter(Boolean).join(' · ');
+    await commitEntries(valid, notesStr, entryDate);
     setAiLines([]);
     setAiFile(null);
     setAiRawText('');
+    setAiMeta(null);
   };
 
   const LinesTable = ({
@@ -417,59 +421,88 @@ ${text.slice(0, 4000)}`;
       {/* ── AI tab ── */}
       {activeTab === 'ai' && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
-          {!settings.anthropicApiKey && (
+          {!settings.geminiApiKey && (
             <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
               <AlertTriangle size={16} className="text-amber-600 shrink-0" />
               <p className="text-xs text-amber-700 font-bold">
-                Configura tu clave API de Anthropic en <strong>Ajustes</strong> para usar esta función.
+                Configura tu <strong>API Key de Gemini</strong> en Ajustes para usar esta función.
               </p>
             </div>
           )}
 
+          {/* Drop zone — accepts images and text files */}
           <div
             className={`border-2 border-dashed rounded-2xl p-8 text-center space-y-3 cursor-pointer transition-all ${
-              aiDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+              aiDragging ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
             }`}
             onDragOver={e => { e.preventDefault(); setAiDragging(true); }}
             onDragLeave={() => setAiDragging(false)}
-            onDrop={e => { e.preventDefault(); setAiDragging(false); const f = e.dataTransfer.files[0]; if (f) setAiFile(f); }}
+            onDrop={e => { e.preventDefault(); setAiDragging(false); const f = e.dataTransfer.files[0]; if (f) { setAiFile(f); setAiRawText(''); } }}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={28} className="mx-auto text-slate-400" />
-            <p className="text-xs font-black uppercase text-slate-700">
-              {aiFile ? aiFile.name : 'Arrastra la factura aquí o haz clic para seleccionar'}
-            </p>
-            <p className="text-[9px] text-slate-400">Archivos de texto: TXT, CSV</p>
-            {aiFile && (
-              <button
-                onMouseDown={e => { e.stopPropagation(); setAiFile(null); }}
-                className="text-[9px] text-red-500 font-bold underline"
-              >
-                Quitar archivo
-              </button>
+            {aiFile ? (
+              <>
+                <FileText size={28} className="mx-auto text-violet-500" />
+                <p className="text-xs font-black text-violet-700">{aiFile.name}</p>
+                <p className="text-[9px] text-slate-400">{(aiFile.size / 1024).toFixed(1)} KB · {aiFile.type || 'texto'}</p>
+                <button
+                  onMouseDown={e => { e.stopPropagation(); setAiFile(null); }}
+                  className="text-[9px] text-red-500 font-bold underline"
+                >
+                  Quitar archivo
+                </button>
+              </>
+            ) : (
+              <>
+                <Upload size={28} className="mx-auto text-slate-400" />
+                <p className="text-xs font-black uppercase text-slate-700">Arrastra la factura aquí o haz clic</p>
+                <p className="text-[9px] text-slate-400">Imágenes (JPG, PNG, WEBP) · PDF · Texto (TXT, CSV)</p>
+              </>
             )}
-            <input ref={fileInputRef} type="file" accept=".txt,.csv,.tsv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setAiFile(f); e.target.value = ''; }} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.txt,.csv,.tsv"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) { setAiFile(f); setAiRawText(''); } e.target.value = ''; }}
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">O pega el texto de la factura</label>
             <textarea
-              rows={5}
+              rows={4}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none resize-none"
               placeholder="Pega aquí el contenido de la factura del proveedor..."
               value={aiRawText}
-              onChange={e => setAiRawText(e.target.value)}
+              onChange={e => { setAiRawText(e.target.value); if (e.target.value) setAiFile(null); }}
             />
           </div>
 
           <button
             onClick={parseWithAI}
-            disabled={aiParsing || (!aiFile && !aiRawText.trim()) || !settings.anthropicApiKey}
+            disabled={aiParsing || (!aiFile && !aiRawText.trim()) || !settings.geminiApiKey}
             className="w-full py-4 bg-violet-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-40"
           >
             {aiParsing ? <RefreshCw size={16} className="animate-spin" /> : <Brain size={16} />}
-            {aiParsing ? 'Analizando con IA...' : 'Analizar con IA'}
+            {aiParsing ? 'Analizando con Gemini...' : 'Analizar con Gemini AI'}
           </button>
+
+          {/* Invoice metadata from Gemini */}
+          {aiMeta && (
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Proveedor', value: aiMeta.proveedor },
+                { label: 'Nº Factura', value: aiMeta.numero_factura },
+                { label: 'Fecha', value: aiMeta.fecha },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-violet-50 rounded-xl px-4 py-3">
+                  <p className="text-[8px] font-black text-violet-400 uppercase tracking-widest">{label}</p>
+                  <p className="text-xs font-black text-violet-900 mt-0.5 truncate">{value || '—'}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {aiLines.length > 0 && (
             <>

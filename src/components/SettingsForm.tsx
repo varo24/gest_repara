@@ -252,18 +252,31 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
 
         <div className="space-y-3 pt-4 border-t border-slate-50">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-            <Brain size={12} className="text-violet-500" /> Clave API Anthropic (análisis IA de facturas)
+            <Brain size={12} className="text-violet-500" /> API Key de Gemini (análisis IA de facturas)
           </label>
           <input
             type="password"
             className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-violet-500/10 outline-none"
+            placeholder="AIzaSy..."
+            value={formData.geminiApiKey || ''}
+            onChange={e => setFormData({ ...formData, geminiApiKey: e.target.value })}
+          />
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+            Necesaria para el módulo Entrada de Stock → pestaña IA / Factura (soporta imágenes JPG, PNG, PDF)
+          </p>
+        </div>
+
+        <div className="space-y-3 pt-4 border-t border-slate-50">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+            <Brain size={12} className="text-slate-400" /> API Key de Anthropic (opcional)
+          </label>
+          <input
+            type="password"
+            className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-slate-500/10 outline-none"
             placeholder="sk-ant-api03-..."
             value={formData.anthropicApiKey || ''}
             onChange={e => setFormData({ ...formData, anthropicApiKey: e.target.value })}
           />
-          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
-            Necesaria para el módulo de Entrada de Stock → pestaña IA / Factura
-          </p>
         </div>
       </div>
 
