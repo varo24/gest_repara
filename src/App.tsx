@@ -21,7 +21,8 @@ import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
 import Inventario from './components/Inventario';
 import EntradaStock from './components/EntradaStock';
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement } from './types';
+import Garantias from './components/Garantias';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
 import { storage } from './lib/dataService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
@@ -71,6 +72,7 @@ const App: React.FC = () => {
   const [customersDB, setCustomersDB] = useState<Customer[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [warranties, setWarranties] = useState<Warranty[]>([]);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -123,6 +125,7 @@ const App: React.FC = () => {
         storage.subscribe('customers', setCustomersDB);
         storage.subscribe('inventory', setInventoryItems);
         storage.subscribe('stock_movements', setStockMovements);
+        storage.subscribe('warranties', setWarranties);
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
@@ -229,6 +232,7 @@ const App: React.FC = () => {
           repairs={repairs ?? []}
           budgets={budgets ?? []}
           citas={citas ?? []}
+          warranties={warranties}
         />
       )}
 
@@ -653,10 +657,13 @@ const App: React.FC = () => {
               />
             )}
             {currentView === 'garantias' && (
-              <div className="text-center py-20">
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">Módulo en desarrollo</p>
-                <p className="text-slate-300 text-xs mt-2">Disponible en la próxima actualización</p>
-              </div>
+              <Garantias
+                warranties={warranties}
+                repairs={repairs ?? []}
+                settings={settings}
+                onNotify={notify}
+                onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+              />
             )}
             {currentView === 'diagnostic' && (
               <SupabaseDiagnostic onClose={() => navigateTo('settings')} />

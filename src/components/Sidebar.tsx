@@ -5,7 +5,7 @@ import {
   Calendar, AppWindow, ClipboardCheck, RefreshCw,
   Zap, Package, Receipt, ShieldCheck
 } from 'lucide-react';
-import { ViewType, RepairItem, Budget, Cita } from '../types';
+import { ViewType, RepairItem, Budget, Cita, Warranty } from '../types';
 import { storage } from '../lib/dataService';
 import GlobalSearch from './GlobalSearch';
 
@@ -19,6 +19,7 @@ interface SidebarProps {
   repairs: RepairItem[];
   budgets: Budget[];
   citas: Cita[];
+  warranties?: Warranty[];
 }
 
 type NavItem = { id: ViewType | 'new-repair'; label: string; icon: React.ElementType; badge?: number; badgeColor?: string };
@@ -26,7 +27,7 @@ type NavGroup = { label: string; items: NavItem[] };
 
 const Sidebar: React.FC<SidebarProps> = ({
   currentView, setView, onNewRepair, onEditRepair,
-  appName, version, repairs, budgets, citas
+  appName, version, repairs, budgets, citas, warranties = []
 }) => {
   const [online, setOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -40,6 +41,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const readyCount = repairs.filter(r => r.status === 'Listo para Entrega').length;
   const activeCount = repairs.filter(r => !['Entregado','Cancelado'].includes(r.status)).length;
+
+  const warrantyAlertCount = (() => {
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    return warranties.filter(w => {
+      if (w.status === 'reclamada') return false;
+      const exp = new Date(w.expiryDate);
+      exp.setHours(0, 0, 0, 0);
+      const days = Math.floor((exp.getTime() - todayMs) / 86400000);
+      return days >= 0 && days <= 7;
+    }).length;
+  })();
 
   const groups: NavGroup[] = [
     {
@@ -65,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'inventory',         label: 'Inventario',    icon: Package },
         { id: 'inventory-entrada', label: 'Entrada Stock', icon: Package },
-        { id: 'garantias',         label: 'Garantías',     icon: ShieldCheck },
+        { id: 'garantias', label: 'Garantías', icon: ShieldCheck, badge: warrantyAlertCount, badgeColor: 'bg-red-500' },
       ]
     },
     {
