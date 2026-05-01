@@ -520,10 +520,8 @@ const App: React.FC = () => {
                   notify('success', 'Cliente guardado correctamente.');
                 }}
                 onDeleteCustomer={async (id) => {
-                  confirm2('¿Eliminar este cliente de la agenda?', async () => {
-                    await storage.remove('customers', id);
-                    notify('success', 'Cliente eliminado.');
-                  });
+                  await storage.remove('customers', id);
+                  notify('success', 'Cliente eliminado.');
                 }}
                 onNewRepairForCustomer={(customer) => {
                   setPrefillCustomer(customer);

@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { 
-  Search, User, Phone, Wrench, Clock, ChevronRight, ArrowLeft, 
+import {
+  Search, User, Phone, Wrench, Clock, ChevronRight, ArrowLeft,
   Save, X, MessageCircle, MapPin, Home, Building2, Pencil,
-  Plus, UserPlus
+  Plus, UserPlus, Trash2
 } from 'lucide-react';
 import { RepairItem, RepairStatus, Customer } from '../types';
 
@@ -37,6 +37,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', phone: '', city: '', address: '', email: '', taxId: '', notes: '' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [confirmDeleteCustomer, setConfirmDeleteCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', city: '', address: '', email: '', notes: '' });
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
@@ -292,6 +293,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
                 <button onClick={handleEditOpen} className="p-1.5 bg-white/10 text-white/60 rounded-lg hover:bg-white/20 hover:text-white transition-colors" title="Editar cliente">
                   <Pencil size={14} />
                 </button>
+                {c.isStandalone && onDeleteCustomer && (
+                  <button onClick={() => setConfirmDeleteCustomer(true)} className="p-1.5 bg-white/10 text-white/40 rounded-lg hover:bg-red-500/80 hover:text-white transition-colors" title="Eliminar cliente">
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
               <p className="text-sm font-bold text-slate-400 mt-1 flex items-center gap-2"><Phone size={14} /> {c.phone}</p>
               {c.city && <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPin size={12} /> <span className="font-bold">{c.city}</span></p>}
@@ -404,6 +410,38 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
             </div>
           )}
         </div>
+
+        {confirmDeleteCustomer && (
+          <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-6">
+              <div className="text-center">
+                <div className="inline-flex p-4 bg-red-50 rounded-2xl mb-3">
+                  <Trash2 size={24} className="text-red-600" />
+                </div>
+                <p className="text-sm font-black uppercase">¿Eliminar a {c.name}?</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Se perderá su historial.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteCustomer(false)}
+                  className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-[10px]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmDeleteCustomer(false);
+                    onDeleteCustomer?.(c.id);
+                    setSelectedCustomer(null);
+                  }}
+                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black uppercase text-[10px] hover:bg-red-700"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import {
   Package, Plus, Edit2, Trash2, Search, X, AlertTriangle,
   TrendingUp, TrendingDown, BarChart2, Save, History,
-  Boxes
+  Boxes, Printer
 } from 'lucide-react';
 import { InventoryItem, StockMovement, AppSettings } from '../types';
 import { storage } from '../lib/dataService';
+import EtiquetaProducto from './EtiquetaProducto';
 
 interface InventarioProps {
   settings: AppSettings;
@@ -40,6 +41,8 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [printItems, setPrintItems] = useState<InventoryItem[] | null>(null);
 
   const categories = settings.inventoryCategories?.length ? settings.inventoryCategories : DEFAULT_CATEGORIES;
 
@@ -123,6 +126,14 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
     await storage.remove('inventory', id);
     onNotify('success', 'Artículo eliminado');
     setDeletingId(null);
+  };
+
+  const togglePrintSelect = (id: string) => {
+    setSelectedForPrint(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   const stockBadgeClass = (item: InventoryItem) => {
@@ -243,6 +254,15 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
               <AlertTriangle size={14} />
               Solo alertas
             </button>
+            {selectedForPrint.size > 0 && (
+              <button
+                onClick={() => setPrintItems(inventoryItems.filter(i => selectedForPrint.has(i.id)))}
+                className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all"
+              >
+                <Printer size={14} />
+                Imprimir seleccionadas ({selectedForPrint.size})
+              </button>
+            )}
           </div>
 
           {/* Item rows */}
@@ -257,6 +277,13 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
             ) : (
               filtered.map(item => (
                 <div key={item.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-all group">
+                  <input
+                    type="checkbox"
+                    checked={selectedForPrint.has(item.id)}
+                    onChange={() => togglePrintSelect(item.id)}
+                    onClick={e => e.stopPropagation()}
+                    className="w-4 h-4 rounded accent-slate-800 shrink-0 cursor-pointer"
+                  />
                   <div className={`w-2 h-2 rounded-full shrink-0 ${stockDotClass(item)}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -277,6 +304,9 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
                     {item.salePrice ? <p className="text-[9px] text-slate-400">PVP: {item.salePrice.toFixed(2)}€</p> : null}
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => setPrintItems([item])} className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all" title="Imprimir etiqueta">
+                      <Printer size={14} />
+                    </button>
                     <button onClick={() => openEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
                       <Edit2 size={14} />
                     </button>
@@ -455,6 +485,15 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
             </div>
           </div>
         </div>
+      )}
+
+      {/* Label print modal */}
+      {printItems && (
+        <EtiquetaProducto
+          items={printItems}
+          settings={settings}
+          onClose={() => setPrintItems(null)}
+        />
       )}
 
       {/* Delete confirmation */}
