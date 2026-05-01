@@ -17,7 +17,8 @@
       "Bash(npm list *)",
       "Bash(node *)",
       "Bash(python -c ' *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

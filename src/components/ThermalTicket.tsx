@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Printer, Download, X } from 'lucide-react';
 import { RepairItem, AppSettings } from '../types';
+import JsBarcode from 'jsbarcode';
 
 interface ThermalTicketProps {
   repair: RepairItem;
@@ -12,6 +13,37 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
   const rmaFormatted = `RMA-${repair.rmaNumber.toString().padStart(5, '0')}`;
   const dateFormatted = new Date(repair.entryDate).toLocaleDateString('es-ES');
   const barcodeDigits = repair.rmaNumber.toString().padStart(8, '0');
+  const barcodeSvgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (barcodeSvgRef.current) {
+      JsBarcode(barcodeSvgRef.current, barcodeDigits, {
+        format: 'CODE128',
+        width: 2,
+        height: 36,
+        displayValue: false,
+        margin: 0,
+        background: 'transparent',
+        lineColor: '#000',
+      });
+    }
+  }, [barcodeDigits]);
+
+  const generateBarcodeSvg = (): string => {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(el, barcodeDigits, {
+      format: 'CODE128',
+      width: 2,
+      height: 40,
+      displayValue: false,
+      margin: 0,
+      background: 'transparent',
+      lineColor: '#000',
+    });
+    return el.outerHTML;
+  };
+
+    const barcodeSvgInline = generateBarcodeSvg();
 
   const printContent = `<!DOCTYPE html>
 <html lang="es">
@@ -119,8 +151,8 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
     <div class="rma-box">
       <div class="rma-number">${rmaFormatted}</div>
     </div>
+    <div style="margin-top:3mm;">${barcodeSvgInline}</div>
     <div class="barcode-num">${barcodeDigits}</div>
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(rmaFormatted)}&color=000000&bgcolor=ffffff" width="100" height="100" style="margin:3mm auto 0;display:block" alt="QR" />
   </div>
 
   <div class="line-thick"></div>
@@ -245,7 +277,8 @@ const ThermalTicket: React.FC<ThermalTicketProps> = ({ repair, settings, onClose
               <div style={{ border: '3px solid #000', padding: '3px 10px', display: 'inline-block' }}>
                 <div style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '2px', lineHeight: 1 }}>{rmaFormatted}</div>
               </div>
-              <div style={{ fontSize: '8px', letterSpacing: '4px', marginTop: '3px', color: '#333' }}>{barcodeDigits}</div>
+              <svg ref={barcodeSvgRef} style={{ marginTop: '4px', maxWidth: '160px' }} />
+              <div style={{ fontSize: '8px', letterSpacing: '4px', marginTop: '2px', color: '#333' }}>{barcodeDigits}</div>
             </div>
 
             <div style={{ borderTop: '2px solid #000' }}></div>
