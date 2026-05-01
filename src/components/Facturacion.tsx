@@ -68,9 +68,85 @@ const exportCSV = (invoices: FullInvoice[]) => {
 };
 
 // ── Print invoice ─────────────────────────────────────────────────────────────
-const printInvoice = (inv: FullInvoice, settings: AppSettings) => {
+export const printInvoice = (inv: any, settings: AppSettings, warranty?: any) => {
   const isSimplificada = !inv.customerTaxId;
   const isRecibo = (inv.invoiceNumber || '').startsWith('REC-');
+  const hasWarranty = !!warranty;
+
+  const certSection = hasWarranty ? `
+<!-- ═══ LÍNEA DE CORTE ═══ -->
+<div style="margin-top:10mm;text-align:center;border-top:2px dashed #bbb;padding:5mm 0 3mm;color:#999;font-size:8px;letter-spacing:3px;font-family:monospace">
+  — — — ✂ &nbsp; CORTAR AQUÍ · CERTIFICADO DE GARANTÍA &nbsp; ✂ — — —
+</div>
+
+<!-- ═══ CERTIFICADO DE GARANTÍA ═══ -->
+<div style="page-break-before:always;padding-top:4mm">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8mm;padding-bottom:5mm;border-bottom:2px solid #000">
+    <div>
+      <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:-0.3px;color:#111">${settings.appName}</div>
+      <div style="font-size:8px;color:#555;margin-top:3px">${settings.address || ''}${settings.phone ? ' · Tel. ' + settings.phone : ''}${settings.taxId ? ' · ' + settings.taxId : ''}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;font-weight:900;color:#1e40af;text-transform:uppercase;border:2px solid #1e40af;padding:4px 12px;display:inline-block;letter-spacing:1px">CERTIFICADO DE GARANTÍA</div>
+      <div style="font-size:9px;color:#666;font-family:monospace;font-weight:700;margin-top:5px">RMA-${String(warranty.rmaNumber).padStart(5,'0')}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-bottom:6mm">
+    <div style="border:1px solid #e0e0e0;border-radius:4px;overflow:hidden">
+      <div style="background:#111;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">Cliente</div>
+      <div style="padding:8px">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#111">${warranty.customerName}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">${warranty.customerPhone}</div>
+      </div>
+    </div>
+    <div style="border:1px solid #e0e0e0;border-radius:4px;overflow:hidden">
+      <div style="background:#111;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">Equipo reparado</div>
+      <div style="padding:8px">
+        <div style="font-size:11px;font-weight:800;color:#111">${warranty.deviceDescription}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">RMA-${String(warranty.rmaNumber).padStart(5,'0')}</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #1e40af;border-radius:6px;padding:6mm;margin-bottom:6mm">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:5mm;text-align:center;align-items:center">
+      <div>
+        <div style="font-size:7px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px">Fecha de entrega</div>
+        <div style="font-size:13px;font-weight:900;color:#111">${fmtDate(warranty.deliveryDate)}</div>
+      </div>
+      <div>
+        <div style="font-size:30px;font-weight:900;color:#1e40af;line-height:1">${warranty.months}</div>
+        <div style="font-size:7px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1.5px">meses</div>
+      </div>
+      <div>
+        <div style="font-size:7px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px">Válida hasta</div>
+        <div style="font-size:13px;font-weight:900;color:#1e40af">${fmtDate(warranty.expiryDate)}</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#f8f9fa;border-radius:4px;padding:4mm 5mm;margin-bottom:8mm;font-size:8px;line-height:1.7;color:#444">
+    ${settings.letterhead ? `<p style="margin-bottom:2px;font-weight:600">${settings.letterhead}</p>` : ''}
+    <p style="margin-bottom:2px">Esta garantía cubre los defectos de mano de obra en la reparación realizada durante el período indicado.</p>
+    <p style="margin-bottom:2px">No cubre daños físicos, por líquidos, negligencia del usuario o intervenciones de terceros no autorizados.</p>
+    <p>Para hacer efectiva esta garantía, presentar este documento junto con el equipo en el establecimiento.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;border-top:1px solid #ddd;padding-top:5mm">
+    <div style="border:1px dashed #ccc;border-radius:4px;padding:3mm;min-height:20mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
+      <div style="font-size:7px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-top:3mm">Firma y sello del técnico autorizado</div>
+    </div>
+    <div style="font-size:8px;color:#555;line-height:1.9">
+      <div style="font-weight:900;color:#111;font-size:10px">${settings.appName}</div>
+      ${settings.address ? `<div>${settings.address}</div>` : ''}
+      <div>${settings.phone || ''}</div>
+      ${settings.taxId ? `<div>CIF/NIF: ${settings.taxId}</div>` : ''}
+      <div style="color:#aaa;font-size:7px;margin-top:2mm">Documento generado el ${new Date().toLocaleDateString('es-ES')}</div>
+    </div>
+  </div>
+</div>` : '';
+
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -214,7 +290,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
     </tr>
   </thead>
   <tbody>
-    ${inv.items.map((item, i) => `
+    ${(inv.items as any[]).map((item: any, i: number) => `
     <tr>
       <td class="c">${item.quantity}</td>
       <td><span class="item-code">${String(i+1).padStart(4,'0')}</span></td>
@@ -223,7 +299,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       ${!isRecibo ? `<td class="r">${(inv.taxRate||0).toFixed(2)}%</td>` : ''}
       <td class="r">${(item.quantity * (item.unitPrice||0)).toFixed(2)}</td>
     </tr>`).join('')}
-    ${inv.laborItems.map((item, i) => `
+    ${(inv.laborItems as any[]).map((item: any, i: number) => `
     <tr>
       <td class="c">${item.hours}h</td>
       <td><span class="item-code">MO${String(i+1).padStart(3,'0')}</span></td>
@@ -281,12 +357,13 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 </div>
 
 <!-- FOOTER -->
-<div class="footer">
+<div class="footer" ${hasWarranty ? 'style="position:relative;bottom:auto;left:auto;right:auto;margin-top:8mm;"' : ''}>
   <div class="footer-text">${settings.letterhead || 'La reparación realizada tiene una garantía de 3 meses desde la fecha de emisión de esta factura.'}</div>
   <div class="footer-legal">Documento generado por ${settings.appName} · ${new Date().toLocaleDateString('es-ES')}</div>
-  <div class="page-num">Página 1 / 1</div>
+  <div class="page-num">Página 1${hasWarranty ? ' / 2' : ' / 1'}</div>
 </div>
 
+${certSection}
 </body></html>`;
   const win = window.open('', '_blank', 'width=850,height=1100');
   if (win) {

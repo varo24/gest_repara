@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, CheckCircle2, X, Printer, MessageCircle } from 'lucide-react';
+import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
 import { storage, localDB } from '../lib/dataService';
+import { printInvoice } from './Facturacion';
 
 interface DespachoProps {
   repairs: RepairItem[];
@@ -26,6 +27,8 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
   const [rawCode, setRawCode] = useState('');
   const [repair, setRepair] = useState<RepairItem | null>(null);
   const [pay, setPay] = useState<PayMethod>('efectivo');
+  const [lastInvoice, setLastInvoice] = useState<any>(null);
+  const [lastWarranty, setLastWarranty] = useState<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const bufRef = useRef('');
   const tmrRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,7 +124,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
 
     const expiryDate = new Date(now);
     expiryDate.setMonth(expiryDate.getMonth() + 3);
-    storage.save('warranties', `WAR-${Date.now()}`, {
+    const warrantyData = {
       id: `WAR-${Date.now()}`,
       repairId: repair.id,
       rmaNumber: repair.rmaNumber,
@@ -133,11 +136,14 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       months: 3,
       status: 'activa',
       createdAt: now,
-    });
+    };
+    storage.save('warranties', warrantyData.id, warrantyData);
 
     storage.save('repairs', repair.id, { ...repair, status: RepairStatus.DELIVERED, updatedAt: now });
     onStatusChange(repair.id, RepairStatus.DELIVERED);
     onNotify('success', `${invoiceNumber} — ${repair.customerName} despachado`);
+    setLastInvoice(invoice);
+    setLastWarranty(warrantyData);
     setPhase('done');
   };
 
@@ -297,9 +303,17 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
           <CheckCircle2 size={40} className="text-emerald-500 mx-auto mb-4" />
           <p className="text-lg font-black text-slate-900 mb-1">Despachado correctamente</p>
           <p className="text-xs text-slate-400 mb-6">Factura generada · Garantía activada</p>
-          <div className="flex gap-3 justify-center">
-            {repair && <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all"><Printer size={13} /> Ticket</button>}
-            <button onClick={() => { setPhase('idle'); setRepair(null); setRawCode(''); refocus(); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs hover:bg-black transition-all">
+          <div className="flex gap-3 justify-center flex-wrap">
+            {lastInvoice && lastWarranty && (
+              <button
+                onClick={() => printInvoice(lastInvoice, settings, lastWarranty)}
+                className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs hover:bg-blue-700 transition-all"
+              >
+                <FileText size={13} /> Factura + Garantía
+              </button>
+            )}
+            {repair && <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all"><Printer size={13} /> Ticket térmico</button>}
+            <button onClick={() => { setPhase('idle'); setRepair(null); setRawCode(''); setLastInvoice(null); setLastWarranty(null); refocus(); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-xs hover:bg-black transition-all">
               Siguiente cliente
             </button>
           </div>

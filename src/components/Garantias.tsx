@@ -5,7 +5,8 @@ import {
   Eye, AlertTriangle, Clock, X, FileText,
 } from 'lucide-react';
 import { Warranty, RepairItem, AppSettings } from '../types';
-import { storage } from '../lib/dataService';
+import { storage, localDB } from '../lib/dataService';
+import { printInvoice } from './Facturacion';
 
 interface GarantiasProps {
   warranties: Warranty[];
@@ -490,7 +491,17 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
                                   <MessageCircle size={14} />
                                 </button>
                                 <button
-                                  onClick={() => printWarranty(w)}
+                                  onClick={() => {
+                                    const allInvoices = localDB.getAll('invoices');
+                                    const inv = allInvoices
+                                      .filter((i: any) => i.repairId === w.repairId && !i._deleted)
+                                      .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''))[0];
+                                    if (inv) {
+                                      printInvoice(inv, settings, w);
+                                    } else {
+                                      printWarranty(w);
+                                    }
+                                  }}
                                   className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all"
                                   title="Imprimir certificado de garantía"
                                 >
