@@ -3,7 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 const MODEL = 'gemini-2.5-flash';
 
 const INVOICE_PROMPT =
-  'Analiza esta factura de proveedor y extrae todos los artículos. ' +
+  'Analiza esta factura de proveedor y extrae SOLO los artículos físicos (piezas, componentes, productos). ' +
+  'EXCLUYE líneas de: portes, transporte, envío, gastos de gestión, embalaje, descuentos, impuestos. ' +
   'Responde SOLO con JSON sin markdown: ' +
   '{"proveedor":"...","numero_factura":"...","fecha":"...","lineas":[{"descripcion":"...","referencia":"...","cantidad":1,"precio_unitario":0.00}],"total":0.00}';
 
