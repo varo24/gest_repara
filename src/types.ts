@@ -215,6 +215,7 @@ export interface Warranty {
   expiryDate: string;
   months: number;
   status: 'activa' | 'vencida' | 'reclamada';
+  notes?: string;
   createdAt: string;
 }
 
