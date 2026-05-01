@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
-  XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil
+  XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 import { AppSettings, InventoryItem } from '../types';
 import { storage } from '../lib/dataService';
@@ -23,6 +24,14 @@ interface FullInvoice {
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
 interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
+
+const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const getMonthKey   = (d: string) => d?.slice(0, 7) || 'sin-fecha';
+const getMonthLabel = (key: string) => {
+  if (key === 'sin-fecha') return 'Sin fecha';
+  const [yr, mo] = key.split('-');
+  return `${MONTH_NAMES_ES[parseInt(mo, 10) - 1]} ${yr}`;
+};
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n || 0) + ' €';
 const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES') : '—';
@@ -317,15 +326,36 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
   const [showNew, setShowNew]           = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<FullInvoice | null>(null);
 
+  const month = new Date().toISOString().slice(0, 7);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([month]));
+
+  const toggleMonth = (key: string) => {
+    setExpandedMonths(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
   const filtered = invoices
     .filter(i => {
       if ((i as any)._deleted) return false;
       const s = `${i.invoiceNumber} ${i.customerName} ${i.customerPhone}`.toLowerCase();
       return s.includes(search.toLowerCase()) && (statusFilter === 'todas' || i.status === statusFilter);
     })
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-  const month = new Date().toISOString().slice(0, 7);
+  const isSearching = search.trim().length > 0 || statusFilter !== 'todas';
+
+  const groupedByMonth: [string, FullInvoice[]][] = (() => {
+    const map = new Map<string, FullInvoice[]>();
+    for (const inv of filtered) {
+      const key = getMonthKey(inv.date);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(inv);
+    }
+    return [...map.entries()].sort(([a], [b]) => b.localeCompare(a));
+  })();
   const visibleInvoices = invoices.filter(i => !(i as any)._deleted);
   const mesCobrado   = visibleInvoices.filter(i => i.status === 'cobrada' && i.date?.startsWith(month)).reduce((s,i) => s+i.total, 0);
   const totalCobrado = visibleInvoices.filter(i => i.status === 'cobrada').reduce((s,i) => s+i.total, 0);
@@ -515,27 +545,62 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
                 <th className="px-4 py-3 text-left">Pago</th>
                 <th className="px-4 py-3 text-right">Acc.</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map(inv => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3.5"><span className={`text-[11px] font-black px-2.5 py-1 rounded-full font-mono ${(inv.invoiceNumber||'').startsWith('REC-') ? 'text-slate-600 bg-slate-100' : 'text-blue-600 bg-blue-50'}`}>{inv.invoiceNumber}</span></td>
-                    <td className="px-4 py-3.5"><p className="text-sm font-bold text-slate-900">{inv.customerName}</p><p className="text-[10px] text-slate-400">{inv.customerPhone}</p></td>
-                    <td className="px-4 py-3.5">{inv.rmaNumber ? <span className="text-[10px] font-mono text-slate-500">{fmtRMA(inv.rmaNumber)}</span> : <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3.5 text-sm text-slate-500">{fmtDate(inv.date)}</td>
-                    <td className="px-4 py-3.5 text-right text-sm font-black text-slate-900">{fmtMoney(inv.total)}</td>
-                    <td className="px-4 py-3.5"><span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[inv.status]}`}>{inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span></td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500">{PAY_LABELS[inv.payMethod||'']||'—'}</td>
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => setSelected(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Ver"><Eye size={13}/></button>
-                        <button onClick={() => printInvoice(inv, settings)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
-                        {inv.status !== 'anulada' && <button onClick={() => setEditingInvoice(inv)} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-all" title="Editar"><Pencil size={13}/></button>}
-                        {inv.status === 'pendiente' && <button onClick={() => { setPayModal(inv); setPayMethod('efectivo'); }} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="Cobrar"><CheckCircle2 size={13}/></button>}
-                        <button onClick={() => deleteInvoice(inv)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all" title="Eliminar"><Trash2 size={13}/></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+              <tbody>
+                {groupedByMonth.map(([monthKey, monthInvoices]) => {
+                  const isCurrentMonth = monthKey === month;
+                  const isExpanded = isSearching || expandedMonths.has(monthKey);
+                  const monthTotal = monthInvoices.reduce((s, i) => s + (i.total || 0), 0);
+
+                  return (
+                    <React.Fragment key={monthKey}>
+                      {/* Month header */}
+                      <tr
+                        onClick={() => !isSearching && toggleMonth(monthKey)}
+                        className={`select-none bg-slate-50 hover:bg-slate-100/80 transition-all border-b border-slate-100 ${!isSearching ? 'cursor-pointer' : ''}`}
+                      >
+                        <td colSpan={8} className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            {isExpanded
+                              ? <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                              : <ChevronRight size={13} className="text-slate-400 shrink-0" />
+                            }
+                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
+                              {getMonthLabel(monthKey)}
+                            </span>
+                            {isCurrentMonth && (
+                              <span className="text-[8px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full tracking-widest">ACTUAL</span>
+                            )}
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {monthInvoices.length} factura{monthInvoices.length !== 1 ? 's' : ''}
+                            </span>
+                            <span className="ml-auto text-xs font-black text-slate-700">{fmtMoney(monthTotal)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Invoice rows */}
+                      {isExpanded && monthInvoices.map(inv => (
+                        <tr key={inv.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
+                          <td className="px-5 py-3.5"><span className={`text-[11px] font-black px-2.5 py-1 rounded-full font-mono ${(inv.invoiceNumber||'').startsWith('REC-') ? 'text-slate-600 bg-slate-100' : 'text-blue-600 bg-blue-50'}`}>{inv.invoiceNumber}</span></td>
+                          <td className="px-4 py-3.5"><p className="text-sm font-bold text-slate-900">{inv.customerName}</p><p className="text-[10px] text-slate-400">{inv.customerPhone}</p></td>
+                          <td className="px-4 py-3.5">{inv.rmaNumber ? <span className="text-[10px] font-mono text-slate-500">{fmtRMA(inv.rmaNumber)}</span> : <span className="text-slate-300">—</span>}</td>
+                          <td className="px-4 py-3.5 text-sm text-slate-500">{fmtDate(inv.date)}</td>
+                          <td className="px-4 py-3.5 text-right text-sm font-black text-slate-900">{fmtMoney(inv.total)}</td>
+                          <td className="px-4 py-3.5"><span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[inv.status]}`}>{inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span></td>
+                          <td className="px-4 py-3.5 text-xs text-slate-500">{PAY_LABELS[inv.payMethod||'']||'—'}</td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex gap-1 justify-end">
+                              <button onClick={() => setSelected(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Ver"><Eye size={13}/></button>
+                              <button onClick={() => printInvoice(inv, settings)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
+                              {inv.status !== 'anulada' && <button onClick={() => setEditingInvoice(inv)} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-all" title="Editar"><Pencil size={13}/></button>}
+                              {inv.status === 'pendiente' && <button onClick={() => { setPayModal(inv); setPayMethod('efectivo'); }} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="Cobrar"><CheckCircle2 size={13}/></button>}
+                              <button onClick={() => deleteInvoice(inv)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all" title="Eliminar"><Trash2 size={13}/></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
