@@ -68,7 +68,25 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
 
   const openMaps = (addr: string, city?: string) => {
     const dir = [addr, city, 'España'].filter(Boolean).join(', ');
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dir)}`, '_blank');
+    window.open(`https://maps.google.com/?q=${encodeURIComponent(dir)}`, '_blank');
+  };
+
+  const FIELD_STATUSES_DOM = [
+    RepairStatus.DIAGNOSING,
+    RepairStatus.IN_PROGRESS,
+    RepairStatus.READY,
+    RepairStatus.CANCELLED,
+  ] as const;
+
+  const FIELD_STATUS_SHORT: Partial<Record<RepairStatus, string>> = {
+    [RepairStatus.DIAGNOSING]:  'Diagnóstico',
+    [RepairStatus.IN_PROGRESS]: 'Reparando',
+    [RepairStatus.READY]:       '✓ Listo',
+    [RepairStatus.CANCELLED]:   '✗ Cancelar',
+  };
+
+  const changeRepairStatus = (r: RepairItem, status: RepairStatus) => {
+    storage.save('repairs', r.id, { ...r, status, updatedAt: new Date().toISOString() });
   };
 
   const openWhatsApp = (phone: string, name: string) => {
@@ -365,6 +383,21 @@ const FieldModeApp: React.FC<FieldModeAppProps> = ({ onExit }) => {
                           <Phone size={12} /> Llamar
                         </a>
                       )}
+                    </div>
+                    {/* Status change */}
+                    <div className="flex gap-1 flex-wrap">
+                      {FIELD_STATUSES_DOM.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => r.status !== s && changeRepairStatus(r, s)}
+                          disabled={r.status === s}
+                          className={`px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all active:scale-95 ${
+                            r.status === s ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {FIELD_STATUS_SHORT[s]}
+                        </button>
+                      ))}
                     </div>
                     {/* Management actions */}
                     <div className="flex gap-2">

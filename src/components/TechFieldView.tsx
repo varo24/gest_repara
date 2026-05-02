@@ -1,8 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { 
-  ArrowLeft, MapPin, Navigation, Phone, MessageCircle, Camera, 
-  Send, Clock, User, ChevronDown, CheckCircle2,
-  Home, Building2, Trash2, X, Flag, PenTool
+import {
+  ArrowLeft, MapPin, Navigation, Phone, MessageCircle, Camera,
+  Send, CheckCircle2, User, ChevronDown,
+  Trash2, X, Flag, PenTool, Wrench,
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings, FieldNote } from '../types';
 import SignaturePad from './SignaturePad';
@@ -15,19 +15,44 @@ interface TechFieldViewProps {
   onBack: () => void;
 }
 
-const statusColors: Record<string, string> = {
-  [RepairStatus.PENDING]: 'bg-yellow-400 text-yellow-900',
-  [RepairStatus.DIAGNOSING]: 'bg-cyan-400 text-cyan-900',
-  [RepairStatus.IN_PROGRESS]: 'bg-blue-500 text-white',
-  [RepairStatus.WAITING_PARTS]: 'bg-orange-500 text-white',
-  [RepairStatus.READY]: 'bg-emerald-500 text-white',
-  [RepairStatus.DELIVERED]: 'bg-slate-400 text-white',
-  [RepairStatus.CANCELLED]: 'bg-red-600 text-white',
+const GREEN = '#2e7d32';
+
+// Statuses available when working from the field
+const FIELD_STATUSES: RepairStatus[] = [
+  RepairStatus.DIAGNOSING,
+  RepairStatus.IN_PROGRESS,
+  RepairStatus.WAITING_PARTS,
+  RepairStatus.READY,
+  RepairStatus.CANCELLED,
+];
+
+const FIELD_STATUS_LABELS: Partial<Record<RepairStatus, string>> = {
+  [RepairStatus.DIAGNOSING]:    'Diagnóstico',
+  [RepairStatus.IN_PROGRESS]:   'En Reparación',
+  [RepairStatus.WAITING_PARTS]: 'Esp. Repuestos',
+  [RepairStatus.READY]:         '✓ Listo',
+  [RepairStatus.CANCELLED]:     '✗ Cancelado',
 };
+
+interface StatusTheme { bg: string; text: string; label: string }
+const STATUS_THEME: Record<string, StatusTheme> = {
+  [RepairStatus.PENDING]:         { bg: '#78350f', text: '#fbbf24', label: 'Pendiente' },
+  [RepairStatus.DIAGNOSING]:      { bg: '#164e63', text: '#67e8f9', label: 'Diagnóstico' },
+  [RepairStatus.BUDGET_PENDING]:  { bg: '#3b0764', text: '#e879f9', label: 'Presupuesto' },
+  [RepairStatus.BUDGET_ACCEPTED]: { bg: '#1e3a5f', text: '#60a5fa', label: 'Aceptado' },
+  [RepairStatus.BUDGET_REJECTED]: { bg: '#450a0a', text: '#f87171', label: 'Rechazado' },
+  [RepairStatus.WAITING_PARTS]:   { bg: '#431407', text: '#fb923c', label: 'Esp. Repuestos' },
+  [RepairStatus.IN_PROGRESS]:     { bg: '#1e3a5f', text: '#60a5fa', label: 'En Reparación' },
+  [RepairStatus.READY]:           { bg: '#052e16', text: '#4ade80', label: 'Listo' },
+  [RepairStatus.DELIVERED]:       { bg: '#1e293b', text: '#94a3b8', label: 'Entregado' },
+  [RepairStatus.CANCELLED]:       { bg: '#450a0a', text: '#f87171', label: 'Cancelado' },
+};
+const getTheme = (s: RepairStatus): StatusTheme =>
+  STATUS_THEME[s] || { bg: '#1a1a1a', text: '#888', label: s };
 
 const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpdateRepair, onBack }) => {
   const [selectedRepair, setSelectedRepair] = useState<RepairItem | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'domicilio' | 'taller'>('all');
+  const [filterType, setFilterType] = useState<'domicilio' | 'taller' | 'all'>('domicilio');
   const [noteText, setNoteText] = useState('');
   const [notePhotos, setNotePhotos] = useState<string[]>([]);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
@@ -47,16 +72,17 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
       });
   }, [repairs, filterType]);
 
-  const handleOpenMaps = (r: RepairItem) => {
+  const openMaps = (r: RepairItem) => {
     const dir = [r.address, r.city, 'España'].filter(Boolean).join(', ');
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dir)}`, '_blank');
+    window.open(`https://maps.google.com/?q=${encodeURIComponent(dir)}`, '_blank');
   };
 
   const handleCall = (r: RepairItem) => window.open(`tel:${r.customerPhone}`, '_self');
 
   const handleWhatsApp = (r: RepairItem) => {
     const phone = r.customerPhone.replace(/\D/g, '');
-    window.open(`whatsapp://send?phone=34${phone}&text=${encodeURIComponent(`Hola ${r.customerName}, soy técnico de ${settings.appName}.`)}`);
+    const text = `Hola ${r.customerName}, soy técnico de ${settings.appName}. Me pongo en contacto respecto a tu ${r.brand} ${r.model}.`;
+    window.open(`whatsapp://send?phone=34${phone}&text=${encodeURIComponent(text)}`);
   };
 
   const handleStatusChange = (status: RepairStatus) => {
@@ -124,68 +150,168 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
     handleStatusChange(RepairStatus.DELIVERED);
   };
 
-  // ─── LISTA ──
+  // ─── LISTA ────────────────────────────────────────────────────────────────
   if (!selectedRepair) {
     return (
-      <div className="max-w-lg mx-auto space-y-4 pb-20">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2.5 bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-slate-900 shadow-sm">
+      <div className="min-h-screen" style={{ background: '#0f0f0f' }}>
+        {/* Header */}
+        <div
+          className="px-4 py-5 flex items-center gap-3"
+          style={{ background: 'linear-gradient(135deg, #1b5e20, #2e7d32, #388e3c)' }}
+        >
+          <button
+            onClick={onBack}
+            className="p-2.5 rounded-xl text-white active:scale-95 transition-all"
+            style={{ background: 'rgba(0,0,0,0.25)' }}
+          >
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 className="text-lg font-black text-slate-900 uppercase tracking-tight">Panel de Campo</h1>
-            <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.15em]">{activeRepairs.length} servicios</p>
+            <h1 className="text-lg font-black text-white uppercase tracking-tight leading-none">Panel de Campo</h1>
+            <p className="text-[9px] font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              {activeRepairs.length} servicio{activeRepairs.length !== 1 ? 's' : ''} activo{activeRepairs.length !== 1 ? 's' : ''}
+            </p>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          {(['all', 'domicilio', 'taller'] as const).map(f => (
-            <button key={f} onClick={() => setFilterType(f)}
-              className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                filterType === f 
-                  ? (f === 'domicilio' ? 'bg-amber-500 text-white' : f === 'taller' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white')
-                  : 'bg-white text-slate-400 border border-slate-100'
-              }`}
+        {/* Filter tabs */}
+        <div className="flex gap-2 px-4 pt-4">
+          {([
+            ['domicilio', '🏠 Domicilio'],
+            ['all',       'Todos'],
+            ['taller',    '🔧 Taller'],
+          ] as const).map(([f, label]) => (
+            <button
+              key={f}
+              onClick={() => setFilterType(f)}
+              className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+              style={filterType === f
+                ? { background: GREEN, color: '#fff' }
+                : { background: '#1e1e1e', color: '#555', border: '1px solid #2a2a2a' }
+              }
             >
-              {f === 'all' ? 'Todos' : f === 'domicilio' ? '🏠 Dom.' : '🔧 Taller'}
+              {label}
             </button>
           ))}
         </div>
 
-        {activeRepairs.length === 0 ? (
-          <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 py-12 text-center">
-            <p className="text-[10px] font-black text-slate-300 uppercase">Sin servicios activos</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {activeRepairs.map(r => (
-              <button key={r.id} onClick={() => setSelectedRepair(r)}
-                className="w-full bg-white rounded-xl p-4 border border-slate-100 hover:border-blue-200 transition-all text-left active:scale-[0.98] flex items-center gap-3"
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xs font-black text-white ${r.repairType === 'domicilio' ? 'bg-amber-500' : 'bg-slate-800'}`}>
-                  {r.rmaNumber.toString().padStart(3, '0').slice(-3)}
+        {/* Repair list */}
+        <div className="px-4 pt-4 pb-24 space-y-3">
+          {activeRepairs.length === 0 ? (
+            <div className="rounded-2xl py-16 text-center" style={{ background: '#1a1a1a', border: '1px dashed #2a2a2a' }}>
+              <Wrench size={32} className="mx-auto mb-3" style={{ color: '#333' }} />
+              <p className="text-[10px] font-black uppercase" style={{ color: '#444' }}>Sin servicios activos</p>
+            </div>
+          ) : (
+            activeRepairs.map(r => {
+              const theme = getTheme(r.status);
+              const isDom = r.repairType === 'domicilio';
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}
+                >
+                  {/* Card main — tap to open detail */}
+                  <button
+                    onClick={() => setSelectedRepair(r)}
+                    className="w-full text-left p-4 active:bg-white/5 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* RMA badge */}
+                      <div
+                        className="w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 font-black text-white"
+                        style={{ background: isDom ? '#7c4a0066' : '#1e3a5f66', border: `1px solid ${isDom ? '#7c4a00' : '#1e3a5f'}` }}
+                      >
+                        <span className="text-[8px] opacity-60">{isDom ? '🏠' : '🔧'}</span>
+                        <span className="text-[10px] leading-none">{String(r.rmaNumber).padStart(4, '0').slice(-4)}</span>
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className="font-black text-white text-sm uppercase truncate">{r.brand} {r.model}</p>
+                          <span
+                            className="text-[7px] font-black uppercase px-2 py-0.5 rounded-md shrink-0"
+                            style={{ background: theme.bg, color: theme.text }}
+                          >
+                            {theme.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-bold truncate" style={{ color: '#aaa' }}>{r.customerName}</p>
+                        {r.customerPhone && (
+                          <p className="text-[10px]" style={{ color: '#666' }}>{r.customerPhone}</p>
+                        )}
+                        {r.address && (
+                          <p className="text-[10px] flex items-center gap-1 mt-0.5 truncate" style={{ color: '#666' }}>
+                            <MapPin size={9} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                            {r.address}{r.city ? `, ${r.city}` : ''}
+                          </p>
+                        )}
+                        {r.problemDescription && (
+                          <p className="text-[10px] mt-1 line-clamp-2 leading-snug" style={{ color: '#555' }}>
+                            {r.problemDescription}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Quick action buttons */}
+                  <div
+                    className="flex gap-1.5 px-3 pb-3"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {r.customerPhone && (
+                      <button
+                        onClick={() => handleCall(r)}
+                        className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                        style={{ background: '#1e3a5f44', color: '#60a5fa', border: '1px solid #1e3a5f' }}
+                      >
+                        <Phone size={12} /> Llamar
+                      </button>
+                    )}
+                    {r.customerPhone && (
+                      <button
+                        onClick={() => handleWhatsApp(r)}
+                        className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                        style={{ background: '#052e1644', color: '#4ade80', border: '1px solid #166534' }}
+                      >
+                        <MessageCircle size={12} /> WA
+                      </button>
+                    )}
+                    {r.address && (
+                      <button
+                        onClick={() => openMaps(r)}
+                        className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                        style={{ background: '#78350f44', color: '#fbbf24', border: '1px solid #78350f' }}
+                      >
+                        <Navigation size={12} /> GPS
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedRepair(r)}
+                      className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase active:scale-95 transition-all"
+                      style={{ background: '#2e7d3222', color: '#4ade80', border: `1px solid ${GREEN}` }}
+                    >
+                      Ver →
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-black text-slate-800 text-xs uppercase truncate">{r.brand} {r.model}</p>
-                  <p className="text-[9px] text-slate-400 truncate">{r.customerName}{r.address ? ` · ${r.address}` : ''}</p>
-                </div>
-                <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-lg shrink-0 ${statusColors[r.status] || 'bg-slate-100 text-slate-500'}`}>
-                  {r.status.split(' ').pop()}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
     );
   }
 
-  // ─── FICHA ──
+  // ─── FICHA ────────────────────────────────────────────────────────────────
   const notes = selectedRepair.fieldNotes || [];
   const isDom = selectedRepair.repairType === 'domicilio';
+  const theme = getTheme(selectedRepair.status);
 
   return (
-    <div className="max-w-lg mx-auto space-y-4 pb-28">
+    <div className="min-h-screen pb-28" style={{ background: '#0f0f0f' }}>
       {showCamera && (
         <CameraCapture
           onCapture={(base64) => { setNotePhotos(prev => [...prev, base64]); setShowCamera(false); }}
@@ -194,144 +320,295 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
       )}
       <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
 
-      {/* Header mínimo */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => { setSelectedRepair(null); setShowSignature(false); }} className="p-2.5 bg-white rounded-xl border border-slate-100 text-slate-400 shadow-sm">
+      {/* Header */}
+      <div
+        className="px-4 py-4 flex items-center gap-3"
+        style={{ background: 'linear-gradient(135deg, #1b5e20, #2e7d32, #388e3c)' }}
+      >
+        <button
+          onClick={() => { setSelectedRepair(null); setShowSignature(false); }}
+          className="p-2.5 rounded-xl text-white active:scale-95"
+          style={{ background: 'rgba(0,0,0,0.25)' }}
+        >
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-lg font-black text-slate-900 uppercase tracking-tight truncate">{selectedRepair.brand} {selectedRepair.model}</p>
-          <p className="text-[9px] text-slate-400 font-black uppercase">RMA-{selectedRepair.rmaNumber.toString().padStart(5, '0')} · {isDom ? '🏠 Domicilio' : '🔧 Taller'}</p>
+          <p className="font-black text-white uppercase truncate leading-none text-sm">
+            {selectedRepair.brand} {selectedRepair.model}
+          </p>
+          <p className="text-[9px] font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            RMA-{String(selectedRepair.rmaNumber).padStart(5, '0')} · {isDom ? '🏠 Domicilio' : '🔧 Taller'}
+          </p>
         </div>
+        {/* Status selector dropdown */}
         <div className="relative">
-          <button onClick={() => setShowStatusPicker(!showStatusPicker)} className={`px-2 py-1.5 rounded-lg text-[8px] font-black uppercase border ${statusColors[selectedRepair.status] || 'bg-slate-100'}`}>
-            {selectedRepair.status} <ChevronDown size={10} className="inline" />
+          <button
+            onClick={() => setShowStatusPicker(!showStatusPicker)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase"
+            style={{ background: 'rgba(0,0,0,0.35)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ background: theme.text }}
+            />
+            {theme.label} <ChevronDown size={10} />
           </button>
           {showStatusPicker && (
-            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border z-50 p-1 min-w-[180px]">
-              {Object.values(RepairStatus).filter(s => s !== RepairStatus.CANCELLED).map(s => (
-                <button key={s} onClick={() => handleStatusChange(s)} className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase ${selectedRepair.status === s ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-                  {s}
-                </button>
-              ))}
+            <div
+              className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 p-1.5 min-w-[200px]"
+              style={{ background: '#1a1a1a', border: '1px solid #3a3a3a' }}
+            >
+              {FIELD_STATUSES.map(s => {
+                const st = getTheme(s);
+                const isActive = selectedRepair.status === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-2.5 transition-all"
+                    style={isActive
+                      ? { background: st.bg, color: st.text }
+                      : { color: '#666' }
+                    }
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.text }} />
+                    {s}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* Info esencial */}
-      <div className="bg-white rounded-xl border border-slate-100 p-4 space-y-3">
-        {/* Cliente + acciones rápidas */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <User size={14} className="text-slate-400 shrink-0" />
-            <span className="font-bold text-slate-700 text-sm truncate">{selectedRepair.customerName}</span>
+      <div className="px-4 space-y-4 pt-4">
+
+        {/* Cliente + contacto rápido */}
+        <div className="rounded-2xl p-4 space-y-3" style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <User size={14} style={{ color: GREEN, flexShrink: 0 }} />
+              <div className="min-w-0">
+                <p className="font-black text-white text-sm truncate">{selectedRepair.customerName}</p>
+                {selectedRepair.customerPhone && (
+                  <p className="text-[10px]" style={{ color: '#888' }}>{selectedRepair.customerPhone}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {selectedRepair.customerPhone && (
+                <button
+                  onClick={() => handleCall(selectedRepair)}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                  style={{ background: '#1e3a5f55', color: '#60a5fa', border: '1px solid #1e3a5f' }}
+                  title="Llamar"
+                >
+                  <Phone size={18} />
+                </button>
+              )}
+              {selectedRepair.customerPhone && (
+                <button
+                  onClick={() => handleWhatsApp(selectedRepair)}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                  style={{ background: '#052e1655', color: '#4ade80', border: '1px solid #166534' }}
+                  title="WhatsApp"
+                >
+                  <MessageCircle size={18} />
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-1.5 shrink-0">
-            <button onClick={() => handleCall(selectedRepair)} className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Phone size={14} /></button>
-            <button onClick={() => handleWhatsApp(selectedRepair)} className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center"><MessageCircle size={14} /></button>
+
+          {/* GPS button */}
+          {selectedRepair.address && (
+            <button
+              onClick={() => openMaps(selectedRepair)}
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl text-left active:scale-[0.98] transition-all"
+              style={{ background: '#78350f22', border: '1px solid #78350f88' }}
+            >
+              <Navigation size={18} style={{ color: '#fbbf24', flexShrink: 0 }} />
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase" style={{ color: '#fbbf24' }}>Cómo llegar · Google Maps</p>
+                <p className="text-xs font-bold text-white truncate mt-0.5">
+                  {selectedRepair.address}{selectedRepair.city ? `, ${selectedRepair.city}` : ''}
+                </p>
+              </div>
+            </button>
+          )}
+
+          {/* Avería */}
+          <div className="rounded-xl p-3" style={{ background: '#111' }}>
+            <p className="text-[9px] font-black uppercase mb-1.5" style={{ color: '#444' }}>Avería reportada</p>
+            <p className="text-xs font-medium leading-relaxed" style={{ color: '#aaa' }}>
+              {selectedRepair.problemDescription || '—'}
+            </p>
+          </div>
+
+          {/* Device info grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl p-2.5" style={{ background: '#111' }}>
+              <p className="text-[8px] font-black uppercase" style={{ color: '#444' }}>Tipo de equipo</p>
+              <p className="text-xs font-bold text-white mt-0.5">{selectedRepair.deviceType || '—'}</p>
+            </div>
+            <div className="rounded-xl p-2.5" style={{ background: '#111' }}>
+              <p className="text-[8px] font-black uppercase" style={{ color: '#444' }}>Entrada</p>
+              <p className="text-xs font-bold text-white mt-0.5">
+                {selectedRepair.entryDate
+                  ? new Date(selectedRepair.entryDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+                  : '—'}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Dirección con GPS */}
-        {isDom && selectedRepair.address && (
-          <button onClick={() => handleOpenMaps(selectedRepair)} className="w-full flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-left active:scale-[0.98]">
-            <Navigation size={16} className="text-amber-500 shrink-0" />
-            <span className="text-xs font-bold text-slate-700 truncate">{selectedRepair.address}{selectedRepair.city ? `, ${selectedRepair.city}` : ''}</span>
+        {/* Estado — botones de cambio rápido */}
+        <div>
+          <p className="text-[9px] font-black uppercase px-1 mb-2" style={{ color: '#555' }}>Cambiar estado</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {FIELD_STATUSES.map(s => {
+              const st = getTheme(s);
+              const isActive = selectedRepair.status === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => !isActive && handleStatusChange(s)}
+                  disabled={isActive}
+                  className="py-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95"
+                  style={isActive
+                    ? { background: st.bg, color: st.text, border: `1.5px solid ${st.text}66` }
+                    : { background: '#1a1a1a', color: '#444', border: '1px solid #2a2a2a' }
+                  }
+                >
+                  {FIELD_STATUS_LABELS[s] ?? s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Finalizar servicio */}
+        {selectedRepair.status !== RepairStatus.DELIVERED
+          && selectedRepair.status !== RepairStatus.CANCELLED && (
+          <button
+            onClick={handleCompleteService}
+            className="w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            style={{ background: GREEN, color: '#fff', boxShadow: '0 4px 20px rgba(46,125,50,0.4)' }}
+          >
+            <CheckCircle2 size={18} />
+            Finalizar Servicio{isDom ? ' (requiere firma)' : ''}
           </button>
         )}
 
-        {/* Avería — colapsada */}
-        <div className="p-3 bg-slate-50 rounded-xl">
-          <p className="text-[9px] font-black text-slate-300 uppercase mb-1">Avería</p>
-          <p className="text-xs text-slate-600 font-medium leading-relaxed line-clamp-3">{selectedRepair.problemDescription}</p>
-        </div>
-      </div>
-
-      {/* Botón finalizar servicio */}
-      {selectedRepair.status !== RepairStatus.DELIVERED && (
-        <button onClick={handleCompleteService}
-          className="w-full py-4 bg-emerald-500 text-white rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-200 transition-all"
-        >
-          <CheckCircle2 size={18} /> Finalizar Servicio {isDom ? '(requiere firma)' : ''}
-        </button>
-      )}
-
-      {/* Firma digital (domicilio) */}
-      {showSignature && (
-        <div className="bg-white rounded-xl border border-slate-100 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <PenTool size={14} className="text-blue-500" />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firma del Cliente</span>
-          </div>
-          <SignaturePad
-            label="Firma del cliente para completar servicio"
-            onSave={(sig) => {
-              if (sig) {
-                handleSignatureSave(sig);
-                setShowSignature(false);
-                handleStatusChange(RepairStatus.DELIVERED);
-              }
-            }}
-            initialValue={selectedRepair.customerSignature}
-          />
-          <p className="text-[9px] text-slate-400 italic text-center">
-            El cliente firma conforme al servicio recibido
-          </p>
-        </div>
-      )}
-
-      {/* Firma guardada */}
-      {selectedRepair.customerSignature && !showSignature && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
-          <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-          <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Servicio firmado por el cliente</span>
-        </div>
-      )}
-
-      {/* Bitácora */}
-      <div className="space-y-2">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1.5">
-          <Flag size={10} /> Notas de Campo ({notes.length})
-        </p>
-        {notes.slice().reverse().map(note => (
-          <div key={note.id} className="bg-white rounded-xl border border-slate-100 p-3">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[8px] font-bold text-slate-300">
-                {new Date(note.timestamp).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        {/* Firma digital */}
+        {showSignature && (
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <div className="flex items-center gap-2">
+              <PenTool size={14} style={{ color: '#60a5fa' }} />
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#888' }}>
+                Firma del Cliente
               </span>
-              <button onClick={() => handleDeleteNote(note.id)} className="p-1 text-slate-200 hover:text-red-500"><Trash2 size={12} /></button>
             </div>
-            {note.text && <p className="text-xs text-slate-600 font-medium">{note.text}</p>}
-            {note.photos && note.photos.length > 0 && (
-              <div className="flex gap-1.5 mt-2 overflow-x-auto">
-                {note.photos.map((p, i) => (
-                  <button key={i} onClick={() => setPhotoPreview(p)} className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                    <img src={p} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+            <SignaturePad
+              label="Firma del cliente para completar servicio"
+              onSave={(sig) => {
+                if (sig) {
+                  handleSignatureSave(sig);
+                  setShowSignature(false);
+                  handleStatusChange(RepairStatus.DELIVERED);
+                }
+              }}
+              initialValue={selectedRepair.customerSignature}
+            />
+            <p className="text-[9px] text-center italic" style={{ color: '#555' }}>
+              El cliente firma conforme al servicio recibido
+            </p>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* Preview fotos pendientes */}
-      {notePhotos.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto">
-          {notePhotos.map((p, i) => (
-            <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border-2 border-blue-300">
-              <img src={p} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => setNotePhotos(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white rounded-bl flex items-center justify-center"><X size={8} /></button>
+        {/* Firma guardada */}
+        {selectedRepair.customerSignature && !showSignature && (
+          <div
+            className="rounded-xl p-3 flex items-center gap-3"
+            style={{ background: '#052e16', border: '1px solid #166534' }}
+          >
+            <CheckCircle2 size={16} style={{ color: '#4ade80', flexShrink: 0 }} />
+            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#4ade80' }}>
+              Servicio firmado por el cliente
+            </span>
+          </div>
+        )}
+
+        {/* Notas de campo */}
+        <div className="space-y-2">
+          <p className="text-[9px] font-black uppercase tracking-widest px-1 flex items-center gap-1.5" style={{ color: '#555' }}>
+            <Flag size={10} /> Notas de Campo ({notes.length})
+          </p>
+          {notes.slice().reverse().map(note => (
+            <div key={note.id} className="rounded-xl p-3" style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[8px] font-bold" style={{ color: '#444' }}>
+                  {new Date(note.timestamp).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="p-1 active:scale-95"
+                  style={{ color: '#333' }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              {note.text && <p className="text-xs font-medium" style={{ color: '#ccc' }}>{note.text}</p>}
+              {note.photos && note.photos.length > 0 && (
+                <div className="flex gap-1.5 mt-2 overflow-x-auto">
+                  {note.photos.map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPhotoPreview(p)}
+                      className="w-14 h-14 rounded-lg overflow-hidden shrink-0"
+                      style={{ border: '1px solid #2a2a2a' }}
+                    >
+                      <img src={p} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      )}
 
-      {/* Input fijo */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-3 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        {/* Fotos pendientes de adjuntar */}
+        {notePhotos.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto">
+            {notePhotos.map((p, i) => (
+              <div
+                key={i}
+                className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0"
+                style={{ border: `2px solid ${GREEN}` }}
+              >
+                <img src={p} alt="" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => setNotePhotos(prev => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white rounded-bl flex items-center justify-center"
+                >
+                  <X size={8} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Barra inferior fija — input de notas */}
+      <div
+        className="fixed bottom-0 left-0 right-0 p-3 z-50"
+        style={{ background: '#0d0d0d', borderTop: '1px solid #1e1e1e' }}
+      >
         <div className="max-w-lg mx-auto flex items-center gap-2">
-          <button onClick={() => setShowCamera(true)} className="p-3 bg-slate-100 text-slate-500 rounded-xl shrink-0 active:scale-95">
+          <button
+            onClick={() => setShowCamera(true)}
+            className="p-3 rounded-xl shrink-0 active:scale-95 transition-all"
+            style={{ background: '#1a1a1a', color: '#666', border: '1px solid #2a2a2a' }}
+          >
             <Camera size={18} />
           </button>
           <input
@@ -340,20 +617,33 @@ const TechFieldView: React.FC<TechFieldViewProps> = ({ repairs, settings, onUpda
             onChange={e => setNoteText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAddNote()}
             placeholder="Nota de campo..."
-            className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none"
+            className="flex-1 px-4 py-3 rounded-xl text-sm font-medium outline-none text-white placeholder:text-[#333]"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}
           />
-          <button onClick={handleAddNote} disabled={!noteText.trim() && notePhotos.length === 0}
-            className="p-3 bg-blue-600 text-white rounded-xl shrink-0 disabled:opacity-30 active:scale-95 shadow-lg shadow-blue-200"
+          <button
+            onClick={handleAddNote}
+            disabled={!noteText.trim() && notePhotos.length === 0}
+            className="p-3 rounded-xl shrink-0 disabled:opacity-30 active:scale-95 transition-all"
+            style={{ background: GREEN, color: '#fff', boxShadow: '0 4px 12px rgba(46,125,50,0.4)' }}
           >
             <Send size={18} />
           </button>
         </div>
       </div>
 
-      {/* Photo preview fullscreen */}
+      {/* Previsualización de foto a pantalla completa */}
       {photoPreview && (
-        <div className="fixed inset-0 bg-black/90 z-[500] flex items-center justify-center p-4" onClick={() => setPhotoPreview(null)}>
-          <button className="absolute top-4 right-4 p-2 bg-white/10 text-white rounded-full"><X size={20} /></button>
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.95)' }}
+          onClick={() => setPhotoPreview(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}
+          >
+            <X size={20} />
+          </button>
           <img src={photoPreview} alt="" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
         </div>
       )}
