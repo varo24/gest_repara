@@ -20,6 +20,14 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Font ── */
+@theme {
+  --font-sans: 'Nunito', sans-serif;
+}
+body {
+  font-family: 'Nunito', sans-serif;
+}
+
 /* ── Industrial Theme ── */
 :root {
   --ind-bg:      #0f0f0f;

@@ -1,9 +1,14 @@
 import React from 'react';
 import {
-  FaWrench, FaCogs, FaBolt, FaFileInvoiceDollar, FaUsers,
-  FaBoxes, FaShieldAlt, FaCalendarAlt, FaChartBar, FaTools,
-  FaPuzzlePiece, FaSlidersH, FaTruck, FaClipboardList, FaCheckCircle
+  GiAutoRepair, GiGearStickPattern, GiMoneyStack,
+  GiShield, GiCardboardBox, GiTruck, GiCalendar, GiChart
+} from 'react-icons/gi';
+import {
+  FaUserFriends, FaFileInvoiceDollar, FaClipboardCheck,
+  FaTools, FaPuzzlePiece, FaSlidersH
 } from 'react-icons/fa';
+import { MdElectricBolt } from 'react-icons/md';
+import { FaCheckCircle } from 'react-icons/fa';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
 
 interface DashboardProps {
@@ -20,7 +25,7 @@ type Module = {
   label: string;
   desc: string;
   icon: React.ElementType;
-  iconBg: string;
+  iconColor: string;
   action: () => void;
   badge?: number;
 };
@@ -32,37 +37,40 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const todayCitas     = citas.filter(c => c.fecha?.startsWith(new Date().toISOString().slice(0, 10))).length;
 
   const stats = [
-    { label: 'Activas',       value: activeRepairs,  color: '#43a047', icon: FaCogs },
-    { label: 'Listas',        value: readyRepairs,   color: '#00e676', icon: FaCheckCircle },
-    { label: 'Presupuestos',  value: pendingBudgets, color: '#ce93d8', icon: FaClipboardList },
-    { label: 'Citas hoy',     value: todayCitas,     color: '#ffd54f', icon: FaCalendarAlt },
+    { label: 'Activas',      value: activeRepairs,  color: '#66bb6a', icon: GiGearStickPattern },
+    { label: 'Listas',       value: readyRepairs,   color: '#00e676', icon: FaCheckCircle },
+    { label: 'Presupuestos', value: pendingBudgets, color: '#ce93d8', icon: FaClipboardCheck },
+    { label: 'Citas hoy',    value: todayCitas,     color: '#ffd54f', icon: GiCalendar },
   ];
 
   const modules: Module[] = [
-    { label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',          icon: FaWrench,            iconBg: '#1565c0', action: onNewRepair },
-    { label: 'Reparaciones',     desc: `${activeRepairs} activas en taller`,    icon: FaCogs,              iconBg: '#e65100', action: () => setView('repairs'),          badge: activeRepairs },
-    { label: 'Despacho',         desc: `${readyRepairs} listos para entregar`,  icon: FaBolt,              iconBg: '#2e7d32', action: () => setView('despacho'),         badge: readyRepairs },
-    { label: 'Presupuestos',     desc: `${pendingBudgets} pendientes`,          icon: FaClipboardList,     iconBg: '#6a1b9a', action: () => setView('budgets') },
-    { label: 'Facturas',         desc: 'Emisión y cobro',                       icon: FaFileInvoiceDollar, iconBg: '#f57f17', action: () => setView('invoices') },
-    { label: 'Clientes',         desc: 'Agenda y ficha de cliente',             icon: FaUsers,             iconBg: '#00695c', action: () => setView('customers') },
-    { label: 'Inventario',       desc: 'Stock de piezas',                       icon: FaBoxes,             iconBg: '#4e342e', action: () => setView('inventory') },
-    { label: 'Entrada Stock',    desc: 'Registrar entradas de almacén',         icon: FaTruck,             iconBg: '#1a237e', action: () => setView('inventory-entrada') },
-    { label: 'Garantías',        desc: 'Control de vencimientos',               icon: FaShieldAlt,         iconBg: '#b71c1c', action: () => setView('garantias') },
-    { label: 'Planificador',     desc: `${todayCitas} citas hoy`,               icon: FaCalendarAlt,       iconBg: '#1b5e20', action: () => setView('calendar') },
-    { label: 'Rendimiento',      desc: 'Estadísticas del taller',               icon: FaChartBar,          iconBg: '#37474f', action: () => setView('stats') },
-    { label: 'Panel Campo',      desc: 'Reparaciones a domicilio',              icon: FaTools,             iconBg: '#283593', action: () => setView('tech-field') },
-    { label: 'Módulos Ext.',     desc: 'Aplicaciones integradas',               icon: FaPuzzlePiece,       iconBg: '#424242', action: () => setView('external-apps') },
-    { label: 'Ajustes',          desc: 'Configuración del sistema',             icon: FaSlidersH,          iconBg: '#455a64', action: () => setView('settings') },
+    { label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',          icon: GiAutoRepair,       iconColor: '#42a5f5', action: onNewRepair },
+    { label: 'Reparaciones',     desc: `${activeRepairs} activas en taller`,    icon: GiGearStickPattern, iconColor: '#ff7043', action: () => setView('repairs'),          badge: activeRepairs },
+    { label: 'Despacho',         desc: `${readyRepairs} listos para entregar`,  icon: MdElectricBolt,     iconColor: '#66bb6a', action: () => setView('despacho'),         badge: readyRepairs },
+    { label: 'Presupuestos',     desc: `${pendingBudgets} pendientes`,          icon: FaClipboardCheck,   iconColor: '#ab47bc', action: () => setView('budgets') },
+    { label: 'Facturas',         desc: 'Emisión y cobro',                       icon: FaFileInvoiceDollar,iconColor: '#ffca28', action: () => setView('invoices') },
+    { label: 'Clientes',         desc: 'Agenda y ficha de cliente',             icon: FaUserFriends,      iconColor: '#26c6da', action: () => setView('customers') },
+    { label: 'Inventario',       desc: 'Stock de piezas',                       icon: GiCardboardBox,     iconColor: '#ffa726', action: () => setView('inventory') },
+    { label: 'Entrada Stock',    desc: 'Registrar entradas de almacén',         icon: GiTruck,            iconColor: '#5c6bc0', action: () => setView('inventory-entrada') },
+    { label: 'Garantías',        desc: 'Control de vencimientos',               icon: GiShield,           iconColor: '#ef5350', action: () => setView('garantias') },
+    { label: 'Planificador',     desc: `${todayCitas} citas hoy`,               icon: GiCalendar,         iconColor: '#26a69a', action: () => setView('calendar') },
+    { label: 'Rendimiento',      desc: 'Estadísticas del taller',               icon: GiChart,            iconColor: '#78909c', action: () => setView('stats') },
+    { label: 'Panel Campo',      desc: 'Reparaciones a domicilio',              icon: FaTools,            iconColor: '#7e57c2', action: () => setView('tech-field') },
+    { label: 'Módulos Ext.',     desc: 'Aplicaciones integradas',               icon: FaPuzzlePiece,      iconColor: '#8d6e63', action: () => setView('external-apps') },
+    { label: 'Ajustes',          desc: 'Configuración del sistema',             icon: FaSlidersH,         iconColor: '#90a4ae', action: () => setView('settings') },
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: '#111111', fontFamily: "'Barlow Condensed', sans-serif" }}>
+    <div className="min-h-screen" style={{ background: '#111111' }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-4 px-6 py-5" style={{ borderBottom: '1px solid #2a2a2a' }}>
+      <div
+        className="flex items-center gap-4 px-6 py-5"
+        style={{ background: 'linear-gradient(135deg, #1b5e20, #2e7d32, #388e3c)' }}
+      >
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl text-white shrink-0"
-          style={{ background: '#2e7d32' }}
+          style={{ background: 'rgba(0,0,0,0.25)' }}
         >
           {(settings.appName || 'T').charAt(0).toUpperCase()}
         </div>
@@ -70,7 +78,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
           <h1 className="text-[22px] font-black uppercase tracking-widest text-white leading-none">
             {settings.appName}
           </h1>
-          <p className="text-[11px] font-medium mt-1" style={{ color: '#666' }}>
+          <p className="text-[11px] font-medium mt-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
             {[settings.address, settings.phone ? `Tel. ${settings.phone}` : ''].filter(Boolean).join(' · ')}
           </p>
         </div>
@@ -103,10 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       </div>
 
       {/* ── Module grid ── */}
-      <div
-        className="grid grid-cols-3"
-        style={{ gap: 16, padding: 24 }}
-      >
+      <div className="grid grid-cols-3" style={{ gap: 16, padding: 24 }}>
         {modules.map(mod => {
           const Icon = mod.icon;
           return (
@@ -121,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                 border: '1px solid #2a2a2a',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                 transition: 'all 0.2s ease',
-                '--module-color': mod.iconBg,
+                '--module-color': mod.iconColor,
               } as React.CSSProperties}
             >
               {/* Badge at card top-right */}
@@ -141,16 +146,13 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
               >
                 <div
                   className="absolute inset-0"
-                  style={{ borderRadius: 14, background: mod.iconBg, opacity: 0.15 }}
+                  style={{ borderRadius: 14, background: mod.iconColor, opacity: 0.15 }}
                 />
-                <Icon size={28} style={{ color: mod.iconBg, position: 'relative' }} />
+                <Icon size={32} style={{ color: mod.iconColor, position: 'relative' }} />
               </div>
 
               {/* Title */}
-              <p
-                className="font-bold uppercase tracking-wider text-white leading-tight"
-                style={{ fontSize: 13, marginTop: 12 }}
-              >
+              <p className="font-bold uppercase tracking-wider text-white leading-tight" style={{ fontSize: 13, marginTop: 12 }}>
                 {mod.label}
               </p>
 
