@@ -92,9 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const getBadgeStyle = (id: string): React.CSSProperties => {
-    if (id === 'despacho')  return { background: '#2e7d32', color: '#fff' };
     if (id === 'garantias') return { background: '#b71c1c', color: '#fff' };
-    return { background: '#e65100', color: '#fff' };
+    return { background: '#2e7d32', color: '#fff' };
   };
 
   return (
@@ -107,13 +106,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 font-black text-lg leading-none text-white"
-            style={{ background: '#e65100' }}
+            style={{ background: '#2e7d32' }}
           >
             {appName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
             <div className="text-[13px] font-black tracking-widest uppercase text-white truncate leading-none">{appName}</div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5" style={{ color: '#e65100' }}>v8 · Taller Pro</div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5" style={{ color: '#2e7d32' }}>v8 · Taller Pro</div>
           </div>
         </div>
       </div>
@@ -146,12 +145,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   onClick={() => isNew ? onNewRepair() : setView(item.id as ViewType)}
                   className={`sidebar-nav-btn w-full flex items-center gap-2.5 px-3 py-[7px] text-[11px] font-black uppercase tracking-wider mb-px group${isActive ? ' is-active' : ''}`}
-                  style={isActive ? { background: '#e65100', color: '#fff' } : { color: '#888' }}
+                  style={isActive ? { background: '#2e7d32', color: '#fff' } : { color: '#888' }}
                 >
                   <Icon
                     size={15}
                     style={{ color: isActive ? '#fff' : '#555', flexShrink: 0 }}
-                    className={isActive ? '' : 'group-hover:!text-[#e65100]'}
+                    className={isActive ? '' : 'group-hover:!text-[#43a047]'}
                   />
                   <span className="flex-1 text-left truncate group-hover:text-white">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
@@ -182,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ background: '#161616', border: '1px solid #2a2a2a' }}
         >
           {syncing ? (
-            <RefreshCw size={11} style={{ color: '#e65100', flexShrink: 0 }} className="animate-spin" />
+            <RefreshCw size={11} style={{ color: '#43a047', flexShrink: 0 }} className="animate-spin" />
           ) : online ? (
             <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: '#00e676' }} />
           ) : (

@@ -25,7 +25,7 @@
   --ind-bg:      #0f0f0f;
   --ind-surface: #1a1a1a;
   --ind-card:    #242424;
-  --ind-orange:  #ff6b00;
+  --ind-orange:  #2e7d32;
   --ind-cyan:    #00d4ff;
   --ind-green:   #00ff88;
   --ind-red:     #ff3355;
@@ -40,10 +40,10 @@
   transition: border-color 120ms, background-color 120ms, color 120ms;
 }
 .sidebar-nav-btn:hover {
-  border-left-color: #ff6b00;
+  border-left-color: #2e7d32;
 }
 .sidebar-nav-btn.is-active {
-  border-left-color: #ff6b00;
+  border-left-color: #2e7d32;
 }
 
 /* Industrial module card hover glow */
@@ -51,14 +51,14 @@
   transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
 }
 .industrial-card:hover {
-  border-color: #ff6b00 !important;
+  border-color: #2e7d32 !important;
   background-color: #242424 !important;
-  box-shadow: 0 0 20px rgba(255, 107, 0, 0.3) !important;
+  box-shadow: 0 0 20px rgba(46, 125, 50, 0.3) !important;
 }
 
 /* Sync button hover */
 .sync-btn:hover {
-  border-color: #ff6b00 !important;
+  border-color: #2e7d32 !important;
 }
 
 /* Dashboard 2-col module button */
@@ -67,6 +67,6 @@
   transition: border-left-color 140ms, background-color 140ms;
 }
 .module-btn:hover {
-  border-left-color: var(--module-color, #e65100);
+  border-left-color: var(--module-color, #2e7d32);
   background-color: #1c1c1c;
 }
