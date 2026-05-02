@@ -130,7 +130,7 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#111111' }}>
       <div className="w-full max-w-sm space-y-8">
 
         {/* Logo */}

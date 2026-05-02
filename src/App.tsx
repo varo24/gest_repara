@@ -200,7 +200,7 @@ const App: React.FC = () => {
 
   // Pantalla de carga
   if (loading) return (
-    <div className="h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+    <div className="h-screen flex flex-col items-center justify-center text-white" style={{ backgroundColor: '#111111' }}>
       <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
       <p className="text-[10px] font-black uppercase tracking-[0.4em]">Inicializando ReparaPro...</p>
     </div>
