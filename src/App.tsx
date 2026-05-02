@@ -38,6 +38,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hourlyRate: 45,
   taxRate: 21,
   letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.',
+  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','calendar','stats','tech-field','external-apps','settings'],
   legalTerms: 'LOS PRESUPUESTOS QUE NO SUPEREN LOS 40€ NO REQUIEREN FIRMA DEL CLIENTE. EL TALLER NO SE HACE RESPONSABLE DE LA PÉRDIDA DE DATOS. SE RECOMIENDA REALIZAR UNA COPIA DE SEGURIDAD ANTES DE ENTREGAR EL EQUIPO. LOS EQUIPOS NO RETIRADOS EN UN PLAZO DE 6 MESES DESDE LA NOTIFICACIÓN AL CLIENTE PODRÁN SER OBJETO DE TRATAMIENTO CONFORME A LA NORMATIVA VIGENTE. EL PRESUPUESTO TIENE UNA VALIDEZ DE 15 DÍAS DESDE SU EMISIÓN. SE APLICARÁ EL IVA VIGENTE EN EL MOMENTO DE LA FACTURACIÓN.',
   geminiApiKey: 'AIzaSyCWd8-GlAYySsWrLRrQzLpvoDSRqWfqGKE',
 };

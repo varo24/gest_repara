@@ -3,7 +3,7 @@ import {
   Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
   Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
-  Package, Brain, Plus
+  Package, Brain, Plus, LayoutDashboard
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -17,6 +17,24 @@ interface SettingsFormProps {
   onBack: () => void;
   version?: string;
 }
+
+const ALL_MODULES = [
+  { id: 'new-repair',        label: 'Nueva Reparación' },
+  { id: 'repairs',           label: 'Reparaciones' },
+  { id: 'despacho',          label: 'Despacho' },
+  { id: 'budgets',           label: 'Presupuestos' },
+  { id: 'invoices',          label: 'Facturas' },
+  { id: 'customers',         label: 'Clientes' },
+  { id: 'inventory',         label: 'Inventario' },
+  { id: 'inventory-entrada', label: 'Entrada Stock' },
+  { id: 'garantias',         label: 'Garantías' },
+  { id: 'calendar',          label: 'Planificador' },
+  { id: 'stats',             label: 'Rendimiento' },
+  { id: 'tech-field',        label: 'Panel Campo' },
+  { id: 'external-apps',     label: 'Módulos Ext.' },
+  { id: 'settings',          label: 'Ajustes' },
+];
+const ALL_MODULE_IDS = ALL_MODULES.map(m => m.id);
 
 const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onInstall, onSave, onBack, version }) => {
   const [formData, setFormData] = useState<AppSettings>(settings);
@@ -290,6 +308,56 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
             onChange={e => setFormData({ ...formData, anthropicApiKey: e.target.value })}
           />
         </div>
+      </div>
+
+      {/* PERSONALIZAR DASHBOARD */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="bg-indigo-600 p-3 rounded-2xl text-white shadow-lg">
+            <LayoutDashboard size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Personalizar Dashboard</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Módulos visibles en la pantalla principal</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {ALL_MODULES.map(mod => {
+            const active = (formData.dashboardModules ?? ALL_MODULE_IDS).includes(mod.id);
+            const activeCount = (formData.dashboardModules ?? ALL_MODULE_IDS).length;
+            const canToggle = !active ? true : activeCount > 4;
+            return (
+              <label
+                key={mod.id}
+                className={`flex items-center gap-3 px-5 py-4 rounded-2xl border cursor-pointer select-none transition-all ${
+                  active ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'
+                } ${!canToggle ? 'opacity-40 cursor-not-allowed' : 'hover:border-indigo-300'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={active}
+                  disabled={!canToggle}
+                  onChange={() => {
+                    if (!canToggle) return;
+                    const current = formData.dashboardModules ?? ALL_MODULE_IDS;
+                    const next = active
+                      ? current.filter(id => id !== mod.id)
+                      : [...current, mod.id];
+                    setFormData({ ...formData, dashboardModules: next });
+                  }}
+                  className="w-4 h-4 accent-indigo-600 shrink-0"
+                />
+                <span className={`text-sm font-bold ${active ? 'text-indigo-700' : 'text-slate-500'}`}>
+                  {mod.label}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          Mínimo 4 módulos activos — activos: {(formData.dashboardModules ?? ALL_MODULE_IDS).length}
+        </p>
       </div>
 
       {/* INSTALACIÓN ESCRITORIO */}

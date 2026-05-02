@@ -111,6 +111,7 @@ export interface AppSettings {
   anthropicApiKey?: string;
   geminiApiKey?: string;
   legalTerms?: string;
+  dashboardModules?: string[];
 }
 
 export interface Customer {

@@ -5,10 +5,9 @@ import {
 } from 'react-icons/gi';
 import {
   FaUserFriends, FaFileInvoiceDollar, FaClipboardCheck,
-  FaTools, FaPuzzlePiece, FaSlidersH
+  FaTools, FaPuzzlePiece, FaSlidersH, FaCheckCircle
 } from 'react-icons/fa';
 import { MdElectricBolt } from 'react-icons/md';
-import { FaCheckCircle } from 'react-icons/fa';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
 
 interface DashboardProps {
@@ -22,6 +21,7 @@ interface DashboardProps {
 }
 
 type Module = {
+  id: string;
   label: string;
   desc: string;
   icon: React.ElementType;
@@ -43,22 +43,28 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     { label: 'Citas hoy',    value: todayCitas,     color: '#ffd54f', icon: GiCalendar,         action: () => setView('calendar') },
   ];
 
-  const modules: Module[] = [
-    { label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',          icon: GiAutoRepair,       iconColor: '#42a5f5', action: onNewRepair },
-    { label: 'Reparaciones',     desc: `${activeRepairs} activas en taller`,    icon: GiGearStickPattern, iconColor: '#ff7043', action: () => setView('repairs'),          badge: activeRepairs },
-    { label: 'Despacho',         desc: `${readyRepairs} listos para entregar`,  icon: MdElectricBolt,     iconColor: '#66bb6a', action: () => setView('despacho'),         badge: readyRepairs },
-    { label: 'Presupuestos',     desc: `${pendingBudgets} pendientes`,          icon: FaClipboardCheck,   iconColor: '#ab47bc', action: () => setView('budgets') },
-    { label: 'Facturas',         desc: 'Emisión y cobro',                       icon: FaFileInvoiceDollar,iconColor: '#ffca28', action: () => setView('invoices') },
-    { label: 'Clientes',         desc: 'Agenda y ficha de cliente',             icon: FaUserFriends,      iconColor: '#26c6da', action: () => setView('customers') },
-    { label: 'Inventario',       desc: 'Stock de piezas',                       icon: GiCardboardBox,     iconColor: '#ffa726', action: () => setView('inventory') },
-    { label: 'Entrada Stock',    desc: 'Registrar entradas de almacén',         icon: GiTruck,            iconColor: '#5c6bc0', action: () => setView('inventory-entrada') },
-    { label: 'Garantías',        desc: 'Control de vencimientos',               icon: GiShield,           iconColor: '#ef5350', action: () => setView('garantias') },
-    { label: 'Planificador',     desc: `${todayCitas} citas hoy`,               icon: GiCalendar,         iconColor: '#26a69a', action: () => setView('calendar') },
-    { label: 'Rendimiento',      desc: 'Estadísticas del taller',               icon: GiChart,            iconColor: '#78909c', action: () => setView('stats') },
-    { label: 'Panel Campo',      desc: 'Reparaciones a domicilio',              icon: FaTools,            iconColor: '#7e57c2', action: () => setView('tech-field') },
-    { label: 'Módulos Ext.',     desc: 'Aplicaciones integradas',               icon: FaPuzzlePiece,      iconColor: '#8d6e63', action: () => setView('external-apps') },
-    { label: 'Ajustes',          desc: 'Configuración del sistema',             icon: FaSlidersH,         iconColor: '#90a4ae', action: () => setView('settings') },
+  const allModules: Module[] = [
+    { id: 'new-repair',        label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',          icon: GiAutoRepair,        iconColor: '#42a5f5', action: onNewRepair },
+    { id: 'repairs',           label: 'Reparaciones',     desc: `${activeRepairs} activas en taller`,    icon: GiGearStickPattern,  iconColor: '#ff7043', action: () => setView('repairs'),          badge: activeRepairs },
+    { id: 'despacho',          label: 'Despacho',         desc: `${readyRepairs} listos para entregar`,  icon: MdElectricBolt,      iconColor: '#66bb6a', action: () => setView('despacho'),         badge: readyRepairs },
+    { id: 'budgets',           label: 'Presupuestos',     desc: `${pendingBudgets} pendientes`,          icon: FaClipboardCheck,    iconColor: '#ab47bc', action: () => setView('budgets') },
+    { id: 'invoices',          label: 'Facturas',         desc: 'Emisión y cobro',                       icon: FaFileInvoiceDollar, iconColor: '#ffca28', action: () => setView('invoices') },
+    { id: 'customers',         label: 'Clientes',         desc: 'Agenda y ficha de cliente',             icon: FaUserFriends,       iconColor: '#26c6da', action: () => setView('customers') },
+    { id: 'inventory',         label: 'Inventario',       desc: 'Stock de piezas',                       icon: GiCardboardBox,      iconColor: '#ffa726', action: () => setView('inventory') },
+    { id: 'inventory-entrada', label: 'Entrada Stock',    desc: 'Registrar entradas de almacén',         icon: GiTruck,             iconColor: '#5c6bc0', action: () => setView('inventory-entrada') },
+    { id: 'garantias',         label: 'Garantías',        desc: 'Control de vencimientos',               icon: GiShield,            iconColor: '#ef5350', action: () => setView('garantias') },
+    { id: 'calendar',          label: 'Planificador',     desc: `${todayCitas} citas hoy`,               icon: GiCalendar,          iconColor: '#26a69a', action: () => setView('calendar') },
+    { id: 'stats',             label: 'Rendimiento',      desc: 'Estadísticas del taller',               icon: GiChart,             iconColor: '#78909c', action: () => setView('stats') },
+    { id: 'tech-field',        label: 'Panel Campo',      desc: 'Reparaciones a domicilio',              icon: FaTools,             iconColor: '#7e57c2', action: () => setView('tech-field') },
+    { id: 'external-apps',     label: 'Módulos Ext.',     desc: 'Aplicaciones integradas',               icon: FaPuzzlePiece,       iconColor: '#8d6e63', action: () => setView('external-apps') },
+    { id: 'settings',          label: 'Ajustes',          desc: 'Configuración del sistema',             icon: FaSlidersH,          iconColor: '#90a4ae', action: () => setView('settings') },
   ];
+
+  const visibleIds = settings.dashboardModules && settings.dashboardModules.length > 0
+    ? settings.dashboardModules
+    : allModules.map(m => m.id);
+
+  const modules = allModules.filter(m => visibleIds.includes(m.id));
 
   return (
     <div className="min-h-screen" style={{ background: '#111111' }}>
@@ -121,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
           const Icon = mod.icon;
           return (
             <button
-              key={mod.label}
+              key={mod.id}
               onClick={mod.action}
               className="module-card relative flex flex-col items-center text-center active:scale-95"
               style={{
@@ -134,7 +140,6 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                 '--module-color': mod.iconColor,
               } as React.CSSProperties}
             >
-              {/* Badge at card top-right */}
               {mod.badge !== undefined && mod.badge > 0 && (
                 <span
                   className="absolute top-3 right-3 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white px-1.5"
@@ -143,25 +148,13 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                   {mod.badge > 99 ? '99+' : mod.badge}
                 </span>
               )}
-
-              {/* Icon box — semi-transparent bg + colored icon */}
-              <div
-                className="relative flex items-center justify-center"
-                style={{ width: 56, height: 56, borderRadius: 14 }}
-              >
-                <div
-                  className="absolute inset-0"
-                  style={{ borderRadius: 14, background: mod.iconColor, opacity: 0.15 }}
-                />
+              <div className="relative flex items-center justify-center" style={{ width: 56, height: 56, borderRadius: 14 }}>
+                <div className="absolute inset-0" style={{ borderRadius: 14, background: mod.iconColor, opacity: 0.15 }} />
                 <Icon size={32} style={{ color: mod.iconColor, position: 'relative' }} />
               </div>
-
-              {/* Title */}
               <p className="font-bold uppercase tracking-wider text-white leading-tight" style={{ fontSize: 13, marginTop: 12 }}>
                 {mod.label}
               </p>
-
-              {/* Description */}
               <p className="font-medium leading-snug" style={{ fontSize: 11, marginTop: 4, color: '#888' }}>
                 {mod.desc}
               </p>
