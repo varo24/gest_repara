@@ -102,6 +102,30 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }
 
+/* ── Form fields — dark theme ── */
+input, textarea, select, [contenteditable] {
+  color: #ffffff !important;
+  background-color: #1e1e1e !important;
+  caret-color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #555555 !important;
+  opacity: 1 !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  color: #ffffff !important;
+  outline-color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+}
+
+select option {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
 /* Back-to-dashboard button — used in all view headers */
 .back-to-dash {
   display: inline-flex; align-items: center; gap: 5px;
