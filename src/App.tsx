@@ -210,6 +210,7 @@ const App: React.FC = () => {
   if (!unlocked) return (
     <PinScreen
       onUnlock={() => setUnlocked(true)}
+      settings={settings}
     />
   );
 

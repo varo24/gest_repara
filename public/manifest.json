@@ -4,8 +4,8 @@
   "description": "Consola de gestión técnica para talleres de reparación",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#2e7d32",
-  "theme_color": "#2e7d32",
+  "background_color": "#111111",
+  "theme_color": "#111111",
   "orientation": "any",
   "icons": [
     {

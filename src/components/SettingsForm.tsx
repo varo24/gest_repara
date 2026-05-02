@@ -29,7 +29,6 @@ const ALL_MODULES = [
   { id: 'garantias',         label: 'Garantías' },
   { id: 'calendar',          label: 'Planificador' },
   { id: 'stats',             label: 'Rendimiento' },
-  { id: 'tech-field',        label: 'Panel Campo' },
   { id: 'external-apps',     label: 'Módulos Ext.' },
   { id: 'settings',          label: 'Ajustes' },
 ];
@@ -155,6 +154,16 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               )}
             </div>
             <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">O pega URL del logo</label>
+              <input
+                type="url"
+                placeholder="https://... o data:image/..."
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                value={formData.logoUrl || ''}
+                onChange={e => setFormData({ ...formData, logoUrl: e.target.value })}
+              />
+            </div>
           </div>
 
           {/* Campos de Texto */}

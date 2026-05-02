@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Lock, Delete, ShieldCheck, Eye, EyeOff, Navigation } from 'lucide-react';
+import { AppSettings } from '../types';
 
 const PIN_KEY = 'reparapro_pin_hash';
 const SESSION_KEY = 'reparapro_session';
@@ -16,11 +17,12 @@ const hashPin = async (pin: string): Promise<string> => {
 interface PinScreenProps {
   onUnlock: () => void;
   onFieldMode?: () => void;
+  settings?: Pick<AppSettings, 'appName' | 'logoUrl'>;
 }
 
 type PinMode = 'unlock' | 'setup' | 'confirm';
 
-const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode }) => {
+const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [mode, setMode] = useState<PinMode>('unlock');
@@ -133,12 +135,24 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode }) => {
 
         {/* Logo */}
         <div className="text-center space-y-3">
-          <div className="inline-flex p-5 bg-blue-600 rounded-3xl shadow-2xl shadow-blue-600/30">
-            <ShieldCheck size={36} className="text-white" />
-          </div>
+          {settings?.logoUrl ? (
+            <img
+              src={settings.logoUrl}
+              alt="Logo"
+              className="mx-auto object-contain"
+              style={{ width: 80, height: 80, borderRadius: 12 }}
+            />
+          ) : (
+            <div
+              className="inline-flex items-center justify-center mx-auto shadow-2xl"
+              style={{ width: 80, height: 80, borderRadius: 12, background: '#2e7d32', fontSize: 30, fontWeight: 900, color: '#fff' }}
+            >
+              {(settings?.appName || 'R').charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
-            <h1 className="text-2xl font-black text-white uppercase tracking-tight">ReparaPro Master</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Consola Técnica v3.0</p>
+            <h1 className="text-2xl font-black text-white uppercase tracking-tight">{settings?.appName || 'ReparaPro'}</h1>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Consola Técnica</p>
           </div>
         </div>
 
