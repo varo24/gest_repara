@@ -79,6 +79,12 @@ body {
   background-color: #1c1c1c;
 }
 
+/* Dashboard stat card */
+.stat-card:hover {
+  border-color: var(--stat-color, #2e7d32) !important;
+  filter: brightness(1.12);
+}
+
 /* Dashboard 3-col module card */
 .module-card:hover {
   border-color: var(--module-color, #2e7d32) !important;

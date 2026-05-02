@@ -37,10 +37,10 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const todayCitas     = citas.filter(c => c.fecha?.startsWith(new Date().toISOString().slice(0, 10))).length;
 
   const stats = [
-    { label: 'Activas',      value: activeRepairs,  color: '#66bb6a', icon: GiGearStickPattern },
-    { label: 'Listas',       value: readyRepairs,   color: '#00e676', icon: FaCheckCircle },
-    { label: 'Presupuestos', value: pendingBudgets, color: '#ce93d8', icon: FaClipboardCheck },
-    { label: 'Citas hoy',    value: todayCitas,     color: '#ffd54f', icon: GiCalendar },
+    { label: 'Activas',      value: activeRepairs,  color: '#66bb6a', icon: GiGearStickPattern, action: () => setView('repairs') },
+    { label: 'Listas',       value: readyRepairs,   color: '#00e676', icon: FaCheckCircle,      action: () => setView('despacho') },
+    { label: 'Presupuestos', value: pendingBudgets, color: '#ce93d8', icon: FaClipboardCheck,   action: () => setView('budgets') },
+    { label: 'Citas hoy',    value: todayCitas,     color: '#ffd54f', icon: GiCalendar,         action: () => setView('calendar') },
   ];
 
   const modules: Module[] = [
@@ -89,14 +89,19 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
         {stats.map(s => {
           const StatIcon = s.icon;
           return (
-            <div
+            <button
               key={s.label}
+              onClick={s.action}
+              className="stat-card text-left active:scale-95"
               style={{
                 background: '#1a1a1a',
                 border: '1px solid #2a2a2a',
                 borderRadius: 12,
                 padding: 20,
-              }}
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                '--stat-color': s.color,
+              } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <StatIcon size={14} style={{ color: s.color, flexShrink: 0 }} />
@@ -105,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] block mt-2" style={{ color: '#555' }}>
                 {s.label}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
