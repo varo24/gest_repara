@@ -112,6 +112,7 @@ export interface AppSettings {
   geminiApiKey?: string;
   legalTerms?: string;
   dashboardModules?: string[];
+  warrantyMonths?: number;
 }
 
 export interface Customer {

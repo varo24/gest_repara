@@ -43,8 +43,15 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
   const [importResult, setImportResult] = useState<{ok: boolean, msg: string} | null>(null);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudResult, setCloudResult] = useState<{ok: boolean, msg: string} | null>(null);
+  const [appNameError, setAppNameError] = useState(false);
 
   const currentUrl = window.location.href;
+
+  const handleSave = () => {
+    if (!formData.appName.trim()) { setAppNameError(true); return; }
+    setAppNameError(false);
+    onSave(formData);
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -169,10 +176,10 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           {/* Campos de Texto */}
           <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                <Building2 size={12} className="text-blue-500" /> Nombre Comercial
+              <label className="text-[10px] font-black uppercase tracking-widest ml-1 flex items-center gap-2" style={{ color: appNameError ? '#dc2626' : undefined }}>
+                <Building2 size={12} className={appNameError ? 'text-red-500' : 'text-blue-500'} /> Nombre Comercial {appNameError && <span className="text-red-500 normal-case font-bold">— obligatorio</span>}
               </label>
-              <input type="text" className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none" value={formData.appName} onChange={e => setFormData({...formData, appName: e.target.value})} />
+              <input type="text" className={`w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold focus:ring-4 outline-none ${appNameError ? 'border-2 border-red-400 focus:ring-red-500/10' : 'border border-slate-200 focus:ring-blue-500/10'}`} value={formData.appName} onChange={e => { setFormData({...formData, appName: e.target.value}); if (e.target.value.trim()) setAppNameError(false); }} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -225,6 +232,19 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               value={formData.legalTerms || ''}
               onChange={e => setFormData({...formData, legalTerms: e.target.value})}
               placeholder="Condiciones legales que aparecerán al pie de presupuestos y facturas..."
+            />
+          </div>
+          <div className="space-y-2 mt-6">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <ShieldCheck size={12} className="text-blue-500" /> Meses de Garantía por defecto (al despachar)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={24}
+              className="w-40 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none"
+              value={formData.warrantyMonths ?? 3}
+              onChange={e => setFormData({...formData, warrantyMonths: Math.max(0, parseInt(e.target.value) || 0)})}
             />
           </div>
         </div>
@@ -508,7 +528,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
 
       <div className="flex gap-4">
         <button onClick={onBack} className="px-10 py-6 bg-white border border-slate-200 text-slate-500 rounded-[2.5rem] font-black uppercase text-[12px] tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
-        <button onClick={() => onSave(formData)} className="flex-1 py-6 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[12px] tracking-widest shadow-2xl shadow-blue-600/20 flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
+        <button onClick={handleSave} className="flex-1 py-6 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[12px] tracking-widest shadow-2xl shadow-blue-600/20 flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
           <Save size={20} /> Guardar Identidad del Taller
         </button>
       </div>

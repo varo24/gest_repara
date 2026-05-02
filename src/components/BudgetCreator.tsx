@@ -113,6 +113,10 @@ body{font-family:'Inter',sans-serif;background:#fff;color:#000;width:210mm;paddi
 @page{size:A4 portrait;margin:0}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:12px;margin-bottom:20px}
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-box{width:64px;height:64px;border:1.5px solid #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8f8f8;flex-shrink:0}
+.logo-box img{width:100%;height:100%;object-fit:contain}
+.logo-initials{font-size:24px;font-weight:900;color:#111}
 .shop-name{font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em}
 .shop-info{font-size:10px;color:#555;margin-top:4px;line-height:1.8}
 .rma{font-size:28px;font-weight:900;text-align:right}
@@ -139,9 +143,16 @@ tbody tr{border-bottom:1px solid #f1f5f9}
 .footer{margin-top:40px;font-size:8px;font-weight:600;color:#94a3b8;text-align:justify;text-transform:uppercase;line-height:1.5}
 </style></head><body>
 <div class="header">
-  <div>
-    <div class="shop-name">${settings.appName}</div>
-    <div class="shop-info">${settings.taxId || ''} ${settings.phone ? '| ' + settings.phone : ''}<br>${settings.address || ''}</div>
+  <div class="logo-wrap">
+    <div class="logo-box">
+      ${settings.logoUrl
+        ? `<img src="${settings.logoUrl}" alt="Logo"/>`
+        : `<span class="logo-initials">${(settings.appName || 'T').charAt(0).toUpperCase()}</span>`}
+    </div>
+    <div>
+      <div class="shop-name">${settings.appName}</div>
+      <div class="shop-info">${settings.taxId || ''} ${settings.phone ? '| ' + settings.phone : ''}<br>${settings.address || ''}</div>
+    </div>
   </div>
   <div style="text-align:right">
     <div class="rma-label">Presupuesto Técnico</div>

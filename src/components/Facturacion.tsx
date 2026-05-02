@@ -251,6 +251,9 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
       <strong>Fecha Valor</strong> ${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}<br>
       ${inv.rmaNumber ? `<strong>Referencia</strong> ${fmtRMA(inv.rmaNumber)}` : ''}
     </div>
+    <div style="margin-top:6px;text-align:right">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(inv.invoiceNumber)}&color=000000&bgcolor=ffffff" style="width:80px;height:80px;border:1px solid #ddd;border-radius:4px" alt="QR ${inv.invoiceNumber}"/>
+    </div>
   </div>
 </div>
 

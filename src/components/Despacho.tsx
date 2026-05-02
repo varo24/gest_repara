@@ -123,8 +123,9 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       createdAt: now,
     });
 
+    const wMonths = settings.warrantyMonths ?? 3;
     const expiryDate = new Date(now);
-    expiryDate.setMonth(expiryDate.getMonth() + 3);
+    expiryDate.setMonth(expiryDate.getMonth() + wMonths);
     const warrantyData = {
       id: `WAR-${Date.now()}`,
       repairId: repair.id,
@@ -134,7 +135,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       deviceDescription: `${repair.brand} ${repair.model}`,
       deliveryDate: now.slice(0, 10),
       expiryDate: expiryDate.toISOString().slice(0, 10),
-      months: 3,
+      months: wMonths,
       status: 'activa',
       createdAt: now,
     };

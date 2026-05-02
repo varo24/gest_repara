@@ -356,8 +356,13 @@ export const storage = {
   },
 
   exportData: async (): Promise<string> => {
-    const BACKUP_COLS = ['repairs', 'budgets', 'invoices', 'cash_movements', 'inventory', 'customers', 'warranties', 'settings'];
-    const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v1-firestore' };
+    const BACKUP_COLS = [
+      'repairs', 'budgets', 'invoices', 'cash_movements',
+      'inventory', 'stock_movements', 'warranties', 'customers',
+      'appointments', 'reminders', 'surveys', 'settings',
+      'citas', 'apps_externas', 'inventory_entries', 'purchase_orders',
+    ];
+    const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v2-full' };
     for (const col of BACKUP_COLS) result[col] = localStore.getAll(col);
     return JSON.stringify(result, null, 2);
   },
