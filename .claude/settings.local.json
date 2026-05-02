@@ -19,7 +19,8 @@
       "Bash(python -c ' *)",
       "Bash(python *)",
       "Bash(python3 -c ' *)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(git tag *)"
     ]
   }
 }
