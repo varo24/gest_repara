@@ -60,3 +60,13 @@
 .sync-btn:hover {
   border-color: #ff6b00 !important;
 }
+
+/* Dashboard 2-col module button */
+.module-btn {
+  border-left: 4px solid transparent;
+  transition: border-left-color 140ms, background-color 140ms;
+}
+.module-btn:hover {
+  border-left-color: var(--module-color, #e65100);
+  background-color: #1c1c1c;
+}
