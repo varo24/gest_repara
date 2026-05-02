@@ -26,10 +26,12 @@
 }
 html {
   background-color: #111111;
+  min-height: 100vh;
 }
 body {
   font-family: 'Nunito', sans-serif;
   background-color: #111111;
+  min-height: 100vh;
 }
 #root {
   background-color: #111111;

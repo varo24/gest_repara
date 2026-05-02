@@ -215,7 +215,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 no-print">
+    <div className="flex min-h-screen no-print" style={{ backgroundColor: '#111111', color: '#fff' }}>
       <Sidebar
         currentView={currentView}
         setView={navigateTo}
@@ -229,7 +229,7 @@ const App: React.FC = () => {
         warranties={warranties}
       />
 
-      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen">
+      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen" style={{ backgroundColor: '#111111' }}>
 
         {/* Notificaciones */}
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">
