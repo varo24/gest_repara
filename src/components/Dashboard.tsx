@@ -5,7 +5,7 @@ import {
 } from 'react-icons/gi';
 import {
   FaUserFriends, FaFileInvoiceDollar, FaClipboardCheck,
-  FaTools, FaPuzzlePiece, FaSlidersH, FaCheckCircle
+  FaPuzzlePiece, FaSlidersH, FaCheckCircle
 } from 'react-icons/fa';
 import { MdElectricBolt } from 'react-icons/md';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
@@ -55,7 +55,6 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     { id: 'garantias',         label: 'Garantías',        desc: 'Control de vencimientos',               icon: GiShield,            iconColor: '#ef5350', action: () => setView('garantias') },
     { id: 'calendar',          label: 'Planificador',     desc: `${todayCitas} citas hoy`,               icon: GiCalendar,          iconColor: '#26a69a', action: () => setView('calendar') },
     { id: 'stats',             label: 'Rendimiento',      desc: 'Estadísticas del taller',               icon: GiChart,             iconColor: '#78909c', action: () => setView('stats') },
-    { id: 'tech-field',        label: 'Panel Campo',      desc: 'Reparaciones a domicilio',              icon: FaTools,             iconColor: '#7e57c2', action: () => setView('tech-field') },
     { id: 'external-apps',     label: 'Módulos Ext.',     desc: 'Aplicaciones integradas',               icon: FaPuzzlePiece,       iconColor: '#8d6e63', action: () => setView('external-apps') },
     { id: 'settings',          label: 'Ajustes',          desc: 'Configuración del sistema',             icon: FaSlidersH,          iconColor: '#90a4ae', action: () => setView('settings') },
   ];

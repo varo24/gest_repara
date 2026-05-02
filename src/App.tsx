@@ -14,8 +14,6 @@ import ThermalTicket from './components/ThermalTicket';
 import CalendarView from './components/CalendarView';
 import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
-import TechFieldView from './components/TechFieldView';
-import FieldModeApp from './components/FieldModeApp';
 import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
@@ -38,7 +36,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hourlyRate: 45,
   taxRate: 21,
   letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.',
-  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','calendar','stats','tech-field','external-apps','settings'],
+  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','calendar','stats','external-apps','settings'],
   legalTerms: 'LOS PRESUPUESTOS QUE NO SUPEREN LOS 40€ NO REQUIEREN FIRMA DEL CLIENTE. EL TALLER NO SE HACE RESPONSABLE DE LA PÉRDIDA DE DATOS. SE RECOMIENDA REALIZAR UNA COPIA DE SEGURIDAD ANTES DE ENTREGAR EL EQUIPO. LOS EQUIPOS NO RETIRADOS EN UN PLAZO DE 6 MESES DESDE LA NOTIFICACIÓN AL CLIENTE PODRÁN SER OBJETO DE TRATAMIENTO CONFORME A LA NORMATIVA VIGENTE. EL PRESUPUESTO TIENE UNA VALIDEZ DE 15 DÍAS DESDE SU EMISIÓN. SE APLICARÁ EL IVA VIGENTE EN EL MOMENTO DE LA FACTURACIÓN.',
   geminiApiKey: 'AIzaSyCWd8-GlAYySsWrLRrQzLpvoDSRqWfqGKE',
 };
@@ -46,13 +44,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
-  const [fieldMode, setFieldMode] = useState(false);
   const [repairs, setRepairs] = useState<RepairItem[] | null>(null);
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  // Detect standalone tech-field mode from URL params (for PWA install)
-  const isTechMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'tech-field';
-  const [currentView, setCurrentView] = useState<ViewType>(isTechMode ? 'tech-field' : 'dashboard');
+  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [canInstall, setCanInstall] = useState(false);
@@ -212,33 +207,28 @@ const App: React.FC = () => {
   );
 
   // Pantalla de PIN
-  if (!unlocked && !fieldMode) return (
+  if (!unlocked) return (
     <PinScreen
       onUnlock={() => setUnlocked(true)}
-      onFieldMode={() => setFieldMode(true)}
     />
   );
 
-  if (fieldMode) return <FieldModeApp onExit={() => { setFieldMode(false); setUnlocked(false); }} />;
-
   return (
-    <div className={`flex min-h-screen bg-slate-50 text-slate-900 no-print ${isTechMode ? '' : ''}`}>
-      {!isTechMode && (
-        <Sidebar
-          currentView={currentView}
-          setView={navigateTo}
-          onNewRepair={() => navigateTo('new-repair')}
-          onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
-          appName={settings.appName}
-          version={APP_VERSION}
-          repairs={repairs ?? []}
-          budgets={budgets ?? []}
-          citas={citas ?? []}
-          warranties={warranties}
-        />
-      )}
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 no-print">
+      <Sidebar
+        currentView={currentView}
+        setView={navigateTo}
+        onNewRepair={() => navigateTo('new-repair')}
+        onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+        appName={settings.appName}
+        version={APP_VERSION}
+        repairs={repairs ?? []}
+        budgets={budgets ?? []}
+        citas={citas ?? []}
+        warranties={warranties}
+      />
 
-      <main className={`flex-1 p-4 md:p-6 ${isTechMode ? 'ml-0' : 'ml-64'} ${isTechMode ? 'p-4' : 'md:p-10'} min-h-screen`}>
+      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen">
 
         {/* Notificaciones */}
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">
@@ -599,14 +589,6 @@ const App: React.FC = () => {
               <ExternalAppViewer
                 app={activeExternalApp}
                 onBack={() => navigateTo('external-apps')}
-              />
-            )}
-            {currentView === 'tech-field' && (
-              <TechFieldView
-                repairs={repairs ?? []}
-                settings={settings}
-                onUpdateRepair={(repair) => storage.save('repairs', repair.id, repair)}
-                onBack={() => navigateTo('dashboard')}
               />
             )}
             {currentView === 'settings' && (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Wrench, PlusCircle, FileText,
   Settings, TrendingUp, Users,
-  Calendar, AppWindow, ClipboardCheck, RefreshCw,
+  Calendar, AppWindow, RefreshCw,
   Zap, Package, Receipt, ShieldCheck
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty } from '../types';
@@ -86,7 +86,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Sistema',
       items: [
         { id: 'stats',             label: 'Rendimiento',      icon: TrendingUp },
-        { id: 'tech-field',        label: 'Panel Campo',      icon: ClipboardCheck },
         { id: 'external-apps',     label: 'Módulos Ext.',     icon: AppWindow },
         { id: 'settings',          label: 'Ajustes',          icon: Settings },
       ]
