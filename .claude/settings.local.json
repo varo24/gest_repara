@@ -18,7 +18,8 @@
       "Bash(node *)",
       "Bash(python -c ' *)",
       "Bash(python *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(git status *)"
     ]
   }
 }
