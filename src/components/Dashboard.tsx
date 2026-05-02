@@ -2,7 +2,7 @@ import React from 'react';
 import {
   FaWrench, FaCogs, FaBolt, FaFileInvoiceDollar, FaUsers,
   FaBoxes, FaShieldAlt, FaCalendarAlt, FaChartBar, FaTools,
-  FaPuzzlePiece, FaSlidersH, FaTruck, FaClipboardList
+  FaPuzzlePiece, FaSlidersH, FaTruck, FaClipboardList, FaCheckCircle
 } from 'react-icons/fa';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
 
@@ -30,6 +30,13 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const readyRepairs   = repairs.filter(r => r.status === 'Listo para Entrega').length;
   const pendingBudgets = budgets.filter(b => b.status === 'pending').length;
   const todayCitas     = citas.filter(c => c.fecha?.startsWith(new Date().toISOString().slice(0, 10))).length;
+
+  const stats = [
+    { label: 'Activas',       value: activeRepairs,  color: '#43a047', icon: FaCogs },
+    { label: 'Listas',        value: readyRepairs,   color: '#00e676', icon: FaCheckCircle },
+    { label: 'Presupuestos',  value: pendingBudgets, color: '#ce93d8', icon: FaClipboardList },
+    { label: 'Citas hoy',     value: todayCitas,     color: '#ffd54f', icon: FaCalendarAlt },
+  ];
 
   const modules: Module[] = [
     { label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',          icon: FaWrench,            iconBg: '#1565c0', action: onNewRepair },
@@ -70,66 +77,87 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       </div>
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-4" style={{ background: '#2a2a2a', gap: 1 }}>
-        {[
-          { label: 'Activas',      value: activeRepairs,  color: '#43a047' },
-          { label: 'Listas',       value: readyRepairs,   color: '#00e676' },
-          { label: 'Presupuestos', value: pendingBudgets, color: '#ce93d8' },
-          { label: 'Citas hoy',    value: todayCitas,     color: '#ffd54f' },
-        ].map(s => (
-          <div
-            key={s.label}
-            className="flex flex-col items-center justify-center py-4"
-            style={{ background: '#1a1a1a' }}
-          >
-            <span className="text-3xl font-black leading-none" style={{ color: s.color }}>{s.value}</span>
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] mt-1" style={{ color: '#555' }}>{s.label}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-4 gap-4 px-6 pt-6 pb-2">
+        {stats.map(s => {
+          const StatIcon = s.icon;
+          return (
+            <div
+              key={s.label}
+              style={{
+                background: '#1a1a1a',
+                border: '1px solid #2a2a2a',
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <StatIcon size={14} style={{ color: s.color, flexShrink: 0 }} />
+                <span className="text-[28px] font-black leading-none" style={{ color: s.color }}>{s.value}</span>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] block mt-2" style={{ color: '#555' }}>
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Module grid ── */}
-      <div className="grid grid-cols-2" style={{ background: '#2a2a2a', gap: 1 }}>
+      <div
+        className="grid grid-cols-3"
+        style={{ gap: 16, padding: 24 }}
+      >
         {modules.map(mod => {
           const Icon = mod.icon;
           return (
             <button
               key={mod.label}
               onClick={mod.action}
-              className="module-btn flex items-center gap-4 px-5 text-left active:brightness-75"
+              className="module-card relative flex flex-col items-center text-center active:scale-95"
               style={{
-                height: 90,
-                background: '#111111',
+                padding: 24,
+                borderRadius: 16,
+                background: '#1e1e1e',
+                border: '1px solid #2a2a2a',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s ease',
                 '--module-color': mod.iconBg,
               } as React.CSSProperties}
             >
-              {/* Icon box */}
-              <div className="relative shrink-0">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ background: mod.iconBg }}
+              {/* Badge at card top-right */}
+              {mod.badge !== undefined && mod.badge > 0 && (
+                <span
+                  className="absolute top-3 right-3 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white px-1.5"
+                  style={{ background: '#d32f2f', lineHeight: 1 }}
                 >
-                  <Icon size={24} color="#fff" />
-                </div>
-                {mod.badge !== undefined && mod.badge > 0 && (
-                  <span
-                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-black text-white px-1"
-                    style={{ background: '#d32f2f', lineHeight: 1 }}
-                  >
-                    {mod.badge > 99 ? '99+' : mod.badge}
-                  </span>
-                )}
+                  {mod.badge > 99 ? '99+' : mod.badge}
+                </span>
+              )}
+
+              {/* Icon box — semi-transparent bg + colored icon */}
+              <div
+                className="relative flex items-center justify-center"
+                style={{ width: 56, height: 56, borderRadius: 14 }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{ borderRadius: 14, background: mod.iconBg, opacity: 0.15 }}
+                />
+                <Icon size={28} style={{ color: mod.iconBg, position: 'relative' }} />
               </div>
 
-              {/* Text */}
-              <div className="min-w-0">
-                <p className="text-[14px] font-black uppercase tracking-wider text-white leading-tight">
-                  {mod.label}
-                </p>
-                <p className="text-[12px] mt-0.5 font-medium" style={{ color: '#888' }}>
-                  {mod.desc}
-                </p>
-              </div>
+              {/* Title */}
+              <p
+                className="font-bold uppercase tracking-wider text-white leading-tight"
+                style={{ fontSize: 13, marginTop: 12 }}
+              >
+                {mod.label}
+              </p>
+
+              {/* Description */}
+              <p className="font-medium leading-snug" style={{ fontSize: 11, marginTop: 4, color: '#888' }}>
+                {mod.desc}
+              </p>
             </button>
           );
         })}

@@ -61,7 +61,7 @@
   border-color: #2e7d32 !important;
 }
 
-/* Dashboard 2-col module button */
+/* Dashboard 2-col module button (legacy) */
 .module-btn {
   border-left: 4px solid transparent;
   transition: border-left-color 140ms, background-color 140ms;
@@ -69,4 +69,11 @@
 .module-btn:hover {
   border-left-color: var(--module-color, #2e7d32);
   background-color: #1c1c1c;
+}
+
+/* Dashboard 3-col module card */
+.module-card:hover {
+  border-color: var(--module-color, #2e7d32) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }
