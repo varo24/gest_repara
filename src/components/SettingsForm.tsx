@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
-import { supabase } from '../services/supabaseService';
 
 interface SettingsFormProps {
   settings: AppSettings;
@@ -72,9 +71,15 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `reparapro_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `backup_gestrepara_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
   };
+
+  const IMPORT_COLS = [
+    'repairs', 'budgets', 'invoices', 'cash_movements', 'inventory',
+    'stock_movements', 'warranties', 'customers', 'appointments',
+    'reminders', 'surveys', 'settings', 'citas', 'apps_externas',
+  ] as const;
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,24 +90,16 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
       const text = await file.text();
       const data = JSON.parse(text);
       let count = 0;
-      if (data.repairs) {
-        for (const r of data.repairs) {
-          await storage.save('repairs', r.id, r);
-          count++;
+      for (const col of IMPORT_COLS) {
+        const records = data[col];
+        if (Array.isArray(records)) {
+          for (const r of records) {
+            if (r?.id) { await storage.save(col, r.id, r); count++; }
+          }
         }
-      }
-      if (data.budgets) {
-        for (const b of data.budgets) {
-          await storage.save('budgets', b.id, b);
-          count++;
-        }
-      }
-      if (data.settings) {
-        const s = Array.isArray(data.settings) ? data.settings[0] : data.settings;
-        if (s?.id) await storage.save('settings', s.id, s);
       }
       setImportResult({ ok: true, msg: `${count} registros importados correctamente` });
-    } catch (err) {
+    } catch {
       setImportResult({ ok: false, msg: 'Error al leer el archivo. Verifica que es un backup válido.' });
     } finally {
       setImporting(false);
@@ -389,7 +386,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           </div>
           <div>
             <h3 className="text-xl font-black uppercase tracking-tight">Sincronización y Backup</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Supabase Cloud · Acceso multiterminal</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Firebase Cloud · Sincronización en tiempo real</p>
           </div>
         </div>
 
@@ -439,10 +436,10 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           )}
         </div>
 
-        {/* Backup en la nube (Supabase) */}
+        {/* Sincronización Firebase */}
         <div className="space-y-3">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Backup automático en la nube (Supabase)</p>
-          <p className="text-[9px] text-slate-600 -mt-1">Se crea automáticamente al cerrar la app. También puedes hacerlo manualmente.</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sincronización Firebase</p>
+          <p className="text-[9px] text-slate-600 -mt-1">Los datos se sincronizan automáticamente en tiempo real con Firebase. Usa este botón para forzar una sincronización manual.</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
@@ -451,13 +448,10 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
                 setCloudBusy(true);
                 setCloudResult(null);
                 try {
-                  const ok = await storage.forceBackup();
-                  setCloudResult(ok
-                    ? { ok: true, msg: 'Backup guardado en Supabase correctamente' }
-                    : { ok: false, msg: 'No se pudo guardar. ¿Está Supabase conectado?' }
-                  );
+                  await storage.syncNow();
+                  setCloudResult({ ok: true, msg: 'Sincronización con Firebase completada' });
                 } catch {
-                  setCloudResult({ ok: false, msg: 'Error al crear backup en la nube' });
+                  setCloudResult({ ok: false, msg: 'Error al sincronizar con Firebase' });
                 } finally {
                   setCloudBusy(false);
                 }
@@ -465,7 +459,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all disabled:opacity-50"
             >
               {cloudBusy ? <RefreshCw size={16} className="animate-spin" /> : <Cloud size={16} />}
-              {cloudBusy ? 'Guardando...' : 'Backup nube ahora'}
+              {cloudBusy ? 'Sincronizando...' : 'Sincronizar ahora'}
             </button>
             <button
               type="button"
@@ -474,32 +468,10 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
                 setCloudBusy(true);
                 setCloudResult(null);
                 try {
-                  const backup = await supabase.getLatestBackup();
-                  if (!backup) {
-                    setCloudResult({ ok: false, msg: 'No hay backups en la nube' });
-                    return;
-                  }
-                  let count = 0;
-                  if (backup.repairs) {
-                    for (const r of backup.repairs) {
-                      await storage.save('repairs', r.id, r);
-                      count++;
-                    }
-                  }
-                  if (backup.budgets) {
-                    for (const b of backup.budgets) {
-                      await storage.save('budgets', b.id, b);
-                      count++;
-                    }
-                  }
-                  if (backup.settings) {
-                    const s = Array.isArray(backup.settings) ? backup.settings[0] : backup.settings;
-                    if (s?.id) await storage.save('settings', s.id, s);
-                  }
-                  const fecha = backup.backupDate ? new Date(backup.backupDate).toLocaleString('es-ES') : 'desconocida';
-                  setCloudResult({ ok: true, msg: `${count} registros restaurados del backup (${fecha})` });
+                  await storage.syncNow();
+                  setCloudResult({ ok: true, msg: 'Datos restaurados desde Firebase correctamente' });
                 } catch {
-                  setCloudResult({ ok: false, msg: 'Error al restaurar desde la nube' });
+                  setCloudResult({ ok: false, msg: 'Error al restaurar desde Firebase' });
                 } finally {
                   setCloudBusy(false);
                 }
@@ -507,7 +479,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all disabled:opacity-50"
             >
               {cloudBusy ? <RefreshCw size={16} className="animate-spin" /> : <CloudDownload size={16} />}
-              {cloudBusy ? 'Restaurando...' : 'Restaurar último backup'}
+              {cloudBusy ? 'Restaurando...' : 'Restaurar desde Firebase'}
             </button>
           </div>
 
