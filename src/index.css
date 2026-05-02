@@ -19,3 +19,44 @@
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ── Industrial Theme ── */
+:root {
+  --ind-bg:      #0f0f0f;
+  --ind-surface: #1a1a1a;
+  --ind-card:    #242424;
+  --ind-orange:  #ff6b00;
+  --ind-cyan:    #00d4ff;
+  --ind-green:   #00ff88;
+  --ind-red:     #ff3355;
+  --ind-text:    #ffffff;
+  --ind-muted:   #aaaaaa;
+  --ind-border:  #333333;
+}
+
+/* Sidebar nav item — left-border accent */
+.sidebar-nav-btn {
+  border-left: 3px solid transparent;
+  transition: border-color 120ms, background-color 120ms, color 120ms;
+}
+.sidebar-nav-btn:hover {
+  border-left-color: #ff6b00;
+}
+.sidebar-nav-btn.is-active {
+  border-left-color: #ff6b00;
+}
+
+/* Industrial module card hover glow */
+.industrial-card {
+  transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
+}
+.industrial-card:hover {
+  border-color: #ff6b00 !important;
+  background-color: #242424 !important;
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.3) !important;
+}
+
+/* Sync button hover */
+.sync-btn:hover {
+  border-color: #ff6b00 !important;
+}
