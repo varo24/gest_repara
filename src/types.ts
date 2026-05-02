@@ -110,6 +110,7 @@ export interface AppSettings {
   inventoryCategories?: string[];
   anthropicApiKey?: string;
   geminiApiKey?: string;
+  legalTerms?: string;
 }
 
 export interface Customer {

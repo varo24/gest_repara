@@ -182,12 +182,24 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
               <ShieldCheck size={12} className="text-blue-500" /> Notas para Presupuestos (Pie de página en valoraciones técnicas)
             </label>
-            <textarea 
-              rows={4} 
-              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-[2rem] font-medium text-xs text-slate-600 focus:ring-4 focus:ring-blue-500/10 outline-none resize-none leading-relaxed" 
-              value={formData.letterhead} 
+            <textarea
+              rows={3}
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-[2rem] font-medium text-xs text-slate-600 focus:ring-4 focus:ring-blue-500/10 outline-none resize-none leading-relaxed"
+              value={formData.letterhead}
               onChange={e => setFormData({...formData, letterhead: e.target.value})}
               placeholder="Ej: Este presupuesto tiene validez de 15 días. Garantía de 3 meses en mano de obra..."
+            />
+          </div>
+          <div className="space-y-2 mt-6">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <ShieldCheck size={12} className="text-blue-500" /> Condiciones Generales (Pie legal en presupuestos y facturas)
+            </label>
+            <textarea
+              rows={5}
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-[2rem] font-medium text-xs text-slate-600 focus:ring-4 focus:ring-blue-500/10 outline-none resize-none leading-relaxed"
+              value={formData.legalTerms || ''}
+              onChange={e => setFormData({...formData, legalTerms: e.target.value})}
+              placeholder="Condiciones legales que aparecerán al pie de presupuestos y facturas..."
             />
           </div>
         </div>

@@ -359,6 +359,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 <!-- FOOTER -->
 <div class="footer" ${hasWarranty ? 'style="position:relative;bottom:auto;left:auto;right:auto;margin-top:8mm;"' : ''}>
   <div class="footer-text">${settings.letterhead || 'La reparación realizada tiene una garantía de 3 meses desde la fecha de emisión de esta factura.'}</div>
+  ${settings.legalTerms ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e2e8f0"><div style="font-size:7px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:3px">Condiciones Generales</div><div style="font-size:7px;color:#64748b;line-height:1.6;text-align:justify">${settings.legalTerms}</div></div>` : ''}
   <div class="footer-legal">Documento generado por ${settings.appName} · ${new Date().toLocaleDateString('es-ES')}</div>
   <div class="page-num">Página 1${hasWarranty ? ' / 2' : ' / 1'}</div>
 </div>
