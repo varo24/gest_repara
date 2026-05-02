@@ -14,6 +14,7 @@ interface GarantiasProps {
   settings: AppSettings;
   onNotify: (type: 'success' | 'error' | 'info', msg: string) => void;
   onViewRepair?: (repair: RepairItem) => void;
+  onBack?: () => void;
 }
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -24,7 +25,7 @@ const getMonthLabel = (key: string) => {
   return `${MONTH_NAMES_ES[parseInt(mo, 10) - 1]} ${yr}`;
 };
 
-const Garantias: React.FC<GarantiasProps> = ({ warranties, repairs, settings, onNotify, onViewRepair }) => {
+const Garantias: React.FC<GarantiasProps> = ({ warranties, repairs, settings, onNotify, onViewRepair, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [claimWarranty, setClaimWarranty] = useState<Warranty | null>(null);
   const [claimNotes, setClaimNotes] = useState('');
@@ -268,6 +269,7 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div>
+        {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
         <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Garantías</h1>
         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">
           {warranties.length} garantía{warranties.length !== 1 ? 's' : ''} registrada{warranties.length !== 1 ? 's' : ''}

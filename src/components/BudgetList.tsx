@@ -13,6 +13,7 @@ interface BudgetListProps {
   onNewFreeBudget?: () => void;
   onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
   onConvertToInvoice?: (budget: Budget, repair: RepairItem) => void;
+  onBack?: () => void;
 }
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -23,7 +24,7 @@ const getMonthLabel = (key: string) => {
   return `${MONTH_NAMES_ES[parseInt(mo, 10) - 1]} ${yr}`;
 };
 
-const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget, onNewFreeBudget, onSendWhatsApp, onConvertToInvoice }) => {
+const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget, onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
@@ -64,6 +65,7 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
     <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
       <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
+          {onBack && <button onClick={onBack} className="back-to-dash mb-3">← INICIO</button>}
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Archivo de Presupuestos</h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Histórico de valoraciones técnicas</p>
         </div>

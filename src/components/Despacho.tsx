@@ -10,6 +10,7 @@ interface DespachoProps {
   settings: AppSettings;
   onStatusChange: (id: string, status: RepairStatus) => void;
   onNotify: (type: 'success' | 'error' | 'info', msg: string) => void;
+  onBack?: () => void;
 }
 
 type Phase = 'idle' | 'scanning' | 'found' | 'notfound' | 'done';
@@ -22,7 +23,7 @@ const PAY_LABELS: Record<PayMethod, string> = {
 const fmtRMA = (n: number) => `RMA-${String(n).padStart(5, '0')}`;
 const fmtMoney = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2 }).format(n) + ' €';
 
-const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatusChange, onNotify }) => {
+const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatusChange, onNotify, onBack }) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [rawCode, setRawCode] = useState('');
   const [repair, setRepair] = useState<RepairItem | null>(null);
@@ -204,6 +205,7 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       <div>
+        {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
         <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Despacho Rápido</h1>
         <p className="text-sm text-slate-400 mt-0.5">Pistola lectora HID — escanea el ticket del equipo</p>
       </div>

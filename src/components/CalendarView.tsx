@@ -14,6 +14,7 @@ interface CalendarViewProps {
   onDeleteCita: (id: string) => void;
   onNavigateToRepair: (repair: RepairItem) => void;
   onCreateRepairFromCita?: (cita: Cita) => void;
+  onBack?: () => void;
 }
 
 const formatDate = (d: Date) => d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -25,7 +26,7 @@ const isSameDay = (d1: Date, d2: Date) => d1.toDateString() === d2.toDateString(
 const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 
 const CalendarView: React.FC<CalendarViewProps> = ({
-  citas, repairs, settings, onSaveCita, onDeleteCita, onNavigateToRepair, onCreateRepairFromCita
+  citas, repairs, settings, onSaveCita, onDeleteCita, onNavigateToRepair, onCreateRepairFromCita, onBack
 }) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -176,6 +177,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
+          {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Planificador</h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{formatDate(selectedDate)}</p>
         </div>

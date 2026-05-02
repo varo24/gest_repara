@@ -91,3 +91,13 @@ body {
   transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }
+
+/* Back-to-dashboard button — used in all view headers */
+.back-to-dash {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: 10px;
+  border: 1.5px solid #2e7d32; color: #2e7d32;
+  font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em;
+  background: transparent; cursor: pointer; transition: all 0.15s ease; white-space: nowrap; line-height: 1;
+}
+.back-to-dash:hover { background: #2e7d32; color: #fff; }

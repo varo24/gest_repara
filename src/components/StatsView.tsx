@@ -6,11 +6,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface StatsViewProps {
   repairs: RepairItem[];
   budgets?: Budget[];
+  onBack?: () => void;
 }
 
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-const StatsView: React.FC<StatsViewProps> = ({ repairs, budgets = [] }) => {
+const StatsView: React.FC<StatsViewProps> = ({ repairs, budgets = [], onBack }) => {
   const activeRepairs = repairs.filter(r => r.status !== RepairStatus.DELIVERED && r.status !== RepairStatus.CANCELLED);
   const deliveredRepairs = repairs.filter(r => r.status === RepairStatus.DELIVERED);
   const readyCount = repairs.filter(r => r.status === RepairStatus.READY).length;
@@ -61,6 +62,7 @@ const StatsView: React.FC<StatsViewProps> = ({ repairs, budgets = [] }) => {
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
       <div>
+        {onBack && <button onClick={onBack} className="back-to-dash mb-3">← INICIO</button>}
         <h1 className="text-4xl font-black text-slate-900 tracking-tight">Análisis y Estadísticas</h1>
         <p className="text-slate-500 font-medium text-sm mt-1">Métricas de rendimiento técnico del taller</p>
       </div>

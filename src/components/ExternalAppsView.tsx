@@ -7,6 +7,7 @@ interface ExternalAppsViewProps {
   onSaveApp: (app: ExternalApp) => void;
   onDeleteApp: (id: string) => void;
   onViewApp: (app: ExternalApp) => void;
+  onBack?: () => void;
 }
 
 const APP_PRESETS: Omit<ExternalApp, 'id' | 'fechaAnadida'>[] = [
@@ -17,7 +18,7 @@ const APP_PRESETS: Omit<ExternalApp, 'id' | 'fechaAnadida'>[] = [
   { nombre: 'Google Calendar', url: 'https://calendar.google.com', descripcion: 'Vista extendida de agenda externa.', icono: '📅', categoria: 'Utilidades', activa: true },
 ];
 
-const ExternalAppsView: React.FC<ExternalAppsViewProps> = ({ apps, onSaveApp, onDeleteApp, onViewApp }) => {
+const ExternalAppsView: React.FC<ExternalAppsViewProps> = ({ apps, onSaveApp, onDeleteApp, onViewApp, onBack }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingApp, setEditingApp] = useState<ExternalApp | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ExternalApp | null>(null);
@@ -71,6 +72,7 @@ const ExternalAppsView: React.FC<ExternalAppsViewProps> = ({ apps, onSaveApp, on
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
+          {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Centro de Módulos</h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Integra herramientas externas</p>
         </div>

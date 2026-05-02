@@ -379,6 +379,7 @@ const App: React.FC = () => {
                 selectedIds={[]}
                 onToggleSelect={() => {}}
                 onSelectAll={() => {}}
+                onBack={() => navigateTo('dashboard')}
                 onStatusChange={async (id, status) => {
                   console.log(`[App] STATUS CHANGE requested: ${id} → ${status}`);
                   const repair = repairs?.find(r => r.id === id);
@@ -425,6 +426,7 @@ const App: React.FC = () => {
                 repairs={repairs ?? []}
                 customers={customersDB}
                 settings={settings}
+                onBack={() => navigateTo('dashboard')}
                 onNewFreeBudget={() => { setEditingBudget(null); setFreeBudgetMode(true); }}
                 onViewBudget={(b) => {
                   const r = repairs?.find(rep => rep.id === b.repairId);
@@ -509,9 +511,10 @@ const App: React.FC = () => {
               />
             )}
             {currentView === 'customers' && (
-              <CustomerList 
+              <CustomerList
                 repairs={repairs ?? []}
                 customers={customersDB}
+                onBack={() => navigateTo('dashboard')}
                 onSelectCustomer={() => {}}
                 onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
                 onSaveCustomer={async (customer) => {
@@ -536,12 +539,13 @@ const App: React.FC = () => {
                 }}
               />
             )}
-            {currentView === 'stats' && <StatsView repairs={repairs ?? []} budgets={budgets ?? []} />}
+            {currentView === 'stats' && <StatsView repairs={repairs ?? []} budgets={budgets ?? []} onBack={() => navigateTo('dashboard')} />}
             {currentView === 'calendar' && (
               <CalendarView
                 citas={citas ?? []}
                 repairs={repairs ?? []}
                 settings={settings}
+                onBack={() => navigateTo('dashboard')}
                 onSaveCita={handleSaveCita}
                 onDeleteCita={handleDeleteCita}
                 onNavigateToRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
@@ -588,6 +592,7 @@ const App: React.FC = () => {
                 onSaveApp={handleSaveExternalApp}
                 onDeleteApp={handleDeleteExternalApp}
                 onViewApp={handleViewExternalApp}
+                onBack={() => navigateTo('dashboard')}
               />
             )}
             {currentView === 'external-app-view' && activeExternalApp && (
@@ -622,6 +627,7 @@ const App: React.FC = () => {
                 repairs={repairs ?? []}
                 budgets={budgets ?? []}
                 settings={settings}
+                onBack={() => navigateTo('dashboard')}
                 onStatusChange={async (id, status) => {
                   const repair = repairs?.find(r => r.id === id);
                   if (repair) await storage.save('repairs', id, { ...repair, status });
@@ -635,6 +641,7 @@ const App: React.FC = () => {
                 customers={customersDB}
                 invoices={invoices}
                 inventoryItems={inventoryItems}
+                onBack={() => navigateTo('dashboard')}
                 onNotify={notify}
                 onSaveCustomer={async (customer) => {
                   await storage.save('customers', customer.id, customer);
@@ -647,6 +654,7 @@ const App: React.FC = () => {
                 settings={settings}
                 inventoryItems={inventoryItems}
                 stockMovements={stockMovements}
+                onBack={() => navigateTo('dashboard')}
                 onNotify={notify}
               />
             )}
@@ -655,7 +663,7 @@ const App: React.FC = () => {
                 settings={settings}
                 inventoryItems={inventoryItems}
                 onNotify={notify}
-                onBack={() => navigateTo('inventory')}
+                onBack={() => navigateTo('dashboard')}
               />
             )}
             {currentView === 'garantias' && (
@@ -663,6 +671,7 @@ const App: React.FC = () => {
                 warranties={warranties}
                 repairs={repairs ?? []}
                 settings={settings}
+                onBack={() => navigateTo('dashboard')}
                 onNotify={notify}
                 onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
               />

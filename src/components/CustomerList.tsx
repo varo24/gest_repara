@@ -14,6 +14,7 @@ interface CustomerListProps {
   onSaveCustomer?: (customer: Customer) => void;
   onDeleteCustomer?: (id: string) => void;
   onNewRepairForCustomer?: (customer: { name: string; phone: string; address?: string; city?: string }) => void;
+  onBack?: () => void;
 }
 
 interface CustomerRecord {
@@ -31,7 +32,7 @@ interface CustomerRecord {
   isStandalone: boolean;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelectCustomer, onEditRepair, onSaveCustomer, onDeleteCustomer, onNewRepairForCustomer }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelectCustomer, onEditRepair, onSaveCustomer, onDeleteCustomer, onNewRepairForCustomer, onBack }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -518,7 +519,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ repairs, customers, onSelec
       <div className="flex-1 space-y-6 min-w-0">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Agenda de Clientes</h2>
+            {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
+          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Agenda de Clientes</h2>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{allCustomers.length} registrados</p>
           </div>
           <div className="flex items-center gap-3">

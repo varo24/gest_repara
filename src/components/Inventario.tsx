@@ -13,6 +13,7 @@ interface InventarioProps {
   inventoryItems: InventoryItem[];
   stockMovements: StockMovement[];
   onNotify: (type: 'success' | 'error' | 'info', msg: string) => void;
+  onBack?: () => void;
 }
 
 const DEFAULT_CATEGORIES = ['pantallas', 'baterias', 'conectores', 'camaras', 'mecanica', 'otros'];
@@ -32,7 +33,7 @@ const EMPTY_FORM: FormData = {
   location: '',
 };
 
-const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stockMovements, onNotify }) => {
+const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stockMovements, onNotify, onBack }) => {
   const [activeTab, setActiveTab] = useState<'catalogo' | 'historial'>('catalogo');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -153,6 +154,7 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
+          {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">Inventario</h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Almacén · Catálogo de Repuestos</p>
         </div>

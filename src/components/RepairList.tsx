@@ -22,6 +22,7 @@ interface RepairListProps {
   onPrintTicket?: (repair: RepairItem) => void;
   settings?: AppSettings;
   initialSearch?: string;
+  onBack?: () => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -37,7 +38,7 @@ const getMonthLabel = (key: string) => {
 
 const RepairList: React.FC<RepairListProps> = ({
   repairs, budgets, onStatusChange, onEdit, onCreateBudget, onEditBudget, onDelete,
-  onPrintReceipt, onPrintTicket, settings,
+  onPrintReceipt, onPrintTicket, settings, onBack,
   initialSearch = ''
 }) => {
   const [searchTerm, setSearchTerm]   = useState(initialSearch);
@@ -207,6 +208,7 @@ const RepairList: React.FC<RepairListProps> = ({
 
         {/* Cabecera */}
         <div className="p-8 md:p-10 border-b border-slate-50 space-y-6 no-print">
+          {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Banco de Trabajo</h2>

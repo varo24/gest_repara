@@ -105,7 +105,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* ── Logo ── */}
       <div className="px-4 py-4" style={{ borderBottom: '1px solid #1e1e1e' }}>
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => setView('dashboard')}
+          className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
+        >
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 font-black text-lg leading-none text-white"
             style={{ background: GREEN }}
@@ -116,7 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="text-[13px] font-black tracking-widest uppercase text-white truncate leading-none">{appName}</div>
             <div className="text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5" style={{ color: GREEN }}>v8 · Taller Pro</div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* ── Search ── */}

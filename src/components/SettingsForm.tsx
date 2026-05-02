@@ -109,7 +109,8 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
 
   return (
     <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20 no-print">
-      
+      <button onClick={onBack} className="back-to-dash">← INICIO</button>
+
       {/* IDENTIDAD VISUAL Y DATOS FISCALES */}
       <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-10">
         <div className="flex items-center justify-between border-b border-slate-50 pb-6">

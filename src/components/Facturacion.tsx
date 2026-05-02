@@ -23,7 +23,7 @@ interface FullInvoice {
 }
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
-interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; }
+interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; onBack?: () => void; }
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const getMonthKey   = (d: string) => d?.slice(0, 7) || 'sin-fecha';
@@ -395,7 +395,7 @@ ${certSection}
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inventoryItems = [], onNotify, onSaveCustomer }) => {
+const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inventoryItems = [], onNotify, onSaveCustomer, onBack }) => {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatus]       = useState('todas');
   const [selected, setSelected]         = useState<FullInvoice | null>(null);
@@ -557,6 +557,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
     <div className="space-y-5 animate-in fade-in duration-200">
       <div className="flex items-start justify-between">
         <div>
+          {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Facturación</h1>
           <p className="text-sm text-slate-400 mt-0.5">{invoices.length} facturas registradas</p>
         </div>
