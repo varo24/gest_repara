@@ -1,5 +1,5 @@
-// ReparaPro Master - Service Worker v3.0
-const CACHE_NAME = 'reparapro-v3';
+// ReparaPro Master - Service Worker v4.0
+const CACHE_NAME = 'reparapro-v4';
 const OFFLINE_FALLBACK = '/index.html';
 
 // Archivos a cachear en instalación
