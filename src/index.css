@@ -24,35 +24,68 @@
 @theme {
   --font-sans: 'Nunito', sans-serif;
 }
+
+/* ── Light Theme Base ── */
 html {
-  background-color: #111111;
+  background-color: #f5f5f5;
+  color: #1a1a1a;
   min-height: 100vh;
 }
 body {
   font-family: 'Nunito', sans-serif;
-  background-color: #111111;
+  background-color: #f5f5f5;
+  color: #1a1a1a;
   min-height: 100vh;
 }
 #root {
-  background-color: #111111;
+  background-color: #f5f5f5;
+  color: #1a1a1a;
   min-height: 100vh;
 }
 
-/* ── Industrial Theme ── */
+/* ── Theme Variables ── */
 :root {
-  --ind-bg:      #0f0f0f;
-  --ind-surface: #1a1a1a;
-  --ind-card:    #242424;
-  --ind-orange:  #2e7d32;
-  --ind-cyan:    #00d4ff;
-  --ind-green:   #00ff88;
-  --ind-red:     #ff3355;
-  --ind-text:    #ffffff;
-  --ind-muted:   #aaaaaa;
-  --ind-border:  #333333;
+  --ind-bg:      #f5f5f5;
+  --ind-surface: #ffffff;
+  --ind-card:    #ffffff;
+  --ind-green:   #2e7d32;
+  --ind-blue:    #1565c0;
+  --ind-red:     #c62828;
+  --ind-text:    #1a1a1a;
+  --ind-muted:   #555555;
+  --ind-border:  #e0e0e0;
 }
 
-/* Sidebar nav item — left-border accent */
+/* ── Form fields — light theme ── */
+input, textarea, select, [contenteditable] {
+  color: #1a1a1a !important;
+  background-color: #ffffff !important;
+  caret-color: #1a1a1a !important;
+  border-color: #d0d0d0 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #999999 !important;
+  opacity: 1 !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  color: #1a1a1a !important;
+  outline-color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+}
+
+select option {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
+/* ── Tables ── */
+table, thead, tbody, tr, td, th {
+  color: #1a1a1a !important;
+}
+
+/* ── Sidebar nav item — left-border accent ── */
 .sidebar-nav-btn {
   border-left: 3px solid transparent;
   transition: border-color 120ms, background-color 120ms, color 120ms;
@@ -64,69 +97,35 @@ body {
   border-left-color: #2e7d32;
 }
 
-/* Industrial module card hover glow */
+/* ── Industrial card hover (light) ── */
 .industrial-card {
   transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
 }
 .industrial-card:hover {
   border-color: #2e7d32 !important;
-  background-color: #242424 !important;
-  box-shadow: 0 0 20px rgba(46, 125, 50, 0.3) !important;
+  background-color: #f9fbe7 !important;
+  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.12) !important;
 }
 
-/* Sync button hover */
+/* ── Sync button hover ── */
 .sync-btn:hover {
   border-color: #2e7d32 !important;
 }
 
-/* Dashboard 2-col module button (legacy) */
-.module-btn {
-  border-left: 4px solid transparent;
-  transition: border-left-color 140ms, background-color 140ms;
-}
-.module-btn:hover {
-  border-left-color: var(--module-color, #2e7d32);
-  background-color: #1c1c1c;
-}
-
-/* Dashboard stat card */
+/* ── Dashboard stat card ── */
 .stat-card:hover {
   border-color: var(--stat-color, #2e7d32) !important;
-  filter: brightness(1.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Dashboard 3-col module card */
+/* ── Dashboard module card ── */
 .module-card:hover {
   border-color: var(--module-color, #2e7d32) !important;
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
 }
 
-/* ── Form fields — dark theme ── */
-input, textarea, select, [contenteditable] {
-  color: #ffffff !important;
-  background-color: #1e1e1e !important;
-  caret-color: #ffffff !important;
-  border-color: #333333 !important;
-}
-
-input::placeholder, textarea::placeholder {
-  color: #555555 !important;
-  opacity: 1 !important;
-}
-
-input:focus, textarea:focus, select:focus {
-  color: #ffffff !important;
-  outline-color: #2e7d32 !important;
-  border-color: #2e7d32 !important;
-}
-
-select option {
-  background-color: #1e1e1e !important;
-  color: #ffffff !important;
-}
-
-/* Back-to-dashboard button — used in all view headers */
+/* ── Back-to-dashboard button ── */
 .back-to-dash {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 14px; border-radius: 10px;

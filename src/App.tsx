@@ -200,9 +200,9 @@ const App: React.FC = () => {
 
   // Pantalla de carga
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center text-white" style={{ backgroundColor: '#111111' }}>
-      <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-      <p className="text-[10px] font-black uppercase tracking-[0.4em]">Inicializando ReparaPro...</p>
+    <div className="h-screen flex flex-col items-center justify-center" style={{ backgroundColor: '#f5f5f5', color: '#1a1a1a' }}>
+      <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: '#2e7d32' }} />
+      <p className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: '#555' }}>Inicializando ReparaPro...</p>
     </div>
   );
 
@@ -215,7 +215,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen no-print" style={{ backgroundColor: '#111111', color: '#fff' }}>
+    <div className="flex min-h-screen no-print" style={{ backgroundColor: '#f5f5f5', color: '#1a1a1a' }}>
       <Sidebar
         currentView={currentView}
         setView={navigateTo}
@@ -229,7 +229,7 @@ const App: React.FC = () => {
         warranties={warranties}
       />
 
-      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen" style={{ backgroundColor: '#111111' }}>
+      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
 
         {/* Notificaciones */}
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">

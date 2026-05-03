@@ -66,7 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const modules = allModules.filter(m => visibleIds.includes(m.id));
 
   return (
-    <div className="min-h-screen" style={{ background: '#111111' }}>
+    <div className="min-h-screen" style={{ background: '#f5f5f5' }}>
 
       {/* ── Header ── */}
       <div
@@ -99,8 +99,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
               onClick={s.action}
               className="stat-card text-left active:scale-95"
               style={{
-                background: '#1a1a1a',
-                border: '1px solid #2a2a2a',
+                background: '#ffffff',
+                border: '1px solid #e0e0e0',
                 borderRadius: 12,
                 padding: 20,
                 cursor: 'pointer',
@@ -132,9 +132,9 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
               style={{
                 padding: 24,
                 borderRadius: 16,
-                background: '#1e1e1e',
-                border: '1px solid #2a2a2a',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                background: '#ffffff',
+                border: '1px solid #e0e0e0',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                 transition: 'all 0.2s ease',
                 '--module-color': mod.iconColor,
               } as React.CSSProperties}
@@ -151,10 +151,10 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                 <div className="absolute inset-0" style={{ borderRadius: 14, background: mod.iconColor, opacity: 0.15 }} />
                 <Icon size={32} style={{ color: mod.iconColor, position: 'relative' }} />
               </div>
-              <p className="font-bold uppercase tracking-wider text-white leading-tight" style={{ fontSize: 13, marginTop: 12 }}>
+              <p className="font-bold uppercase tracking-wider leading-tight" style={{ fontSize: 13, marginTop: 12, color: '#1a1a1a' }}>
                 {mod.label}
               </p>
-              <p className="font-medium leading-snug" style={{ fontSize: 11, marginTop: 4, color: '#888' }}>
+              <p className="font-medium leading-snug" style={{ fontSize: 11, marginTop: 4, color: '#666666' }}>
                 {mod.desc}
               </p>
             </button>
