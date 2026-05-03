@@ -120,9 +120,9 @@ table, thead, tbody, tr, td, th {
 
 /* ── Dashboard module card ── */
 .module-card:hover {
-  border-color: var(--module-color, #2e7d32) !important;
+  filter: brightness(1.1);
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
 }
 
 /* ── Back-to-dashboard button ── */
