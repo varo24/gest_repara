@@ -13,7 +13,7 @@ interface RepairListProps {
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onSelectAll: (ids: string[]) => void;
-  onStatusChange: (id: string, status: RepairStatus) => void;
+  onStatusChange: (id: string, status: RepairStatus, noteAppend?: string) => void;
   onEdit: (repair: RepairItem) => void;
   onCreateBudget: (repair: RepairItem) => void;
   onEditBudget: (budget: Budget) => void;
@@ -26,7 +26,7 @@ interface RepairListProps {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
-const ARCHIVED_STATUSES = [RepairStatus.DELIVERED, RepairStatus.CANCELLED];
+const ARCHIVED_STATUSES = [RepairStatus.DELIVERED, RepairStatus.CANCELLED, RepairStatus.SIN_REPARACION];
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const getMonthKey   = (d: string) => d?.slice(0, 7) || 'sin-fecha';
@@ -47,6 +47,7 @@ const RepairList: React.FC<RepairListProps> = ({
   const [pageSize, setPageSize]       = useState(10);
   const [whatsappRepair, setWhatsappRepair] = useState<RepairItem | null>(null);
   const [viewMode, setViewMode]       = useState<'active' | 'history'>('active');
+  const [sinReparacionPending, setSinReparacionPending] = useState<{ id: string; repair: RepairItem } | null>(null);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
@@ -114,6 +115,7 @@ const RepairList: React.FC<RepairListProps> = ({
       [RepairStatus.READY]:            'bg-emerald-500 text-white',
       [RepairStatus.DELIVERED]:        'bg-slate-400 text-white',
       [RepairStatus.CANCELLED]:        'bg-red-600 text-white',
+      [RepairStatus.SIN_REPARACION]:   'bg-slate-200 text-slate-700',
     };
     return c[status] || 'bg-slate-200 text-slate-600';
   };
@@ -172,7 +174,14 @@ const RepairList: React.FC<RepairListProps> = ({
           <div className="relative inline-block">
             <select
               value={repair.status}
-              onChange={(e) => onStatusChange(repair.id, e.target.value as RepairStatus)}
+              onChange={(e) => {
+                const newStatus = e.target.value as RepairStatus;
+                if (newStatus === RepairStatus.SIN_REPARACION) {
+                  setSinReparacionPending({ id: repair.id, repair });
+                } else {
+                  onStatusChange(repair.id, newStatus);
+                }
+              }}
               className={`text-[9px] pl-4 pr-10 py-2.5 rounded-xl font-black uppercase border-none cursor-pointer outline-none appearance-none tracking-widest ${getStatusColor(repair.status)}`}
             >
               {Object.values(RepairStatus).map(s => <option key={s} value={s}>{s}</option>)}
@@ -295,8 +304,9 @@ const RepairList: React.FC<RepairListProps> = ({
                   groupedHistory.map(([monthKey, monthRepairs]) => {
                     const isCurrentMonth   = monthKey === currentMonthKey;
                     const isExpanded       = isHistoryFiltered || expandedMonths.has(monthKey);
-                    const deliveredCount   = monthRepairs.filter(r => r.status === RepairStatus.DELIVERED).length;
-                    const cancelledCount   = monthRepairs.filter(r => r.status === RepairStatus.CANCELLED).length;
+                    const deliveredCount      = monthRepairs.filter(r => r.status === RepairStatus.DELIVERED).length;
+                    const cancelledCount      = monthRepairs.filter(r => r.status === RepairStatus.CANCELLED).length;
+                    const sinReparacionCount  = monthRepairs.filter(r => r.status === RepairStatus.SIN_REPARACION).length;
                     const monthBudgetTotal = monthRepairs.reduce((s, r) => {
                       const b = budgets.find(bd => bd.repairId === r.id);
                       return s + (b?.total || 0);
@@ -331,6 +341,11 @@ const RepairList: React.FC<RepairListProps> = ({
                                 {cancelledCount > 0 && (
                                   <span className="text-[9px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
                                     ✗ {cancelledCount} canceladas
+                                  </span>
+                                )}
+                                {sinReparacionCount > 0 && (
+                                  <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                                    ⊘ {sinReparacionCount} sin reparación
                                   </span>
                                 )}
                               </div>
@@ -401,6 +416,44 @@ const RepairList: React.FC<RepairListProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modal — Sin Reparación */}
+      {sinReparacionPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-100 mx-auto mb-5">
+              <Archive size={26} className="text-slate-500" />
+            </div>
+            <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight text-center mb-2">
+              ¿Sin Reparación?
+            </h3>
+            <p className="text-[12px] text-slate-500 text-center leading-relaxed mb-6">
+              La reparación se cerrará <strong>sin cargo</strong>. No se generará factura ni garantía.
+              Se registrará automáticamente en las notas.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSinReparacionPending(null)}
+                className="flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const { id, repair } = sinReparacionPending;
+                  const today = new Date().toLocaleDateString('es-ES');
+                  const note = `Cerrado: Sin reparación posible - ${today}`;
+                  onStatusChange(id, RepairStatus.SIN_REPARACION, note);
+                  setSinReparacionPending(null);
+                }}
+                className="flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-slate-700 text-white hover:bg-slate-900 transition-all"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp Panel */}
       {whatsappRepair && (

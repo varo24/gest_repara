@@ -12,7 +12,7 @@ interface StatsViewProps {
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 const StatsView: React.FC<StatsViewProps> = ({ repairs, budgets = [], onBack }) => {
-  const activeRepairs = repairs.filter(r => r.status !== RepairStatus.DELIVERED && r.status !== RepairStatus.CANCELLED);
+  const activeRepairs = repairs.filter(r => r.status !== RepairStatus.DELIVERED && r.status !== RepairStatus.CANCELLED && r.status !== RepairStatus.SIN_REPARACION);
   const deliveredRepairs = repairs.filter(r => r.status === RepairStatus.DELIVERED);
   const readyCount = repairs.filter(r => r.status === RepairStatus.READY).length;
   const totalRevenue = budgets.reduce((acc, b) => acc + (b.total || 0), 0);
@@ -57,6 +57,7 @@ const StatsView: React.FC<StatsViewProps> = ({ repairs, budgets = [], onBack }) 
     [RepairStatus.READY]:           '#10b981',
     [RepairStatus.DELIVERED]:       '#64748b',
     [RepairStatus.CANCELLED]:       '#dc2626',
+    [RepairStatus.SIN_REPARACION]:  '#94a3b8',
   };
 
   return (

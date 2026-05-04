@@ -9,7 +9,8 @@ export enum RepairStatus {
   IN_PROGRESS = 'En Reparación',
   READY = 'Listo para Entrega',
   DELIVERED = 'Entregado',
-  CANCELLED = 'Cancelado'
+  CANCELLED = 'Cancelado',
+  SIN_REPARACION = 'Sin Reparación'
 }
 
 export type RepairType = 'taller' | 'domicilio';

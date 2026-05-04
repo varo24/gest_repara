@@ -371,12 +371,15 @@ const App: React.FC = () => {
                 onToggleSelect={() => {}}
                 onSelectAll={() => {}}
                 onBack={() => navigateTo('dashboard')}
-                onStatusChange={async (id, status) => {
+                onStatusChange={async (id, status, noteAppend) => {
                   console.log(`[App] STATUS CHANGE requested: ${id} → ${status}`);
                   const repair = repairs?.find(r => r.id === id);
                   if (!repair) { console.error('[App] Repair not found:', id); return; }
                   console.log(`[App] Saving status: ${repair.status} → ${status}`);
-                  await storage.save('repairs', id, { ...repair, status });
+                  const updatedNotes = noteAppend
+                    ? [repair.notes, noteAppend].filter(Boolean).join('\n')
+                    : repair.notes;
+                  await storage.save('repairs', id, { ...repair, status, notes: updatedNotes });
                   console.log(`[App] Save complete for ${id}`);
                   if (status === RepairStatus.READY) {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que su equipo está listo?`, () => {
@@ -387,6 +390,9 @@ const App: React.FC = () => {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que la reparación no se realizó?`, () => {
                       notifyCancelled({ ...repair, status }, settings);
                     })
+                  }
+                  if (status === RepairStatus.SIN_REPARACION) {
+                    notify('info', 'Reparación cerrada — Sin reparación');
                   }
                 }}
                 onDelete={id => confirm2('¿Eliminar esta reparación?', () => storage.remove('repairs', id))}
