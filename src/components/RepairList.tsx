@@ -48,6 +48,7 @@ const RepairList: React.FC<RepairListProps> = ({
   const [whatsappRepair, setWhatsappRepair] = useState<RepairItem | null>(null);
   const [viewMode, setViewMode]       = useState<'active' | 'history'>('active');
   const [sinReparacionPending, setSinReparacionPending] = useState<{ id: string; repair: RepairItem } | null>(null);
+  const [waSinReparacion, setWaSinReparacion] = useState<{ repair: RepairItem; msg: string } | null>(null);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
@@ -135,6 +136,25 @@ const RepairList: React.FC<RepairListProps> = ({
   }, [totalPages, safePage]);
 
   const defaultSettings: AppSettings = { appName: 'ReparaPro', address: '', phone: '', taxId: '' };
+
+  const fmtRMA = (n: number) => `RMA-${n.toString().padStart(5, '0')}`;
+
+  const buildSinReparacionMsg = (repair: RepairItem) => {
+    const s = settings || defaultSettings;
+    return `Estimado/a ${repair.customerName},
+
+Le informamos que tras el diagnóstico técnico de su ${repair.brand} ${repair.model} (${repair.deviceType}), lamentablemente no ha sido posible realizar la reparación.
+
+🔧 Referencia: ${fmtRMA(repair.rmaNumber)}
+📋 Motivo: El equipo no tiene reparación posible con las condiciones actuales.
+
+Puede pasar a recoger su equipo en nuestras instalaciones en el horario habitual.
+
+Lamentamos no haber podido ayudarle en esta ocasión. Quedamos a su disposición para cualquier consulta.
+
+${s.appName}
+📞 ${s.phone}`;
+  };
 
   const renderRepairRow = (repair: RepairItem) => {
     const budget     = budgets.find(b => b.repairId === repair.id);
@@ -445,10 +465,64 @@ const RepairList: React.FC<RepairListProps> = ({
                   const note = `Cerrado: Sin reparación posible - ${today}`;
                   onStatusChange(id, RepairStatus.SIN_REPARACION, note);
                   setSinReparacionPending(null);
+                  setWaSinReparacion({ repair, msg: buildSinReparacionMsg(repair) });
                 }}
                 className="flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-slate-700 text-white hover:bg-slate-900 transition-all"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — WhatsApp Sin Reparación */}
+      {waSinReparacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center shrink-0">
+                <MessageCircle size={22} className="text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight leading-none">
+                  Notificar al cliente
+                </h3>
+                <p className="text-[11px] text-slate-400 font-bold mt-1">
+                  {waSinReparacion.repair.customerName} · {waSinReparacion.repair.customerPhone}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+              Mensaje (editable)
+            </p>
+            <textarea
+              value={waSinReparacion.msg}
+              onChange={e => setWaSinReparacion(prev => prev ? { ...prev, msg: e.target.value } : null)}
+              rows={12}
+              className="w-full text-[12px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl p-4 resize-none outline-none focus:border-green-400 leading-relaxed"
+            />
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setWaSinReparacion(null)}
+                className="flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                Omitir
+              </button>
+              <button
+                onClick={() => {
+                  const phone = waSinReparacion.repair.customerPhone.replace(/\D/g, '');
+                  window.open(
+                    `https://wa.me/${phone}?text=${encodeURIComponent(waSinReparacion.msg)}`,
+                    '_blank'
+                  );
+                  setWaSinReparacion(null);
+                }}
+                className="flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-green-600 text-white hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+              >
+                <MessageCircle size={14} /> Enviar por WhatsApp
               </button>
             </div>
           </div>
