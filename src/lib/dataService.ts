@@ -135,6 +135,7 @@ const startListener = (col: string) => {
         const raw = { id: change.doc.id, ...change.doc.data() };
         const data = normalizeDoc(raw);
         if (change.type === 'removed') {
+          console.log(`[DS] onSnapshot REMOVED — ${col}/${change.doc.id}`);
           localStore.delete(col, change.doc.id);
           changed = true;
         } else {
@@ -167,8 +168,11 @@ const restartActiveListeners = () => {
 // ── Pending offline queue ─────────────────────────────────────────────────────
 
 const PENDING_KEY = 'rp_pending_fs_v1';
-interface PendingItem { col: string; id: string; data: any; action: 'save' | 'remove'; }
+interface PendingItem { col: string; id: string; data: any; action: 'save' | 'remove'; queuedAt?: string; }
 let pendingQueue: PendingItem[] = [];
+
+// Removes older than this are skipped — avoids stale offline deletes wiping Firestore
+const MAX_PENDING_REMOVE_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 const loadPending = () => {
   try { pendingQueue = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { pendingQueue = []; }
@@ -178,22 +182,41 @@ const savePending = () => {
 };
 const addPending = (col: string, id: string, data: any, action: 'save' | 'remove') => {
   const idx = pendingQueue.findIndex(p => p.col === col && p.id === id);
-  if (idx >= 0) pendingQueue[idx] = { col, id, data, action };
-  else pendingQueue.push({ col, id, data, action });
+  const item: PendingItem = { col, id, data, action, queuedAt: new Date().toISOString() };
+  if (idx >= 0) pendingQueue[idx] = item;
+  else pendingQueue.push(item);
   savePending();
 };
 const flushPending = async () => {
   if (!pendingQueue.length || !firestoreAvailable) return;
+  console.log(`[DS] flushPending — ${pendingQueue.length} items`, navigator.userAgent.slice(0, 80));
+
+  const now = Date.now();
   const failed: PendingItem[] = [];
+
   for (const p of pendingQueue) {
     try {
-      if (p.action === 'remove') await deleteDoc(doc(db, p.col, p.id));
-      else await setDoc(doc(db, p.col, p.id), p.data, { merge: true });
+      if (p.action === 'remove') {
+        // Safety guard: skip removes queued more than MAX_PENDING_REMOVE_AGE_MS ago.
+        // Stale offline deletes would otherwise wipe documents recreated on other devices.
+        const queuedAt = p.queuedAt ? new Date(p.queuedAt).getTime() : 0;
+        const ageMs = now - queuedAt;
+        if (!p.queuedAt || ageMs > MAX_PENDING_REMOVE_AGE_MS) {
+          console.warn(`[DS] flushPending — SKIPPING stale remove: ${p.col}/${p.id} (queued ${Math.round(ageMs / 60000)} min ago)`);
+          continue; // drop stale remove silently
+        }
+        console.log(`[DS] flushPending — remove ${p.col}/${p.id}`);
+        await deleteDoc(doc(db, p.col, p.id));
+      } else {
+        console.log(`[DS] flushPending — save ${p.col}/${p.id}`);
+        await setDoc(doc(db, p.col, p.id), p.data, { merge: true });
+      }
     } catch { failed.push(p); }
   }
   pendingQueue = failed;
   savePending();
-  if (!failed.length) console.log('[dataService] Pending queue flushed ✅');
+  if (!failed.length) console.log('[DS] Pending queue flushed ✅');
+  else console.warn(`[DS] flushPending — ${failed.length} items failed, kept in queue`);
 };
 
 // ── Connectivity test ────────────────────────────────────────────────────────
@@ -213,16 +236,20 @@ const testFirestore = async (): Promise<boolean> => {
 // ── Initial Firestore pull ────────────────────────────────────────────────────
 
 const pullAll = async () => {
+  let totalDocs = 0;
   for (const col of ALL_STORES) {
     try {
       const snap = await getDocs(collection(db, col));
+      totalDocs += snap.size;
       snap.forEach(docSnap => {
         const data = normalizeDoc({ id: docSnap.id, ...docSnap.data() });
         const existing = localStore.getAll(col).find(x => x.id === data.id);
         if (!existing || newerWins(existing, data)) localStore.put(col, data);
       });
-    } catch {}
+      if (snap.size > 0) console.log(`[DS] pullAll — ${col}: ${snap.size} docs`);
+    } catch (e) { console.warn(`[DS] pullAll error on ${col}:`, e); }
   }
+  console.log(`[DS] pullAll complete — ${totalDocs} total docs from Firestore`);
   ALL_STORES.forEach(col => broadcast(col));
 };
 
@@ -233,20 +260,28 @@ export const storage = {
     if (initialized) return;
     initialized = true;
 
+    console.log('[DS] init() called —', navigator.userAgent.slice(0, 100));
     await localStore.init();
     loadPending();
+    console.log(`[DS] init() — IDB loaded, pending queue: ${pendingQueue.length} items`);
+    if (pendingQueue.length) {
+      const removes = pendingQueue.filter(p => p.action === 'remove');
+      const saves   = pendingQueue.filter(p => p.action === 'save');
+      console.log(`[DS] init() — pending: ${saves.length} saves, ${removes.length} removes`);
+      removes.forEach(p => console.log(`[DS] init() — pending remove: ${p.col}/${p.id} queued at ${p.queuedAt || 'UNKNOWN'}`));
+    }
 
     try {
       firestoreAvailable = await testFirestore();
       if (firestoreAvailable) {
-        console.log('[dataService] Firestore ✅ — descargando datos...');
+        console.log('[DS] Firestore ✅ — descargando datos...');
         if (pendingQueue.length) await flushPending();
         await pullAll();
-        console.log('[dataService] Sincronización inicial completa ✅');
+        console.log('[DS] Sincronización inicial completa ✅');
       } else {
-        console.warn('[dataService] Sin conexión — modo local');
+        console.warn('[DS] Sin conexión — modo local');
       }
-    } catch { console.warn('[dataService] Error de conexión'); }
+    } catch (e) { console.warn('[DS] Error de conexión:', e); }
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', async () => {
@@ -318,6 +353,7 @@ export const storage = {
     if (!firestoreAvailable) return { pulled: 0, pushed: 0 };
 
     let pulled = 0, pushed = 0;
+    console.log('[DS] syncNow() started —', navigator.userAgent.slice(0, 80));
     await flushPending();
 
     for (const col of ALL_STORES) {
@@ -331,12 +367,15 @@ export const storage = {
         });
         if (changed) { broadcast(col); pulled++; }
 
-        for (const item of localStore.getAll(col)) {
+        const localItems = localStore.getAll(col);
+        console.log(`[DS] syncNow() — ${col}: pulling ${snap.size} remote, pushing ${localItems.length} local`);
+        for (const item of localItems) {
           try { await setDoc(doc(db, col, item.id), item, { merge: true }); pushed++; } catch {}
         }
-      } catch {}
+      } catch (e) { console.warn(`[DS] syncNow() error on ${col}:`, e); }
     }
 
+    console.log(`[DS] syncNow() complete — pulled: ${pulled} cols, pushed: ${pushed} docs`);
     restartActiveListeners();
     return { pulled, pushed };
   },
