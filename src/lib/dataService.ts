@@ -128,17 +128,24 @@ const activeListeners: Record<string, () => void> = {};
 
 const startListener = (col: string) => {
   if (activeListeners[col] || !firestoreAvailable) return;
+  console.log(`[DS] startListener — ${col}`);
   try {
     const unsub = onSnapshot(collection(db, col), snapshot => {
       let changed = false;
       snapshot.docChanges().forEach(change => {
         const raw = { id: change.doc.id, ...change.doc.data() };
         const data = normalizeDoc(raw);
+
         if (change.type === 'removed') {
           console.log(`[DS] onSnapshot REMOVED — ${col}/${change.doc.id}`);
           localStore.delete(col, change.doc.id);
           changed = true;
+        } else if (change.type === 'modified') {
+          // 'modified' means Firestore confirmed a change from any device — always accept
+          localStore.put(col, data);
+          changed = true;
         } else {
+          // 'added' — use newerWins to avoid overwriting local pending offline writes
           const existing = localStore.getAll(col).find(x => x.id === data.id);
           if (!existing || newerWins(existing, data)) {
             localStore.put(col, data);
@@ -148,21 +155,24 @@ const startListener = (col: string) => {
       });
       if (changed) broadcast(col);
     }, err => {
-      console.warn(`[dataService] Listener ${col}:`, err);
-      firestoreAvailable = false;
+      // Do NOT set firestoreAvailable = false here — a listener error is per-collection,
+      // not a sign that Firestore is unreachable. Auto-restart after a short delay.
+      console.warn(`[DS] Listener ${col} error — will retry in 5 s:`, err.code || err.message);
       delete activeListeners[col];
+      setTimeout(() => {
+        if (firestoreAvailable) startListener(col);
+      }, 5_000);
     });
     activeListeners[col] = unsub;
   } catch (e) {
-    console.warn(`[dataService] startListener ${col}:`, e);
+    console.warn(`[DS] startListener ${col}:`, e);
   }
 };
 
+// Starts (or restarts) listeners for every collection that has active subscribers
 const restartActiveListeners = () => {
   const cols = Object.keys(subs).filter(c => subs[c].length > 0);
-  cols.forEach(col => {
-    if (!activeListeners[col]) startListener(col);
-  });
+  cols.forEach(col => { if (!activeListeners[col]) startListener(col); });
 };
 
 // ── Pending offline queue ─────────────────────────────────────────────────────
@@ -277,6 +287,8 @@ export const storage = {
         console.log('[DS] Firestore ✅ — descargando datos...');
         if (pendingQueue.length) await flushPending();
         await pullAll();
+        // Start real-time listeners for all collections already subscribed by components
+        restartActiveListeners();
         console.log('[DS] Sincronización inicial completa ✅');
       } else {
         console.warn('[DS] Sin conexión — modo local');
@@ -296,6 +308,25 @@ export const storage = {
         Object.values(activeListeners).forEach(u => { try { u(); } catch {} });
         Object.keys(activeListeners).forEach(k => delete activeListeners[k]);
       });
+
+      // Restart dead listeners when the tab/app regains focus (e.g., tablet waking up)
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible') return;
+        if (!firestoreAvailable) firestoreAvailable = await testFirestore();
+        if (firestoreAvailable) restartActiveListeners();
+      });
+
+      // Heartbeat: every 30 s check for dead listeners and restart them.
+      // This is a safety net — onSnapshot should handle real-time updates by itself.
+      setInterval(() => {
+        if (!firestoreAvailable) return;
+        const cols = Object.keys(subs).filter(c => subs[c].length > 0);
+        const dead = cols.filter(c => !activeListeners[c]);
+        if (dead.length > 0) {
+          console.log('[DS] Heartbeat — restarting dead listeners:', dead);
+          dead.forEach(startListener);
+        }
+      }, 30_000);
     }
   },
 
