@@ -10,5 +10,7 @@ const firebaseConfig = {
   appId: "1:256056223617:web:ed79c8d7b0e560cacdea80"
 }
 
+console.log('[Firebase] Initializing — project:', firebaseConfig.projectId, '| database: gestrepara')
+
 export const firebaseApp = initializeApp(firebaseConfig, 'gestrepara-main')
 export const db = getFirestore(firebaseApp, 'gestrepara')

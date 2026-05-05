@@ -236,9 +236,21 @@ let initialized = false;
 
 const testFirestore = async (): Promise<boolean> => {
   try {
+    console.log('[DS] Testing Firestore connection (db: gestrepara)...');
     await getDocs(collection(db, 'settings'));
+    console.log('[DS] Firestore OK ✅');
     return true;
-  } catch {
+  } catch (e: any) {
+    const code = e?.code ?? 'unknown';
+    const msg  = e?.message ?? String(e);
+    console.error(`[DS] Firestore test FAILED — code: ${code}`);
+    console.error(`[DS] Firestore error message: ${msg}`);
+    if (code === 'not-found')
+      console.error('[DS] ⚠️  La base de datos "gestrepara" no existe en Firebase Console o el projectId es incorrecto.');
+    if (code === 'permission-denied')
+      console.error('[DS] ⚠️  Reglas de Firestore denegando acceso. Ve a Firebase Console → Firestore → Rules.');
+    if (code === 'unavailable' || code === 'deadline-exceeded')
+      console.error('[DS] ⚠️  Firestore no alcanzable (red o cuota). Reintentando más tarde.');
     return false;
   }
 };
@@ -316,10 +328,20 @@ export const storage = {
         if (firestoreAvailable) restartActiveListeners();
       });
 
-      // Heartbeat: every 30 s check for dead listeners and restart them.
-      // This is a safety net — onSnapshot should handle real-time updates by itself.
-      setInterval(() => {
-        if (!firestoreAvailable) return;
+      // Heartbeat every 30 s:
+      // - If offline: try to reconnect, flush pending, restart listeners
+      // - If online: restart any dead listeners
+      setInterval(async () => {
+        if (!firestoreAvailable) {
+          console.log('[DS] Heartbeat — offline, attempting reconnect...');
+          firestoreAvailable = await testFirestore();
+          if (firestoreAvailable) {
+            console.log('[DS] Heartbeat — reconnected ✅');
+            await flushPending();
+            restartActiveListeners();
+          }
+          return;
+        }
         const cols = Object.keys(subs).filter(c => subs[c].length > 0);
         const dead = cols.filter(c => !activeListeners[c]);
         if (dead.length > 0) {
@@ -355,9 +377,14 @@ export const storage = {
     if (firestoreAvailable) {
       try {
         await setDoc(doc(db, col, id), full, { merge: true });
-      } catch {
-        firestoreAvailable = false;
+      } catch (e: any) {
+        const code = e?.code ?? '';
+        console.warn(`[DS] save() write error — ${col}/${id} code: ${code}`, e?.message);
         addPending(col, id, full, 'save');
+        // Only mark offline for genuine connectivity failures, not rules/validation errors
+        if (code === 'unavailable' || code === 'deadline-exceeded' || code === 'cancelled') {
+          firestoreAvailable = false;
+        }
       }
     } else {
       addPending(col, id, full, 'save');
@@ -371,8 +398,13 @@ export const storage = {
     if (firestoreAvailable) {
       try {
         await deleteDoc(doc(db, col, id));
-      } catch {
+      } catch (e: any) {
+        const code = e?.code ?? '';
+        console.warn(`[DS] remove() error — ${col}/${id} code: ${code}`, e?.message);
         addPending(col, id, {}, 'remove');
+        if (code === 'unavailable' || code === 'deadline-exceeded' || code === 'cancelled') {
+          firestoreAvailable = false;
+        }
       }
     } else {
       addPending(col, id, {}, 'remove');
