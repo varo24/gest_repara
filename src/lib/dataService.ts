@@ -1,6 +1,6 @@
 // dataService.ts — Firestore backend + IndexedDB offline cache
 import {
-  collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, Timestamp
+  collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, Timestamp, serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -114,6 +114,14 @@ const normalizeDoc = (data: any): any => {
       : v;
   }
   return out;
+};
+
+const cleanData = (obj: any): any => {
+  return Object.fromEntries(
+    Object.entries(obj)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, v && typeof v === 'object' && !Array.isArray(v) ? cleanData(v) : v])
+  );
 };
 
 const newerWins = (local: any, remote: any): boolean => {
@@ -376,7 +384,8 @@ export const storage = {
 
     if (firestoreAvailable) {
       try {
-        await setDoc(doc(db, col, id), full, { merge: true });
+        const dataToSave = cleanData({ ...full, _ts: serverTimestamp() });
+        await setDoc(doc(db, col, id), dataToSave, { merge: true });
       } catch (e: any) {
         const code = e?.code ?? '';
         console.warn(`[DS] save() write error — ${col}/${id} code: ${code}`, e?.message);
