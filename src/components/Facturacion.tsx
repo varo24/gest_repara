@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, InventoryItem } from '../types';
 import { storage } from '../lib/dataService';
+import { descontarStock, devolverStock } from '../lib/inventoryService';
 
 interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; inventoryItemId?: string; }
 interface LaborLine  { id: string; description: string; hours: number; hourlyRate: number; }
@@ -20,6 +21,7 @@ interface FullInvoice {
   status: 'pendiente' | 'cobrada' | 'anulada';
   payMethod?: string; paidAt?: string;
   isRectificativa?: boolean; createdAt: string;
+  stockDescontado?: boolean;
 }
 
 interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
@@ -713,7 +715,12 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
 
   const anular = (inv: FullInvoice) => {
     if (!window.confirm(`¿Anular ${inv.invoiceNumber}? No se puede deshacer.`)) return;
-    storage.save('invoices', inv.id, { ...inv, status: 'anulada' });
+    if (inv.stockDescontado) {
+      devolverStock(inv.items, 'anulacion', inv.invoiceNumber);
+      storage.save('invoices', inv.id, { ...inv, status: 'anulada', stockDescontado: false });
+    } else {
+      storage.save('invoices', inv.id, { ...inv, status: 'anulada' });
+    }
     onNotify('info', `${inv.invoiceNumber} anulada`);
     if (selected?.id === inv.id) setSelected(null);
   };
@@ -722,8 +729,10 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
     if (!window.confirm(
       `¿Eliminar ${inv.invoiceNumber}?\n\nEl número quedará reservado y no se reutilizará para mantener la correlación fiscal.`
     )) return;
-    // Mark as deleted but keep the number reserved
-    storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, deletedAt: new Date().toISOString() });
+    if (inv.stockDescontado) {
+      devolverStock(inv.items, 'eliminacion', inv.invoiceNumber);
+    }
+    storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, stockDescontado: false, deletedAt: new Date().toISOString() });
     onNotify('info', `${inv.invoiceNumber} eliminada — número reservado`);
     if (selected?.id === inv.id) setSelected(null);
   };
@@ -1161,33 +1170,14 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       status,
       payMethod: status === 'cobrada' ? payMethod : undefined,
       paidAt: status === 'cobrada' ? (isEditing && initialInvoice!.paidAt ? initialInvoice!.paidAt : now) : undefined,
+      // Marcar el descuento de stock: true si es nueva factura, conservar valor si edición
+      stockDescontado: isEditing ? (initialInvoice?.stockDescontado ?? false) : true,
     };
     onSave(inv, !isEditing && saveAsCustomer);
 
-    // Deducir stock de inventario al guardar como cobrada (solo si no estaba ya cobrada)
-    const wasCobrada = isEditing && initialInvoice?.status === 'cobrada';
-    if (status === 'cobrada' && !wasCobrada) {
-      for (const item of filteredItems) {
-        if (!item.inventoryItemId) continue;
-        const invItem = inventoryItems.find(i => i.id === item.inventoryItemId);
-        if (!invItem) continue;
-        const newStock = Math.max(0, invItem.stock - item.quantity);
-        storage.save('inventory', invItem.id, { ...invItem, stock: newStock, updatedAt: now });
-        const mvId = uid();
-        storage.save('stock_movements', mvId, {
-          id: mvId,
-          itemId: invItem.id,
-          ref: invItem.ref,
-          description: invItem.description,
-          type: 'salida',
-          qty: -item.quantity,
-          costPrice: invItem.costPrice,
-          date: now.slice(0, 10),
-          origin: 'factura',
-          notes: `Factura: ${inv.invoiceNumber}`,
-          createdAt: now,
-        });
-      }
+    // Descontar stock al CREAR (no al editar). Usa inventoryItemId o búsqueda por descripción.
+    if (!isEditing) {
+      descontarStock(filteredItems, 'factura', inv.invoiceNumber);
     }
   };
 

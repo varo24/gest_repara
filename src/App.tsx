@@ -22,6 +22,7 @@ import EntradaStock from './components/EntradaStock';
 import Garantias from './components/Garantias';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
 import { storage } from './lib/dataService';
+import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
@@ -461,6 +462,15 @@ const App: React.FC = () => {
                   const budgetTotal = Math.round((budgetSubtotal + budgetTaxAmount) * 100) / 100;
                   const invoiceNumber = storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC');
                   const now = new Date().toISOString();
+                  const rmaRef = `RMA-${String(repair.rmaNumber).padStart(5, '0')}`;
+
+                  // Descontar stock (usa inventoryItemId si disponible, sino busca por descripción)
+                  // Solo si el presupuesto no había descontado ya (budget.stockDescontado)
+                  if (!budget.stockDescontado) {
+                    await descontarStock(budget.items, 'presupuesto', rmaRef);
+                    storage.save('budgets', budget.id, { ...budget, status: 'accepted', stockDescontado: true });
+                  }
+
                   const invoice = {
                     id: `INV-${Date.now()}`,
                     invoiceNumber,
@@ -478,31 +488,11 @@ const App: React.FC = () => {
                     status: 'pendiente',
                     isRectificativa: false,
                     createdAt: now,
+                    // Stock ya descontado en el paso del presupuesto
+                    stockDescontado: true,
                   };
                   storage.save('invoices', invoice.id, invoice);
-                  // Deduct inventory stock for linked items
-                  for (const item of budget.items) {
-                    if (!item.inventoryItemId) continue;
-                    const invItem = inventoryItems.find(i => i.id === item.inventoryItemId);
-                    if (!invItem) continue;
-                    const newStock = Math.max(0, invItem.stock - item.quantity);
-                    await storage.save('inventory', invItem.id, { ...invItem, stock: newStock, updatedAt: now });
-                    const movement: StockMovement = {
-                      id: crypto.randomUUID(),
-                      itemId: invItem.id,
-                      ref: invItem.ref,
-                      description: invItem.description,
-                      type: 'salida',
-                      qty: -item.quantity,
-                      costPrice: invItem.costPrice,
-                      date: now.slice(0, 10),
-                      origin: 'presupuesto',
-                      notes: `RMA-${String(repair.rmaNumber).padStart(5, '0')}`,
-                      createdAt: now,
-                    };
-                    await storage.save('stock_movements', movement.id, movement);
-                  }
-                  notify('success', `${invoiceNumber} creada desde presupuesto RMA-${String(repair.rmaNumber).padStart(5,'0')}`);
+                  notify('success', `${invoiceNumber} creada desde presupuesto ${rmaRef}`);
                   navigateTo('invoices');
                 }}
               />

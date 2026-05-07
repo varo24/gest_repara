@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
 import { storage, localDB } from '../lib/dataService';
+import { descontarStock } from '../lib/inventoryService';
 import { printInvoice } from './Facturacion';
 
 interface DespachoProps {
@@ -89,6 +90,14 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
     const invoiceNumber = `FAC-${String(nextNum).padStart(5, '0')}`;
 
+    const invoiceItems = budget?.items ?? [];
+
+    // Si el presupuesto no había descontado stock (stockDescontado !== true), descontar ahora
+    const budgetAlreadyDeducted = (budget as any)?.stockDescontado === true;
+    if (!budgetAlreadyDeducted && invoiceItems.length > 0) {
+      await descontarStock(invoiceItems, 'despacho', invoiceNumber);
+    }
+
     const invoice = {
       id: `INV-${Date.now()}`,
       invoiceNumber,
@@ -97,7 +106,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       customerName: repair.customerName,
       customerPhone: repair.customerPhone,
       date: now.slice(0, 10),
-      items: budget?.items ?? [],
+      items: invoiceItems,
       laborItems: budget?.laborItems ?? [],
       subtotal,
       taxRate: settings.taxRate || 21,
@@ -108,6 +117,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       paidAt: now,
       isRectificativa: false,
       createdAt: now,
+      stockDescontado: true,
     };
 
     storage.save('invoices', invoice.id, invoice);
