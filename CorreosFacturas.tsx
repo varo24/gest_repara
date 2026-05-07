@@ -302,12 +302,33 @@ const CorreosFacturas: React.FC<Props> = ({ settings, onNotify }) => {
     return matchSearch && matchStatus;
   });
 
-  const bySupplier = filtered.reduce<Record<string, ReceivedInvoice[]>>((acc, inv) => {
-    const key = inv.supplierName;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(inv);
+  const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const getMonthLabel = (iso: string) => {
+    if (!iso) return 'Sin fecha';
+    const d = new Date(iso);
+    return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+  };
+  const getMonthKey = (iso: string) => iso ? iso.slice(0, 7) : 'sin-fecha';
+
+  const bySupplierMonth = filtered.reduce<Record<string, Record<string, ReceivedInvoice[]>>>((acc, inv) => {
+    const supplier = inv.supplierName;
+    const month = getMonthKey(inv.receivedAt);
+    if (!acc[supplier]) acc[supplier] = {};
+    if (!acc[supplier][month]) acc[supplier][month] = [];
+    acc[supplier][month].push(inv);
     return acc;
   }, {});
+
+  const sortedMonthKeys = (months: Record<string, ReceivedInvoice[]>) =>
+    Object.keys(months).sort((a, b) => b.localeCompare(a));
+
+  const supplierTotal = (months: Record<string, ReceivedInvoice[]>) =>
+    Object.values(months).reduce((s, arr) => s + arr.length, 0);
+
+  const supplierAmount = (months: Record<string, ReceivedInvoice[]>) => {
+    const total = Object.values(months).flat().reduce((s, inv) => s + (inv.estimatedAmount || 0), 0);
+    return total > 0 ? total : undefined;
+  };
 
   const stats = {
     total: invoices.length,
@@ -487,67 +508,112 @@ const CorreosFacturas: React.FC<Props> = ({ settings, onNotify }) => {
                   </p>
                 </div>
               ) : (
-                Object.entries(bySupplier).map(([supplier, items]) => {
-                  const isExpanded = expandedSuppliers.has(supplier) || expandedSuppliers.size === 0;
-                  const toggle = () => setExpandedSuppliers(prev => {
+                Object.entries(bySupplierMonth).map(([supplier, months]) => {
+                  const suppKey = `s-${supplier}`;
+                  const suppExpanded = expandedSuppliers.has(suppKey) || expandedSuppliers.size === 0;
+                  const toggleSupplier = () => setExpandedSuppliers(prev => {
                     const next = new Set(prev);
-                    if (isExpanded && prev.size > 0) next.delete(supplier);
-                    else next.add(supplier);
+                    if (suppExpanded && prev.size > 0) next.delete(suppKey);
+                    else next.add(suppKey);
                     return next;
                   });
+                  const amt = supplierAmount(months);
                   return (
                     <div key={supplier}>
+                      {/* ── Supplier header ── */}
                       <button
-                        onClick={toggle}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-neutral-900 transition-colors"
-                        style={{ borderBottom: '1px solid #1a1a1a' }}
+                        onClick={toggleSupplier}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-neutral-900 transition-colors"
+                        style={{ borderBottom: '1px solid #1a1a1a', background: '#0a0a0a' }}
                       >
-                        {isExpanded ? <ChevronDown size={12} style={{ color: '#444' }} /> : <ChevronRight size={12} style={{ color: '#444' }} />}
-                        <span className="text-xs font-black uppercase tracking-wider flex-1" style={{ color: '#666' }}>{supplier}</span>
-                        <span className="text-xs font-bold" style={{ color: '#333' }}>{items.length}</span>
+                        {suppExpanded ? <ChevronDown size={12} style={{ color: '#555' }} /> : <ChevronRight size={12} style={{ color: '#555' }} />}
+                        <span className="text-xs font-black uppercase tracking-wider flex-1 truncate" style={{ color: '#888' }}>{supplier}</span>
+                        {amt !== undefined && (
+                          <span className="text-xs font-bold mr-2" style={{ color: GREEN }}>{fmtMoney(amt)}</span>
+                        )}
+                        <span
+                          className="text-xs font-black px-1.5 py-0.5 rounded"
+                          style={{ background: '#1a1a1a', color: '#555' }}
+                        >
+                          {supplierTotal(months)}
+                        </span>
                       </button>
 
-                      {isExpanded && items.map(inv => (
-                        <button
-                          key={inv.id}
-                          onClick={() => setSelected(selected?.id === inv.id ? null : inv)}
-                          className="w-full text-left px-4 py-3 flex gap-3 items-start transition-colors hover:bg-neutral-900"
-                          style={{
-                            borderBottom: '1px solid #111',
-                            background: selected?.id === inv.id ? '#161616' : undefined,
-                          }}
-                        >
-                          {/* Status dot */}
-                          <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{
-                            background: inv.status === 'vinculada' ? GREEN : inv.status === 'ignorada' ? '#333' : '#ff9800',
-                          }} />
+                      {suppExpanded && sortedMonthKeys(months).map(monthKey => {
+                        const monthItems = months[monthKey];
+                        const mKey = `m-${supplier}-${monthKey}`;
+                        const mExpanded = expandedSuppliers.has(mKey) || expandedSuppliers.size === 0;
+                        const monthAmt = monthItems.reduce((s, i) => s + (i.estimatedAmount || 0), 0);
+                        const toggleMonth = (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setExpandedSuppliers(prev => {
+                            const next = new Set(prev);
+                            if (mExpanded && prev.size > 0) next.delete(mKey);
+                            else next.add(mKey);
+                            return next;
+                          });
+                        };
+                        return (
+                          <div key={monthKey}>
+                            {/* ── Month subheader ── */}
+                            <button
+                              onClick={toggleMonth}
+                              className="w-full flex items-center gap-2 pl-8 pr-4 py-1.5 text-left hover:bg-neutral-900 transition-colors"
+                              style={{ borderBottom: '1px solid #161616', background: '#080808' }}
+                            >
+                              {mExpanded ? <ChevronDown size={10} style={{ color: '#333' }} /> : <ChevronRight size={10} style={{ color: '#333' }} />}
+                              <span className="text-xs font-bold uppercase tracking-wider flex-1" style={{ color: '#444' }}>
+                                {getMonthLabel(monthItems[0]?.receivedAt)}
+                              </span>
+                              {monthAmt > 0 && (
+                                <span className="text-xs" style={{ color: '#3a6a3a' }}>{fmtMoney(monthAmt)}</span>
+                              )}
+                              <span className="text-xs ml-2" style={{ color: '#333' }}>{monthItems.length}</span>
+                            </button>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-sm font-bold truncate text-white">{inv.subject}</span>
-                              {inv.hasAttachments && <FileText size={11} style={{ color: '#555', flexShrink: 0 }} />}
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs" style={{ color: '#555' }}>{fmtDate(inv.receivedAt)}</span>
-                              {inv.estimatedAmount && (
-                                <span className="text-xs font-bold" style={{ color: GREEN }}>{fmtMoney(inv.estimatedAmount)}</span>
-                              )}
-                              {inv.invoiceNumber && (
-                                <span className="text-xs" style={{ color: '#555' }}>#{inv.invoiceNumber}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <div
-                                className="text-xs px-1.5 py-0.5 rounded font-bold"
-                                style={{ background: confidenceColor(inv.aiConfidence) + '22', color: confidenceColor(inv.aiConfidence) }}
+                            {/* ── Invoice rows ── */}
+                            {mExpanded && monthItems.map(inv => (
+                              <button
+                                key={inv.id}
+                                onClick={() => setSelected(selected?.id === inv.id ? null : inv)}
+                                className="w-full text-left pl-10 pr-4 py-3 flex gap-3 items-start transition-colors hover:bg-neutral-900"
+                                style={{
+                                  borderBottom: '1px solid #111',
+                                  background: selected?.id === inv.id ? '#161616' : undefined,
+                                }}
                               >
-                                IA {inv.aiConfidence}%
-                              </div>
-                              <span className="text-xs truncate" style={{ color: '#444' }}>{inv.aiReason}</span>
-                            </div>
+                                <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{
+                                  background: inv.status === 'vinculada' ? GREEN : inv.status === 'ignorada' ? '#2a2a2a' : '#ff9800',
+                                }} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-sm font-bold truncate text-white">{inv.subject}</span>
+                                    {inv.hasAttachments && <FileText size={11} style={{ color: '#555', flexShrink: 0 }} />}
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs" style={{ color: '#555' }}>{fmtDate(inv.receivedAt)}</span>
+                                    {inv.estimatedAmount !== undefined && (
+                                      <span className="text-xs font-bold" style={{ color: GREEN }}>{fmtMoney(inv.estimatedAmount)}</span>
+                                    )}
+                                    {inv.invoiceNumber && (
+                                      <span className="text-xs" style={{ color: '#555' }}>#{inv.invoiceNumber}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <div
+                                      className="text-xs px-1.5 py-0.5 rounded font-bold"
+                                      style={{ background: confidenceColor(inv.aiConfidence) + '22', color: confidenceColor(inv.aiConfidence) }}
+                                    >
+                                      IA {inv.aiConfidence}%
+                                    </div>
+                                    <span className="text-xs truncate" style={{ color: '#444' }}>{inv.aiReason}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
                           </div>
-                        </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   );
                 })
