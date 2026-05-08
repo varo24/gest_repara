@@ -46,7 +46,9 @@ const stripHtml = (html: string) =>
   html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 export default function Correos({ settings, onImportarFactura, onBack }: CorreosProps) {
-  const serverUrl = (settings.imapServerUrl || '').replace(/\/$/, '');
+  const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
+
+  console.log('[Correos] settings.imapServerUrl:', settings?.imapServerUrl, '→ serverUrl:', serverUrl);
 
   const [tab, setTab]                     = useState<'bandeja' | 'facturas'>('bandeja');
   const [emails, setEmails]               = useState<EmailSummary[]>([]);
@@ -121,7 +123,18 @@ export default function Correos({ settings, onImportarFactura, onBack }: Correos
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center space-y-4">
           <Mail size={40} className="text-slate-200 mx-auto" />
           <p className="text-sm font-bold text-slate-500">No hay servidor configurado</p>
-          <p className="text-xs text-slate-400">Ve a <strong>Ajustes → Servidor de Correo</strong> e introduce la URL del servidor IMAP.</p>
+          <p className="text-xs text-slate-400">
+            Ve a <strong>Ajustes → Servidor de Correo</strong> e introduce la URL del servidor IMAP y pulsa <strong>Guardar</strong>.
+          </p>
+          <p className="text-[10px] text-slate-300 font-mono break-all">
+            imapServerUrl recibido: {JSON.stringify(settings?.imapServerUrl ?? null)}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mx-auto flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition-all"
+          >
+            <RefreshCw size={12} /> Recargar página
+          </button>
         </div>
       </div>
     );
