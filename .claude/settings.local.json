@@ -21,7 +21,20 @@
       "Bash(python3 -c ' *)",
       "Bash(git status *)",
       "Bash(git tag *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "PowerShell(cd \"D:\\\\github\\\\gestion-pro\\\\gest_repara\"; npx tsc --noEmit 2>&1 | Select-String -Pattern \"\\(error TS\\)\" | Where-Object { $_ -notmatch \"Cannot find module|implicitly has\" } | Select-Object -First 30)",
+      "Bash(git -C /d/github/gestion-pro/gestrepara-imap status)",
+      "Bash(git -C /d/github/gestion-pro/gestrepara-imap log --oneline)",
+      "Bash(git -C /d/github/gestion-pro/gestrepara-imap remote -v)",
+      "Bash(gh repo *)",
+      "PowerShell(gh *)",
+      "PowerShell(winget install *)",
+      "Bash(npm view *)",
+      "Bash(git -C /d/github/gestion-pro/gestrepara-imap add package.json package-lock.json)",
+      "Bash(git -C /d/github/gestion-pro/gestrepara-imap commit -m \"fix: versión correcta de @google/generative-ai \\(0.24.0\\)\")",
+      "Bash(start https://railway.app/new)",
+      "PowerShell(cd \"D:\\\\github\\\\gestion-pro\\\\gest_repara\"; npx tsc --noEmit 2>&1 | Select-String \"error TS\" | Where-Object { $_ -notmatch \"Cannot find module|implicitly has\" })",
+      "Bash(npm i *)"
     ]
   }
 }
