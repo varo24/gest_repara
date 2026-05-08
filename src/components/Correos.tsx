@@ -41,7 +41,7 @@ interface EmailDetail extends EmailSummary {
 
 interface CorreosProps {
   settings: AppSettings;
-  onImportarFactura: (datos: DatosFactura) => void;
+  onImportToStock: (datos: DatosFactura) => void;
   onBack: () => void;
 }
 
@@ -78,7 +78,7 @@ const decodeEntities = (text: string): string => {
 const isAnalyzable = (att: Attachment) =>
   att.contentType.startsWith('image/') || att.contentType === 'application/pdf';
 
-export default function Correos({ settings, onImportarFactura, onBack }: CorreosProps) {
+export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
 
   console.log('[Correos] settings.imapServerUrl:', settings?.imapServerUrl, '→ serverUrl:', serverUrl);
@@ -154,8 +154,22 @@ export default function Correos({ settings, onImportarFactura, onBack }: Correos
       });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const result = await r.json();
-      if (result.ok && result.datos_factura) {
-        setSelected(prev => prev ? { ...prev, es_factura: true, datos_factura: result.datos_factura } : prev);
+      // Server returns { ok, analysis: { es_factura, proveedor, numero_factura, fecha, total, lineas } }
+      const a = result.analysis || {};
+      if (result.ok && a.es_factura) {
+        const datos: DatosFactura = {
+          proveedor:       a.proveedor       || '',
+          numero_factura:  a.numero_factura  || '',
+          fecha:           a.fecha           || '',
+          total:           a.total           || 0,
+          lineas: (a.lineas || []).map((l: any) => ({
+            descripcion:    l.descripcion    || '',
+            referencia:     l.referencia     || '',
+            cantidad:       l.cantidad       || 1,
+            precio_unitario: l.precio_unitario || 0,
+          })),
+        };
+        setSelected(prev => prev ? { ...prev, es_factura: true, datos_factura: datos } : prev);
         setEmails(prev => prev.map(e => selected && e.uid === selected.uid ? { ...e, es_factura: true } : e));
       } else {
         setError(result.error || 'El adjunto no parece una factura de proveedor');
@@ -207,7 +221,7 @@ export default function Correos({ settings, onImportarFactura, onBack }: Correos
           </button>
           {selected.datos_factura && (
             <button
-              onClick={() => { onImportarFactura(selected.datos_factura!); }}
+              onClick={() => { onImportToStock(selected.datos_factura!); }}
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all shadow-sm"
             >
               <Package size={13} /> Importar a Entrada de Stock

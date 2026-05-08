@@ -653,7 +653,7 @@ const App: React.FC = () => {
             {currentView === 'correos' && (
               <Correos
                 settings={settings}
-                onImportarFactura={(datos) => {
+                onImportToStock={(datos) => {
                   setPreFillEntrada(datos);
                   navigateTo('inventory-entrada');
                 }}
