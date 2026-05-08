@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Mail, RefreshCw, Inbox, FileText, AlertCircle,
-  CheckCircle2, Paperclip, ArrowLeft, Package, X, Brain
+  CheckCircle2, Paperclip, ArrowLeft, Package, X, Brain,
+  ChevronDown, ChevronRight, Search, Eye, EyeOff, Play,
 } from 'lucide-react';
 import { AppSettings } from '../types';
+import { storage } from '../lib/dataService';
 
 interface EmailSummary {
   uid: number;
@@ -27,7 +29,7 @@ interface Attachment {
   filename: string;
   contentType: string;
   size: number;
-  data: string; // base64
+  data: string;
 }
 
 interface EmailDetail extends EmailSummary {
@@ -45,6 +47,7 @@ interface CorreosProps {
   onBack: () => void;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtDate = (iso: string | null) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -59,12 +62,8 @@ const fmtSize = (bytes: number) => {
 const decodeEntities = (text: string): string => {
   if (!text) return '';
   return text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;|&acute;/g, "'")
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;|&acute;/g, "'")
     .replace(/&eacute;/g, 'é').replace(/&Eacute;/g, 'É')
     .replace(/&aacute;/g, 'á').replace(/&Aacute;/g, 'Á')
     .replace(/&iacute;/g, 'í').replace(/&Iacute;/g, 'Í')
@@ -78,20 +77,71 @@ const decodeEntities = (text: string): string => {
 const isAnalyzable = (att: Attachment) =>
   att.contentType.startsWith('image/') || att.contentType === 'application/pdf';
 
+// ── Date grouping ─────────────────────────────────────────────────────────────
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const GROUP_ORDER = ['Hoy','Ayer','Esta semana','Semana pasada','Hace 2 semanas','Este mes'];
+
+function classifyDate(dateStr: string | null): string {
+  if (!dateStr) return 'Sin fecha';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const emailDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.floor((today.getTime() - emailDay.getTime()) / 86400000);
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return 'Esta semana';
+  if (diffDays < 14) return 'Semana pasada';
+  if (diffDays < 21) return 'Hace 2 semanas';
+  if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) return 'Este mes';
+  return `${MONTHS_ES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function sortGroupKeys(keys: string[]): string[] {
+  return [...keys].sort((a, b) => {
+    const ia = GROUP_ORDER.indexOf(a);
+    const ib = GROUP_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    // "Month YYYY" — sort descending
+    const parseMonthYear = (s: string) => {
+      const parts = s.split(' ');
+      return parseInt(parts[1] || '0') * 100 + MONTHS_ES.indexOf(parts[0]);
+    };
+    return parseMonthYear(b) - parseMonthYear(a);
+  });
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
 
-  console.log('[Correos] settings.imapServerUrl:', settings?.imapServerUrl, '→ serverUrl:', serverUrl);
+  const [tab, setTab]                       = useState<'bandeja' | 'facturas'>('bandeja');
+  const [emails, setEmails]                 = useState<EmailSummary[]>([]);
+  const [loadingList, setLoadingList]       = useState(false);
+  const [loadingDetail, setLoadingDetail]   = useState(false);
+  const [selected, setSelected]             = useState<EmailDetail | null>(null);
+  const [error, setError]                   = useState('');
+  const [connected, setConnected]           = useState<boolean | null>(null);
+  const [checkingConn, setCheckingConn]     = useState(false);
+  const [analyzingAtt, setAnalyzingAtt]     = useState<string | null>(null);
+  const [analyzingAll, setAnalyzingAll]     = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null);
 
-  const [tab, setTab]                         = useState<'bandeja' | 'facturas'>('bandeja');
-  const [emails, setEmails]                   = useState<EmailSummary[]>([]);
-  const [loadingList, setLoadingList]         = useState(false);
-  const [loadingDetail, setLoadingDetail]     = useState(false);
-  const [selected, setSelected]               = useState<EmailDetail | null>(null);
-  const [error, setError]                     = useState('');
-  const [connected, setConnected]             = useState<boolean | null>(null);
-  const [checkingConn, setCheckingConn]       = useState(false);
-  const [analyzingAtt, setAnalyzingAtt]       = useState<string | null>(null);
+  const [procesados, setProcessados]         = useState<Record<string, any>>({});
+  const [showProcesados, setShowProcesados]  = useState(false);
+  const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
+  const [searchQuery, setSearchQuery]        = useState('');
+
+  // Subscribe to correos_procesados (self-contained — doesn't need App.tsx)
+  useEffect(() => {
+    return storage.subscribe('correos_procesados', (data: any[]) => {
+      const map: Record<string, any> = {};
+      data.forEach(d => { map[String(d.uid)] = d; });
+      setProcessados(map);
+    });
+  }, []);
 
   const checkHealth = useCallback(async () => {
     if (!serverUrl) { setConnected(false); return; }
@@ -104,15 +154,20 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   }, [serverUrl]);
 
   const fetchEmails = useCallback(async () => {
-    if (!serverUrl) { setError('Configura la URL del servidor en Ajustes → Servidor de Correo'); return; }
+    if (!serverUrl) return;
     setLoadingList(true);
     setError('');
     try {
       const r = await fetch(`${serverUrl}/emails`, { signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const data = await r.json();
-      setEmails(data.emails || []);
+      const list: EmailSummary[] = data.emails || [];
+      setEmails(list);
       setConnected(true);
+      // Auto-expand first non-empty group
+      const keys = [...new Set(list.map(e => classifyDate(e.date)))];
+      const sorted = sortGroupKeys(keys);
+      if (sorted.length) setExpandedGroups(new Set([sorted[0]]));
     } catch (e: any) {
       setError(e.message || 'Error al conectar con el servidor');
       setConnected(false);
@@ -133,9 +188,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const data = await r.json();
       setSelected(data);
-      setEmails(prev => prev.map(e => e.uid === uid
-        ? { ...e, seen: true, es_factura: data.es_factura }
-        : e));
+      setEmails(prev => prev.map(e => e.uid === uid ? { ...e, seen: true, es_factura: data.es_factura } : e));
     } catch (e: any) {
       setError(e.message || 'Error al cargar email');
     } finally { setLoadingDetail(false); }
@@ -154,18 +207,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const result = await r.json();
-      // Server returns { ok, analysis: { es_factura, proveedor, numero_factura, fecha, total, lineas } }
       const a = result.analysis || {};
       if (result.ok && a.es_factura) {
         const datos: DatosFactura = {
-          proveedor:       a.proveedor       || '',
-          numero_factura:  a.numero_factura  || '',
-          fecha:           a.fecha           || '',
-          total:           a.total           || 0,
+          proveedor:      a.proveedor      || '',
+          numero_factura: a.numero_factura || '',
+          fecha:          a.fecha          || '',
+          total:          a.total          || 0,
           lineas: (a.lineas || []).map((l: any) => ({
-            descripcion:    l.descripcion    || '',
-            referencia:     l.referencia     || '',
-            cantidad:       l.cantidad       || 1,
+            descripcion:     l.descripcion     || '',
+            referencia:      l.referencia      || '',
+            cantidad:        l.cantidad        || 1,
             precio_unitario: l.precio_unitario || 0,
           })),
         };
@@ -179,10 +231,96 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     } finally { setAnalyzingAtt(null); }
   };
 
-  const facturas = emails.filter(e => e.es_factura === true);
-  const listToShow = tab === 'bandeja' ? emails : facturas;
+  const handleImport = (datos: DatosFactura) => {
+    if (!selected) return;
+    const docId = `correo-${selected.uid}`;
+    storage.save('correos_procesados', docId, {
+      id: docId,
+      uid: selected.uid,
+      fecha: new Date().toISOString(),
+      tipo: 'stock_importado',
+      proveedor: datos.proveedor,
+      numero_factura: datos.numero_factura,
+    });
+    onImportToStock(datos);
+  };
 
-  // ── No server configured ──────────────────────────────────────────────────
+  const analyzePendingAll = useCallback(async () => {
+    if (!serverUrl || analyzingAll) return;
+    const pending = emails.filter(e => e.tiene_adjuntos && e.es_factura === undefined && !procesados[String(e.uid)]);
+    if (!pending.length) return;
+    setAnalyzingAll(true);
+    setError('');
+    for (let i = 0; i < pending.length; i++) {
+      setAnalyzeProgress({ current: i + 1, total: pending.length });
+      try {
+        const r = await fetch(`${serverUrl}/emails/${pending[i].uid}`, { signal: AbortSignal.timeout(30000) });
+        if (!r.ok) continue;
+        const data: EmailDetail = await r.json();
+        setEmails(prev => prev.map(e => e.uid === pending[i].uid ? { ...e, seen: true, es_factura: data.es_factura } : e));
+        if (!data.es_factura) {
+          const pdf = (data.attachments || []).find(isAnalyzable);
+          if (pdf) {
+            const ar = await fetch(`${serverUrl}/analyze-attachment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: pdf.filename, contentType: pdf.contentType, data: pdf.data }),
+              signal: AbortSignal.timeout(60000),
+            });
+            if (ar.ok) {
+              const aResult = await ar.json();
+              setEmails(prev => prev.map(e =>
+                e.uid === pending[i].uid ? { ...e, es_factura: !!aResult.analysis?.es_factura } : e
+              ));
+            }
+          }
+        }
+      } catch {}
+    }
+    setAnalyzingAll(false);
+    setAnalyzeProgress(null);
+  }, [serverUrl, emails, procesados, analyzingAll]);
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const filteredEmails = useMemo(() => {
+    let list = emails;
+    if (!showProcesados) list = list.filter(e => !procesados[String(e.uid)]);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(e => e.from.toLowerCase().includes(q) || e.subject.toLowerCase().includes(q));
+    }
+    return list;
+  }, [emails, procesados, showProcesados, searchQuery]);
+
+  const facturasEmails = useMemo(() =>
+    filteredEmails.filter(e => e.es_factura === true || (e.tiene_adjuntos && e.es_factura === undefined)),
+  [filteredEmails]);
+
+  const pendingCount = useMemo(() =>
+    emails.filter(e => e.tiene_adjuntos && e.es_factura === undefined && !procesados[String(e.uid)]).length,
+  [emails, procesados]);
+
+  const groupedEmails = useMemo(() => {
+    const source = tab === 'bandeja' ? filteredEmails : facturasEmails;
+    const map: Record<string, EmailSummary[]> = {};
+    source.forEach(e => {
+      const key = classifyDate(e.date);
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    });
+    return sortGroupKeys(Object.keys(map)).map(key => ({
+      key,
+      emails: map[key],
+      facturas: map[key].filter(e => e.es_factura === true).length,
+    }));
+  }, [tab, filteredEmails, facturasEmails]);
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroups(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+
+  const isGroupExpanded = (key: string) => searchQuery.trim().length > 0 || expandedGroups.has(key);
+
+  // ── No server ─────────────────────────────────────────────────────────────
   if (!serverUrl) {
     return (
       <div className="space-y-5 animate-in fade-in duration-200">
@@ -199,10 +337,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           <p className="text-[10px] text-slate-300 font-mono break-all">
             imapServerUrl recibido: {JSON.stringify(settings?.imapServerUrl ?? null)}
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mx-auto flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition-all"
-          >
+          <button onClick={() => window.location.reload()} className="mx-auto flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition-all">
             <RefreshCw size={12} /> Recargar página
           </button>
         </div>
@@ -213,20 +348,28 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   // ── Detail panel ──────────────────────────────────────────────────────────
   if (selected) {
     const attachments = selected.attachments || [];
+    const isProcesado = !!procesados[String(selected.uid)];
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
         <div className="flex items-center justify-between">
           <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
             <ArrowLeft size={14} /> Volver
           </button>
-          {selected.datos_factura && (
-            <button
-              onClick={() => { onImportToStock(selected.datos_factura!); }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all shadow-sm"
-            >
-              <Package size={13} /> Importar a Entrada de Stock
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {isProcesado && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase">
+                <CheckCircle2 size={11} /> Ya importado
+              </span>
+            )}
+            {selected.datos_factura && (
+              <button
+                onClick={() => handleImport(selected.datos_factura!)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all shadow-sm"
+              >
+                <Package size={13} /> Importar a Entrada de Stock
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -238,14 +381,14 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         )}
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          {/* Email header */}
+          {/* Header */}
           <div className="bg-slate-950 px-7 py-5">
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">{fmtDate(selected.date)}</p>
             <p className="text-lg font-black text-white leading-tight">{selected.subject}</p>
             <p className="text-sm text-slate-400 mt-1">{selected.from}</p>
           </div>
 
-          {/* AI analysis badge */}
+          {/* AI badge */}
           {selected.es_factura !== undefined && (
             <div className={`px-7 py-3 flex items-center gap-3 border-b border-slate-100 ${selected.es_factura ? 'bg-emerald-50' : 'bg-slate-50'}`}>
               {selected.es_factura
@@ -304,9 +447,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           {/* Attachments */}
           {attachments.length > 0 && (
             <div className="px-7 py-4 border-b border-slate-100 bg-slate-50/60">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                Adjuntos ({attachments.length})
-              </p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Adjuntos ({attachments.length})</p>
               <div className="space-y-2">
                 {attachments.map((att, i) => (
                   <div key={i} className="flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-slate-100">
@@ -344,7 +485,6 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                 style={{ minHeight: 280, maxHeight: 520, display: 'block' }}
                 title="Contenido del correo"
                 onLoad={e => {
-                  // Auto-height
                   const f = e.currentTarget;
                   try { f.style.height = (f.contentDocument?.body?.scrollHeight ?? 280) + 'px'; } catch {}
                 }}
@@ -360,7 +500,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     );
   }
 
-  // ── Main list view ────────────────────────────────────────────────────────
+  // ── Main list view ─────────────────────────────────────────────────────────
+  const totalFacturas = emails.filter(e => e.es_factura === true).length;
+
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* Header */}
@@ -369,13 +511,11 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           {onBack && <button onClick={onBack} className="back-to-dash mb-2">← INICIO</button>}
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Correos</h1>
           <div className="flex items-center gap-2 mt-1">
-            {checkingConn ? (
-              <RefreshCw size={10} className="text-slate-400 animate-spin" />
-            ) : connected === true ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-red-400" />
-            )}
+            {checkingConn
+              ? <RefreshCw size={10} className="text-slate-400 animate-spin" />
+              : connected === true
+                ? <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                : <span className="w-2 h-2 rounded-full bg-red-400" />}
             <span className={`text-xs font-bold ${connected === true ? 'text-emerald-600' : 'text-red-500'}`}>
               {connected === true ? 'Conectado' : connected === false ? 'Sin conexión al servidor' : 'Verificando…'}
             </span>
@@ -398,12 +538,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         </div>
       )}
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total correos',       value: emails.length,                      color: 'text-slate-900' },
-          { label: 'No leídos',           value: emails.filter(e => !e.seen).length, color: 'text-blue-600' },
-          { label: 'Facturas detectadas', value: facturas.length,                    color: 'text-emerald-600' },
+          { label: 'Total correos',       value: emails.length,                         color: 'text-slate-900' },
+          { label: 'No leídos',           value: emails.filter(e => !e.seen).length,    color: 'text-blue-600' },
+          { label: 'Facturas detectadas', value: totalFacturas,                          color: 'text-emerald-600' },
+          { label: 'Importados',          value: Object.keys(procesados).length,         color: 'text-violet-600' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -412,67 +553,152 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex bg-slate-100 rounded-xl p-0.5 w-fit">
-        {(['bandeja', 'facturas'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            {t === 'bandeja'
-              ? <span className="flex items-center gap-1.5"><Inbox size={12} /> Bandeja ({emails.length})</span>
-              : <span className="flex items-center gap-1.5"><FileText size={12} /> Facturas ({facturas.length})</span>}
-          </button>
-        ))}
+      {/* Controls row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="flex-1 min-w-48 relative">
+          <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar remitente o asunto…"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Toggle procesados */}
+        <button
+          onClick={() => setShowProcesados(v => !v)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all border ${
+            showProcesados
+              ? 'bg-violet-100 text-violet-700 border-violet-200'
+              : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          {showProcesados ? <Eye size={13} /> : <EyeOff size={13} />}
+          {showProcesados ? 'Ocultar importados' : 'Mostrar importados'}
+        </button>
       </div>
 
-      {/* Email list */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      {/* Tabs */}
+      <div className="flex items-center justify-between">
+        <div className="flex bg-slate-100 rounded-xl p-0.5 w-fit">
+          {(['bandeja', 'facturas'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              {t === 'bandeja'
+                ? <span className="flex items-center gap-1.5"><Inbox size={12} /> Bandeja ({filteredEmails.length})</span>
+                : <span className="flex items-center gap-1.5"><FileText size={12} /> Facturas ({facturasEmails.length})</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Analizar todos los pendientes (only in facturas tab) */}
+        {tab === 'facturas' && pendingCount > 0 && (
+          <button
+            onClick={analyzePendingAll}
+            disabled={analyzingAll}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white rounded-xl text-xs font-black uppercase transition-all shadow-sm"
+          >
+            {analyzingAll
+              ? <><RefreshCw size={12} className="animate-spin" /> Analizando {analyzeProgress?.current}/{analyzeProgress?.total}…</>
+              : <><Play size={12} /> Analizar {pendingCount} pendiente{pendingCount > 1 ? 's' : ''}</>}
+          </button>
+        )}
+      </div>
+
+      {/* Grouped email list */}
+      <div className="space-y-3">
         {loadingList ? (
-          <div className="py-16 text-center">
+          <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
             <RefreshCw size={24} className="text-slate-200 mx-auto mb-3 animate-spin" />
             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Cargando correos…</p>
           </div>
-        ) : listToShow.length === 0 ? (
-          <div className="py-16 text-center">
+        ) : groupedEmails.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
             <Mail size={32} className="text-slate-200 mx-auto mb-3" />
             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
               {tab === 'facturas' ? 'Sin facturas detectadas' : 'Sin correos'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
-            {listToShow.map(email => (
+          groupedEmails.map(group => (
+            <div key={group.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              {/* Group header */}
               <button
-                key={email.uid}
-                onClick={() => openEmail(email.uid)}
-                className={`w-full flex items-start gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left ${!email.seen ? 'bg-blue-50/30' : ''}`}
+                onClick={() => toggleGroup(group.key)}
+                className="w-full flex items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors"
               >
-                <div className="shrink-0 mt-1">
-                  {email.es_factura
-                    ? <CheckCircle2 size={15} className="text-emerald-500" />
-                    : email.seen
-                      ? <Mail size={15} className="text-slate-300" />
-                      : <Mail size={15} className="text-blue-500" />}
+                <div className="flex items-center gap-3">
+                  {isGroupExpanded(group.key)
+                    ? <ChevronDown size={14} className="text-slate-400" />
+                    : <ChevronRight size={14} className="text-slate-400" />}
+                  <span className="text-xs font-black text-slate-700 uppercase tracking-wide">{group.key}</span>
+                  <span className="text-[10px] text-slate-400 font-bold">{group.emails.length} correo{group.emails.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className={`text-sm truncate ${!email.seen ? 'font-black text-slate-900' : 'font-semibold text-slate-600'}`}>
-                      {email.from}
-                    </p>
-                    {email.tiene_adjuntos && <Paperclip size={11} className="text-slate-400 shrink-0" />}
-                    {email.es_factura && (
-                      <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">FACTURA</span>
-                    )}
-                  </div>
-                  <p className={`text-xs truncate ${!email.seen ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
-                    {email.subject}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{fmtDate(email.date)}</p>
-                </div>
+                {group.facturas > 0 && (
+                  <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">
+                    {group.facturas} factura{group.facturas !== 1 ? 's' : ''}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
+
+              {/* Group rows */}
+              {isGroupExpanded(group.key) && (
+                <div className="divide-y divide-slate-50">
+                  {group.emails.map(email => {
+                    const isProcesadoRow = !!procesados[String(email.uid)];
+                    const isSinAnalizar = email.tiene_adjuntos && email.es_factura === undefined;
+                    return (
+                      <button
+                        key={email.uid}
+                        onClick={() => openEmail(email.uid)}
+                        className={`w-full flex items-start gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left ${!email.seen ? 'bg-blue-50/30' : ''} ${isProcesadoRow ? 'opacity-60' : ''}`}
+                      >
+                        <div className="shrink-0 mt-1">
+                          {isProcesadoRow
+                            ? <CheckCircle2 size={15} className="text-emerald-500" />
+                            : email.es_factura
+                              ? <CheckCircle2 size={15} className="text-emerald-500" />
+                              : email.seen
+                                ? <Mail size={15} className="text-slate-300" />
+                                : <Mail size={15} className="text-blue-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p className={`text-sm truncate ${!email.seen ? 'font-black text-slate-900' : 'font-semibold text-slate-600'}`}>
+                              {email.from}
+                            </p>
+                            {email.tiene_adjuntos && <Paperclip size={11} className="text-slate-400 shrink-0" />}
+                            {isProcesadoRow && (
+                              <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>
+                            )}
+                            {!isProcesadoRow && email.es_factura && (
+                              <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">FACTURA</span>
+                            )}
+                            {!isProcesadoRow && isSinAnalizar && tab === 'facturas' && (
+                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">Sin analizar</span>
+                            )}
+                          </div>
+                          <p className={`text-xs truncate ${!email.seen ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                            {email.subject}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{fmtDate(email.date)}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
 

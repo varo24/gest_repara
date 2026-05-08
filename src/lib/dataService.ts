@@ -17,6 +17,8 @@ const ALL_STORES = [
   'stock_movements',
   // legacy collections
   'citas', 'apps_externas',
+  // correos
+  'correos_procesados',
 ];
 
 class LocalStore {
