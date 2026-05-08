@@ -8,11 +8,21 @@ import { InventoryItem, StockMovement, AppSettings } from '../types';
 import { storage } from '../lib/dataService';
 import { analyzeInvoice, analyzeInvoiceText, GeminiInvoiceResult } from '../lib/gemini';
 
+interface PreFillData {
+  proveedor: string;
+  numero_factura: string;
+  fecha: string;
+  total: number;
+  lineas: Array<{ descripcion: string; referencia: string; cantidad: number; precio_unitario: number }>;
+}
+
 interface EntradaStockProps {
   settings: AppSettings;
   inventoryItems: InventoryItem[];
   onNotify: (type: 'success' | 'error' | 'info', msg: string) => void;
   onBack: () => void;
+  preFillData?: PreFillData | null;
+  onPreFillConsumed?: () => void;
 }
 
 interface EntryLine {
@@ -27,7 +37,7 @@ interface EntryLine {
 
 const DEFAULT_CATS = ['Pantallas', 'Baterías', 'Conectores', 'Cámaras', 'Mecánica', 'Otros'];
 
-const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, onNotify, onBack }) => {
+const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, onNotify, onBack, preFillData, onPreFillConsumed }) => {
   const [activeTab, setActiveTab] = useState<'manual' | 'scanner' | 'ai'>('manual');
 
   // Manual tab
@@ -58,6 +68,27 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   useEffect(() => {
     if (activeTab === 'scanner') barcodeInputRef.current?.focus();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!preFillData) return;
+    setActiveTab('ai');
+    setAiMeta({
+      proveedor: preFillData.proveedor,
+      numero_factura: preFillData.numero_factura,
+      fecha: preFillData.fecha,
+      total: preFillData.total,
+    });
+    setAiLines(preFillData.lineas.map(l => ({
+      inventoryItemId: '',
+      ref: l.referencia || '',
+      description: l.descripcion,
+      qty: l.cantidad,
+      costPrice: l.precio_unitario,
+      category: categories[0] || 'Otros',
+      location: '',
+    })));
+    onPreFillConsumed?.();
+  }, [preFillData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const searchItems = (q: string) => {
     if (!q.trim()) return [];

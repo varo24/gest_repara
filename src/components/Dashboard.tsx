@@ -5,7 +5,7 @@ import {
 } from 'react-icons/gi';
 import {
   FaUserFriends, FaFileInvoiceDollar, FaClipboardCheck,
-  FaPuzzlePiece, FaSlidersH, FaCheckCircle
+  FaPuzzlePiece, FaSlidersH, FaCheckCircle, FaEnvelope
 } from 'react-icons/fa';
 import { MdElectricBolt } from 'react-icons/md';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
@@ -89,6 +89,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       id: 'garantias', label: 'Garantías', desc: 'Control de vencimientos',
       icon: GiShield, gradient: 'linear-gradient(135deg, #b71c1c, #c62828)', accentColor: '#b71c1c',
       action: () => setView('garantias'),
+    },
+    {
+      id: 'correos', label: 'Correos/Facturas', desc: 'Bandeja IMAP y facturas proveedor',
+      icon: FaEnvelope, gradient: 'linear-gradient(135deg, #01579b, #0277bd)', accentColor: '#01579b',
+      action: () => setView('correos'),
     },
     {
       id: 'calendar', label: 'Planificador', desc: `${todayCitas} citas hoy`,

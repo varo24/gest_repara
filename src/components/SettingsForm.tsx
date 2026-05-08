@@ -27,6 +27,7 @@ const ALL_MODULES = [
   { id: 'inventory',         label: 'Inventario' },
   { id: 'inventory-entrada', label: 'Entrada Stock' },
   { id: 'garantias',         label: 'Garantías' },
+  { id: 'correos',           label: 'Correos/Facturas' },
   { id: 'calendar',          label: 'Planificador' },
   { id: 'stats',             label: 'Rendimiento' },
   { id: 'external-apps',     label: 'Módulos Ext.' },
@@ -44,6 +45,8 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudResult, setCloudResult] = useState<{ok: boolean, msg: string} | null>(null);
   const [appNameError, setAppNameError] = useState(false);
+  const [imapTesting, setImapTesting] = useState(false);
+  const [imapTestResult, setImapTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const currentUrl = window.location.href;
 
@@ -334,6 +337,62 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
             value={formData.anthropicApiKey || ''}
             onChange={e => setFormData({ ...formData, anthropicApiKey: e.target.value })}
           />
+        </div>
+      </div>
+
+      {/* SERVIDOR DE CORREO */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="bg-blue-700 p-3 rounded-2xl text-white shadow-lg">
+            <Mail size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Servidor de Correo</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Módulo Correos · Conexión IMAP</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Servidor IMAP (gestrepara-imap en Railway)</label>
+          <div className="flex gap-3">
+            <input
+              type="url"
+              className="flex-1 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none"
+              placeholder="https://gestrepara-imap.railway.app"
+              value={formData.imapServerUrl || ''}
+              onChange={e => { setFormData({ ...formData, imapServerUrl: e.target.value }); setImapTestResult(null); }}
+            />
+            <button
+              type="button"
+              disabled={!formData.imapServerUrl || imapTesting}
+              onClick={async () => {
+                if (!formData.imapServerUrl) return;
+                setImapTesting(true);
+                setImapTestResult(null);
+                try {
+                  const res = await fetch(`${formData.imapServerUrl.replace(/\/$/, '')}/health`, { signal: AbortSignal.timeout(8000) });
+                  const json = await res.json();
+                  setImapTestResult(json.ok ? { ok: true, msg: 'Servidor conectado' } : { ok: false, msg: 'Respuesta inesperada' });
+                } catch (e: any) {
+                  setImapTestResult({ ok: false, msg: e.message || 'Error de conexión' });
+                } finally {
+                  setImapTesting(false);
+                }
+              }}
+              className="px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 shrink-0"
+            >
+              {imapTesting ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}
+              Probar
+            </button>
+          </div>
+          {imapTestResult && (
+            <p className={`text-[10px] font-black uppercase tracking-widest ml-1 ${imapTestResult.ok ? 'text-emerald-600' : 'text-red-500'}`}>
+              {imapTestResult.ok ? '✓' : '✗'} {imapTestResult.msg}
+            </p>
+          )}
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+            Despliega gestrepara-imap en Railway y pega aquí la URL pública del servicio
+          </p>
         </div>
       </div>
 

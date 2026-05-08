@@ -20,6 +20,7 @@ import Facturacion from './components/Facturacion';
 import Inventario from './components/Inventario';
 import EntradaStock from './components/EntradaStock';
 import Garantias from './components/Garantias';
+import Correos from './components/Correos';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
@@ -72,6 +73,8 @@ const App: React.FC = () => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [warranties, setWarranties] = useState<Warranty[]>([]);
+
+  const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -642,6 +645,18 @@ const App: React.FC = () => {
                 settings={settings}
                 inventoryItems={inventoryItems}
                 onNotify={notify}
+                onBack={() => navigateTo('dashboard')}
+                preFillData={preFillEntrada}
+                onPreFillConsumed={() => setPreFillEntrada(null)}
+              />
+            )}
+            {currentView === 'correos' && (
+              <Correos
+                settings={settings}
+                onImportarFactura={(datos) => {
+                  setPreFillEntrada(datos);
+                  navigateTo('inventory-entrada');
+                }}
                 onBack={() => navigateTo('dashboard')}
               />
             )}

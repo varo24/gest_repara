@@ -115,6 +115,7 @@ export interface AppSettings {
   legalTerms?: string;
   dashboardModules?: string[];
   warrantyMonths?: number;
+  imapServerUrl?: string;
 }
 
 export interface Customer {
@@ -136,7 +137,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
