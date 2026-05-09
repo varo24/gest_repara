@@ -34,7 +34,10 @@
       "Bash(git -C /d/github/gestion-pro/gestrepara-imap commit -m \"fix: versión correcta de @google/generative-ai \\(0.24.0\\)\")",
       "Bash(start https://railway.app/new)",
       "PowerShell(cd \"D:\\\\github\\\\gestion-pro\\\\gest_repara\"; npx tsc --noEmit 2>&1 | Select-String \"error TS\" | Where-Object { $_ -notmatch \"Cannot find module|implicitly has\" })",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "Bash(npx vite-bundle-visualizer *)",
+      "Bash(npx vite *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }
