@@ -162,6 +162,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   const [showProcesados, setShowProcesados]  = useState(false);
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
   const [searchQuery, setSearchQuery]        = useState('');
+  const [expandedLineas, setExpandedLineas]  = useState<Set<number>>(new Set());
 
   const cancelRef = useRef(false);
 
@@ -451,13 +452,19 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const handleImportFromList = (doc: AnalizadoDoc) => {
     if (!doc.datos_factura) return;
+    // Check exact match (same email + numero)
     const claveUnica = `${doc.emailUid}-${doc.datos_factura.numero_factura}`;
-    const existing = facturasImportadas[claveUnica];
-    if (existing) {
-      setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing });
-    } else {
-      doImport(doc.datos_factura, doc.emailUid, false);
+    if (facturasImportadas[claveUnica]) {
+      setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: facturasImportadas[claveUnica] });
+      return;
     }
+    // Check numero_factura across all imports (different email)
+    if (doc.datos_factura.numero_factura && importedNumeros.has(doc.datos_factura.numero_factura)) {
+      const existing = Object.values(facturasImportadas).find((imp: any) => imp.numeroFactura === doc.datos_factura!.numero_factura);
+      setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: existing || {} });
+      return;
+    }
+    doImport(doc.datos_factura, doc.emailUid, false);
   };
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -495,6 +502,15 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       .filter(d => d.es_factura)
       .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()),
   [correosAnalizados]);
+
+  // Set of all imported numero_factura values (for cross-email duplicate detection)
+  const importedNumeros = useMemo(() => {
+    const s = new Set<string>();
+    Object.values(facturasImportadas).forEach((imp: any) => {
+      if (imp.numeroFactura) s.add(imp.numeroFactura);
+    });
+    return s;
+  }, [facturasImportadas]);
 
   const toggleGroup = (key: string) =>
     setExpandedGroups(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
@@ -867,47 +883,90 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                   const isProcesado = !!procesados[String(doc.emailUid)];
                   const clave = `${doc.emailUid}-${doc.datos_factura?.numero_factura}`;
                   const yaImportada = doc.datos_factura ? !!facturasImportadas[clave] : false;
+                  const posibleDuplicado = !yaImportada && !!doc.datos_factura?.numero_factura && importedNumeros.has(doc.datos_factura.numero_factura);
+                  const tieneLineas = (doc.datos_factura?.lineas?.length ?? 0) > 0;
+                  const lineasExpanded = expandedLineas.has(doc.emailUid);
                   return (
-                    <div key={doc.emailUid} className={`flex items-start gap-4 px-6 py-4 ${isProcesado ? 'opacity-60' : ''}`}>
-                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-1" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <p className="text-sm font-bold text-slate-800 truncate">{doc.from}</p>
-                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Factura</span>
-                          {doc.tiene_adjunto_pdf
-                            ? <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">📎 PDF</span>
-                            : <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">📝 Texto</span>}
-                          {isProcesado && <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>}
-                          {yaImportada && !isProcesado && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">⚠ Ya importada</span>}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate mb-2">{doc.subject}</p>
-                        {doc.datos_factura && (
-                          <div className="flex items-center gap-4 flex-wrap">
-                            <span className="text-[10px] font-bold text-slate-700">{doc.datos_factura.proveedor}</span>
-                            <span className="text-[10px] text-slate-400">Nº {doc.datos_factura.numero_factura || '—'}</span>
-                            <span className="text-[10px] text-slate-400">{doc.datos_factura.fecha || '—'}</span>
-                            <span className="text-[10px] font-black text-slate-900">{(doc.datos_factura.total ?? 0).toFixed(2)} €</span>
+                    <div key={doc.emailUid} className={isProcesado ? 'opacity-60' : ''}>
+                      <div className="flex items-start gap-4 px-6 py-4">
+                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-1" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="text-sm font-bold text-slate-800 truncate">{doc.from}</p>
+                            <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Factura</span>
+                            {doc.tiene_adjunto_pdf
+                              ? <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">📎 PDF</span>
+                              : <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">📝 Texto</span>}
+                            {isProcesado && <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>}
+                            {yaImportada && !isProcesado && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">⚠ Ya importada</span>}
+                            {posibleDuplicado && <span className="text-[9px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full shrink-0">⚠️ Posible duplicado</span>}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <p className="text-[10px] text-slate-400 whitespace-nowrap">{fmtDate(doc.date)}</p>
-                        {doc.datos_factura && !isProcesado && (
+                          <p className="text-xs text-slate-500 truncate mb-1">{doc.subject}</p>
+                          {doc.datos_factura && (
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <span className="text-[10px] font-bold text-slate-700">{doc.datos_factura.proveedor}</span>
+                              <span className="text-[10px] text-slate-400">Nº {doc.datos_factura.numero_factura || '—'}</span>
+                              <span className="text-[10px] text-slate-400">{doc.datos_factura.fecha || '—'}</span>
+                              <span className="text-[10px] font-black text-slate-900">{(doc.datos_factura.total ?? 0).toFixed(2)} €</span>
+                              {tieneLineas && (
+                                <button
+                                  onClick={() => setExpandedLineas(prev => { const n = new Set(prev); n.has(doc.emailUid) ? n.delete(doc.emailUid) : n.add(doc.emailUid); return n; })}
+                                  className="flex items-center gap-1 text-[9px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                  {lineasExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                                  {doc.datos_factura.lineas.length} artículo{doc.datos_factura.lineas.length !== 1 ? 's' : ''}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <p className="text-[10px] text-slate-400 whitespace-nowrap">{fmtDate(doc.date)}</p>
+                          {doc.datos_factura && !isProcesado && (
+                            <button
+                              onClick={() => handleImportFromList(doc)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-lg text-[10px] font-black uppercase transition-all ${yaImportada || posibleDuplicado ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                            >
+                              <Package size={11} />
+                              {yaImportada ? 'Reimportar a Stock' : posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleImportFromList(doc)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-lg text-[10px] font-black uppercase transition-all ${yaImportada ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                            onClick={() => openEmail(doc.emailUid)}
+                            className="text-[9px] text-slate-400 hover:text-blue-600 transition-colors"
                           >
-                            <Package size={11} />
-                            {yaImportada ? 'Reimportar a Stock' : 'Importar a Stock'}
+                            Ver correo →
                           </button>
-                        )}
-                        <button
-                          onClick={() => openEmail(doc.emailUid)}
-                          className="text-[9px] text-slate-400 hover:text-blue-600 transition-colors"
-                        >
-                          Ver correo →
-                        </button>
+                        </div>
                       </div>
+                      {lineasExpanded && tieneLineas && (
+                        <div className="px-6 pb-4 bg-slate-50/60 border-t border-slate-100">
+                          <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-[9px] font-bold text-slate-400 uppercase">
+                                  <th className="text-left py-1.5 px-2">Descripción</th>
+                                  <th className="text-left py-1.5 px-2">Ref.</th>
+                                  <th className="text-center py-1.5 px-2">Cant.</th>
+                                  <th className="text-right py-1.5 px-2">P.Unit.</th>
+                                  <th className="text-right py-1.5 px-2">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {doc.datos_factura!.lineas.map((l, i) => (
+                                  <tr key={i} className="hover:bg-white/60">
+                                    <td className="py-1.5 px-2 font-medium text-slate-800">{l.descripcion}</td>
+                                    <td className="py-1.5 px-2 text-slate-400 font-mono text-[10px]">{l.referencia || '—'}</td>
+                                    <td className="py-1.5 px-2 text-center text-slate-600">{l.cantidad}</td>
+                                    <td className="py-1.5 px-2 text-right text-slate-600">{(l.precio_unitario ?? 0).toFixed(2)} €</td>
+                                    <td className="py-1.5 px-2 text-right font-bold text-slate-900">{((l.cantidad ?? 1) * (l.precio_unitario ?? 0)).toFixed(2)} €</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
