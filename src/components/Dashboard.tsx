@@ -1,13 +1,9 @@
 import React from 'react';
 import {
-  GiAutoRepair, GiGearStickPattern,
-  GiShield, GiCardboardBox, GiTruck, GiCalendar, GiChart
-} from 'react-icons/gi';
-import {
-  FaUserFriends, FaFileInvoiceDollar, FaClipboardCheck,
-  FaPuzzlePiece, FaSlidersH, FaCheckCircle, FaEnvelope
-} from 'react-icons/fa';
-import { MdElectricBolt } from 'react-icons/md';
+  Wrench, Settings2, Shield, Package, Truck, Calendar, BarChart2,
+  Users, Receipt, ClipboardCheck, Puzzle, SlidersHorizontal,
+  CheckCircle, Mail, Zap
+} from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
 
 interface DashboardProps {
@@ -38,86 +34,86 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   const todayCitas     = citas.filter(c => c.fecha?.startsWith(new Date().toISOString().slice(0, 10))).length;
 
   const stats = [
-    { label: 'Activas',      value: activeRepairs,  color: '#1976d2', icon: GiGearStickPattern, action: () => setView('repairs') },
-    { label: 'Listas',       value: readyRepairs,   color: '#2e7d32', icon: FaCheckCircle,      action: () => setView('despacho') },
-    { label: 'Presupuestos', value: pendingBudgets, color: '#7b1fa2', icon: FaClipboardCheck,   action: () => setView('budgets') },
-    { label: 'Citas hoy',    value: todayCitas,     color: '#f57f17', icon: GiCalendar,         action: () => setView('calendar') },
+    { label: 'Activas',      value: activeRepairs,  color: '#1976d2', icon: Settings2,          action: () => setView('repairs') },
+    { label: 'Listas',       value: readyRepairs,   color: '#2e7d32', icon: CheckCircle,        action: () => setView('despacho') },
+    { label: 'Presupuestos', value: pendingBudgets, color: '#7b1fa2', icon: ClipboardCheck,     action: () => setView('budgets') },
+    { label: 'Citas hoy',    value: todayCitas,     color: '#f57f17', icon: Calendar,           action: () => setView('calendar') },
   ];
 
   const allModules: Module[] = [
     {
       id: 'new-repair', label: 'Nueva Reparación', desc: 'Registrar entrada de equipo',
-      icon: GiAutoRepair, gradient: 'linear-gradient(135deg, #1565c0, #1976d2)', accentColor: '#1565c0',
+      icon: Wrench, gradient: 'linear-gradient(135deg, #1565c0, #1976d2)', accentColor: '#1565c0',
       action: onNewRepair,
     },
     {
       id: 'repairs', label: 'Reparaciones', desc: `${activeRepairs} activas en taller`,
-      icon: GiGearStickPattern, gradient: 'linear-gradient(135deg, #e65100, #f57c00)', accentColor: '#e65100',
+      icon: Settings2, gradient: 'linear-gradient(135deg, #e65100, #f57c00)', accentColor: '#e65100',
       action: () => setView('repairs'), badge: activeRepairs,
     },
     {
       id: 'despacho', label: 'Despacho', desc: `${readyRepairs} listos para entregar`,
-      icon: MdElectricBolt, gradient: 'linear-gradient(135deg, #2e7d32, #43a047)', accentColor: '#2e7d32',
+      icon: Zap, gradient: 'linear-gradient(135deg, #2e7d32, #43a047)', accentColor: '#2e7d32',
       action: () => setView('despacho'), badge: readyRepairs,
     },
     {
       id: 'budgets', label: 'Presupuestos', desc: `${pendingBudgets} pendientes`,
-      icon: FaClipboardCheck, gradient: 'linear-gradient(135deg, #6a1b9a, #8e24aa)', accentColor: '#6a1b9a',
+      icon: ClipboardCheck, gradient: 'linear-gradient(135deg, #6a1b9a, #8e24aa)', accentColor: '#6a1b9a',
       action: () => setView('budgets'),
     },
     {
       id: 'invoices', label: 'Facturas', desc: 'Emisión y cobro',
-      icon: FaFileInvoiceDollar, gradient: 'linear-gradient(135deg, #f57f17, #ffa000)', accentColor: '#f57f17',
+      icon: Receipt, gradient: 'linear-gradient(135deg, #f57f17, #ffa000)', accentColor: '#f57f17',
       action: () => setView('invoices'),
     },
     {
       id: 'customers', label: 'Clientes', desc: 'Agenda y ficha de cliente',
-      icon: FaUserFriends, gradient: 'linear-gradient(135deg, #00695c, #00897b)', accentColor: '#00695c',
+      icon: Users, gradient: 'linear-gradient(135deg, #00695c, #00897b)', accentColor: '#00695c',
       action: () => setView('customers'),
     },
     {
       id: 'inventory', label: 'Inventario', desc: 'Stock de piezas',
-      icon: GiCardboardBox, gradient: 'linear-gradient(135deg, #4e342e, #6d4c41)', accentColor: '#4e342e',
+      icon: Package, gradient: 'linear-gradient(135deg, #4e342e, #6d4c41)', accentColor: '#4e342e',
       action: () => setView('inventory'),
     },
     {
       id: 'inventory-entrada', label: 'Entrada Stock', desc: 'Registrar entradas de almacén',
-      icon: GiTruck, gradient: 'linear-gradient(135deg, #1a237e, #283593)', accentColor: '#1a237e',
+      icon: Truck, gradient: 'linear-gradient(135deg, #1a237e, #283593)', accentColor: '#1a237e',
       action: () => setView('inventory-entrada'),
     },
     {
       id: 'garantias', label: 'Garantías', desc: 'Control de vencimientos',
-      icon: GiShield, gradient: 'linear-gradient(135deg, #b71c1c, #c62828)', accentColor: '#b71c1c',
+      icon: Shield, gradient: 'linear-gradient(135deg, #b71c1c, #c62828)', accentColor: '#b71c1c',
       action: () => setView('garantias'),
     },
     {
       id: 'correos', label: 'Correos/Facturas', desc: 'Bandeja IMAP y facturas proveedor',
-      icon: FaEnvelope, gradient: 'linear-gradient(135deg, #01579b, #0277bd)', accentColor: '#01579b',
+      icon: Mail, gradient: 'linear-gradient(135deg, #01579b, #0277bd)', accentColor: '#01579b',
       action: () => setView('correos'),
     },
     {
       id: 'archivo-facturas', label: 'Archivo Facturas', desc: 'Historial de facturas proveedor',
-      icon: FaFileInvoiceDollar, gradient: 'linear-gradient(135deg, #0277bd, #0288d1)', accentColor: '#0288d1',
+      icon: Receipt, gradient: 'linear-gradient(135deg, #0277bd, #0288d1)', accentColor: '#0288d1',
       action: () => setView('archivo-facturas'),
     },
     {
       id: 'calendar', label: 'Planificador', desc: `${todayCitas} citas hoy`,
-      icon: GiCalendar, gradient: 'linear-gradient(135deg, #1b5e20, #2e7d32)', accentColor: '#1b5e20',
+      icon: Calendar, gradient: 'linear-gradient(135deg, #1b5e20, #2e7d32)', accentColor: '#1b5e20',
       action: () => setView('calendar'),
     },
     {
       id: 'stats', label: 'Rendimiento', desc: 'Estadísticas del taller',
-      icon: GiChart, gradient: 'linear-gradient(135deg, #37474f, #455a64)', accentColor: '#37474f',
+      icon: BarChart2, gradient: 'linear-gradient(135deg, #37474f, #455a64)', accentColor: '#37474f',
       action: () => setView('stats'),
     },
     {
       id: 'external-apps', label: 'Módulos Ext.', desc: 'Aplicaciones integradas',
-      icon: FaPuzzlePiece, gradient: 'linear-gradient(135deg, #4a148c, #6a1b9a)', accentColor: '#4a148c',
+      icon: Puzzle, gradient: 'linear-gradient(135deg, #4a148c, #6a1b9a)', accentColor: '#4a148c',
       action: () => setView('external-apps'),
     },
     {
       id: 'settings', label: 'Ajustes', desc: 'Configuración del sistema',
-      icon: FaSlidersH, gradient: 'linear-gradient(135deg, #263238, #37474f)', accentColor: '#263238',
+      icon: SlidersHorizontal, gradient: 'linear-gradient(135deg, #263238, #37474f)', accentColor: '#263238',
       action: () => setView('settings'),
     },
   ];
