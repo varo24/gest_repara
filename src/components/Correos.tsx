@@ -163,6 +163,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
   const [searchQuery, setSearchQuery]        = useState('');
   const [expandedLineas, setExpandedLineas]  = useState<Set<number>>(new Set());
+  const [facturasFilter, setFacturasFilter]  = useState<'all' | 'pendientes' | 'importados'>('all');
 
   const cancelRef = useRef(false);
 
@@ -512,6 +513,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     return s;
   }, [facturasImportadas]);
 
+  // Emails with attachments not yet analyzed — shown in FACTURAS tab when filter='pendientes'
+  const pendingEmails = useMemo(() =>
+    emails.filter(e => e.tiene_adjuntos && !correosAnalizados[String(e.uid)]),
+  [emails, correosAnalizados]);
+
+  // Facturas list filtered by the active stat card selection
+  const filteredFacturas = useMemo(() => {
+    if (facturasFilter === 'importados') return facturasFromCache.filter(d => !!procesados[String(d.emailUid)]);
+    return facturasFromCache;
+  }, [facturasFilter, facturasFromCache, procesados]);
+
   const toggleGroup = (key: string) =>
     setExpandedGroups(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
@@ -781,17 +793,34 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: 'Total correos',       value: emails.length,                      color: 'text-slate-900' },
-          { label: 'Pendientes de analizar', value: pendingCount,                       color: 'text-blue-600' },
-          { label: 'Facturas detectadas', value: facturasFromCache.length,                          color: 'text-emerald-600' },
-          { label: 'Importados',          value: Object.keys(procesados).length,     color: 'text-violet-600' },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-            <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
+        <button
+          onClick={() => { setTab('bandeja'); setFacturasFilter('all'); }}
+          className="bg-white rounded-2xl border border-slate-100 p-5 text-left hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+        >
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total correos</p>
+          <p className="text-2xl font-black text-slate-900">{emails.length}</p>
+        </button>
+        <button
+          onClick={() => { setTab('facturas'); setFacturasFilter('pendientes'); }}
+          className="bg-white rounded-2xl border border-slate-100 p-5 text-left hover:border-blue-200 hover:bg-blue-50/40 transition-all cursor-pointer"
+        >
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pendientes de analizar</p>
+          <p className="text-2xl font-black text-blue-600">{pendingCount}</p>
+        </button>
+        <button
+          onClick={() => { setTab('facturas'); setFacturasFilter('all'); }}
+          className="bg-white rounded-2xl border border-slate-100 p-5 text-left hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer"
+        >
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Facturas detectadas</p>
+          <p className="text-2xl font-black text-emerald-600">{facturasFromCache.length}</p>
+        </button>
+        <button
+          onClick={() => { setShowProcesados(true); setTab('facturas'); setFacturasFilter('importados'); }}
+          className="bg-white rounded-2xl border border-slate-100 p-5 text-left hover:border-violet-200 hover:bg-violet-50/40 transition-all cursor-pointer"
+        >
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importados</p>
+          <p className="text-2xl font-black text-violet-600">{Object.keys(procesados).length}</p>
+        </button>
       </div>
 
       {/* Controls */}
@@ -848,7 +877,57 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       {/* ── PESTAÑA FACTURAS ─────────────────────────────────────────────── */}
       {tab === 'facturas' ? (
         <div className="space-y-3">
-          {loadingFacturas && facturasFromCache.length === 0 ? (
+
+          {/* Active filter pill */}
+          {facturasFilter !== 'all' && (
+            <div className="flex items-center gap-2">
+              <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${facturasFilter === 'pendientes' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
+                {facturasFilter === 'pendientes' ? `📋 Pendientes de analizar (${pendingEmails.length})` : `✓ Importados (${filteredFacturas.length})`}
+              </span>
+              <button onClick={() => setFacturasFilter('all')} className="text-[10px] text-slate-400 hover:text-slate-700 font-bold transition-colors">
+                × Ver todos
+              </button>
+            </div>
+          )}
+
+          {/* PENDIENTES filter view */}
+          {facturasFilter === 'pendientes' ? (
+            pendingEmails.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
+                <CheckCircle2 size={32} className="text-emerald-200 mx-auto mb-3" />
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Sin pendientes</p>
+                <p className="text-[10px] text-slate-300 mt-1">Todos los correos con adjunto han sido analizados</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                  <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
+                    {pendingEmails.length} correo{pendingEmails.length !== 1 ? 's' : ''} con adjunto pendiente{pendingEmails.length !== 1 ? 's' : ''} de analizar
+                  </p>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {pendingEmails.map(email => (
+                    <div key={email.uid} className="flex items-center gap-4 px-6 py-3">
+                      <Paperclip size={13} className="text-blue-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate">{email.from}</p>
+                        <p className="text-xs text-slate-500 truncate">{email.subject}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] text-slate-400 mb-1">{fmtDate(email.date)}</p>
+                        <button
+                          onClick={() => openEmail(email.uid)}
+                          className="text-[9px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-wide transition-colors"
+                        >
+                          Analizar →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ) : loadingFacturas && facturasFromCache.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center space-y-3">
               <RefreshCw size={24} className="text-amber-400 mx-auto animate-spin" />
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Analizando facturas… esto puede tardar unos segundos</p>
@@ -857,10 +936,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                 <div className="h-full bg-amber-400 rounded-full animate-pulse w-2/3" />
               </div>
             </div>
-          ) : facturasFromCache.length === 0 ? (
+          ) : filteredFacturas.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
               <FileText size={32} className="text-slate-200 mx-auto mb-3" />
-              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Sin facturas detectadas</p>
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
+                {facturasFilter === 'importados' ? 'Sin facturas importadas' : 'Sin facturas detectadas'}
+              </p>
               <p className="text-[10px] text-slate-300 mt-1">Pulsa "Reanalizar" para buscar de nuevo en los últimos {imapDays} días</p>
             </div>
           ) : (
@@ -879,7 +960,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                 </div>
               ) : null}
               <div className="divide-y divide-slate-50">
-                {(facturasFromCache || []).map(doc => {
+                {(filteredFacturas || []).map(doc => {
                   const isProcesado = !!procesados[String(doc.emailUid)];
                   const clave = `${doc.emailUid}-${doc.datos_factura?.numero_factura}`;
                   const yaImportada = doc.datos_factura ? !!facturasImportadas[clave] : false;
