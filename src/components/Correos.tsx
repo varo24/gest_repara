@@ -275,8 +275,10 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         );
         setEmails(prev => prev.map(e => facturaUids.has(e.uid) ? { ...e, es_factura: true } : e));
       }
-    } catch { /* silent */ }
-    finally { setLoadingFacturas(false); }
+    } catch {
+      // On error, ensure facturaProgress is never left as null so the tab renders safely
+      setFacturaProgress(prev => prev ?? { analizados: 0, total: 0, facturas: 0 });
+    } finally { setLoadingFacturas(false); }
   }, [serverUrl, apiKey, imapDays]);
 
   useEffect(() => {
@@ -861,7 +863,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                 </div>
               ) : null}
               <div className="divide-y divide-slate-50">
-                {facturasFromCache.map(doc => {
+                {(facturasFromCache || []).map(doc => {
                   const isProcesado = !!procesados[String(doc.emailUid)];
                   const clave = `${doc.emailUid}-${doc.datos_factura?.numero_factura}`;
                   const yaImportada = doc.datos_factura ? !!facturasImportadas[clave] : false;
