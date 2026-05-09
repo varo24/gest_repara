@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Warranty, RepairItem, AppSettings } from '../types';
 import { storage, localDB } from '../lib/dataService';
-import { printInvoice } from './Facturacion';
+import { printInvoice } from '../lib/printInvoice';
 
 interface GarantiasProps {
   warranties: Warranty[];

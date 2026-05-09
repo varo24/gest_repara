@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StatsView from './components/StatsView';
@@ -15,12 +15,12 @@ import CalendarView from './components/CalendarView';
 import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
 import Despacho from './components/Despacho';
-import Facturacion from './components/Facturacion';
-import Inventario from './components/Inventario';
-import EntradaStock from './components/EntradaStock';
-import Garantias from './components/Garantias';
-import Correos from './components/Correos';
-import ArchivoFacturas from './components/ArchivoFacturas';
+const Facturacion    = lazy(() => import('./components/Facturacion'));
+const Inventario     = lazy(() => import('./components/Inventario'));
+const EntradaStock   = lazy(() => import('./components/EntradaStock'));
+const Garantias      = lazy(() => import('./components/Garantias'));
+const Correos        = lazy(() => import('./components/Correos'));
+const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
@@ -28,6 +28,12 @@ import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from '
 import { Loader2, FileText, Ticket } from 'lucide-react';
 
 const APP_VERSION = '6.6.0 UNIFIED';
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+  </div>
+);
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'ReparaPro Master',
@@ -616,63 +622,75 @@ const App: React.FC = () => {
               />
             )}
             {currentView === 'invoices' && (
-              <Facturacion
-                settings={settings}
-                customers={customersDB}
-                invoices={invoices}
-                inventoryItems={inventoryItems}
-                onBack={() => navigateTo('dashboard')}
-                onNotify={notify}
-                onSaveCustomer={async (customer) => {
-                  await storage.save('customers', customer.id, customer);
-                  notify('success', `${customer.name} guardado en la agenda`);
-                }}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <Facturacion
+                  settings={settings}
+                  customers={customersDB}
+                  invoices={invoices}
+                  inventoryItems={inventoryItems}
+                  onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
+                  onSaveCustomer={async (customer) => {
+                    await storage.save('customers', customer.id, customer);
+                    notify('success', `${customer.name} guardado en la agenda`);
+                  }}
+                />
+              </Suspense>
             )}
             {currentView === 'inventory' && (
-              <Inventario
-                settings={settings}
-                inventoryItems={inventoryItems}
-                stockMovements={stockMovements}
-                onBack={() => navigateTo('dashboard')}
-                onNotify={notify}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <Inventario
+                  settings={settings}
+                  inventoryItems={inventoryItems}
+                  stockMovements={stockMovements}
+                  onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
+                />
+              </Suspense>
             )}
             {currentView === 'inventory-entrada' && (
-              <EntradaStock
-                settings={settings}
-                inventoryItems={inventoryItems}
-                onNotify={notify}
-                onBack={() => navigateTo('dashboard')}
-                preFillData={preFillEntrada}
-                onPreFillConsumed={() => setPreFillEntrada(null)}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <EntradaStock
+                  settings={settings}
+                  inventoryItems={inventoryItems}
+                  onNotify={notify}
+                  onBack={() => navigateTo('dashboard')}
+                  preFillData={preFillEntrada}
+                  onPreFillConsumed={() => setPreFillEntrada(null)}
+                />
+              </Suspense>
             )}
             {currentView === 'correos' && (
-              <Correos
-                settings={settings}
-                onImportToStock={(datos) => {
-                  setPreFillEntrada(datos);
-                  navigateTo('inventory-entrada');
-                }}
-                onBack={() => navigateTo('dashboard')}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <Correos
+                  settings={settings}
+                  onImportToStock={(datos) => {
+                    setPreFillEntrada(datos);
+                    navigateTo('inventory-entrada');
+                  }}
+                  onBack={() => navigateTo('dashboard')}
+                />
+              </Suspense>
             )}
             {currentView === 'archivo-facturas' && (
-              <ArchivoFacturas
-                settings={settings}
-                onBack={() => navigateTo('dashboard')}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <ArchivoFacturas
+                  settings={settings}
+                  onBack={() => navigateTo('dashboard')}
+                />
+              </Suspense>
             )}
             {currentView === 'garantias' && (
-              <Garantias
-                warranties={warranties}
-                repairs={repairs}
-                settings={settings}
-                onBack={() => navigateTo('dashboard')}
-                onNotify={notify}
-                onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
-              />
+              <Suspense fallback={<LazyFallback />}>
+                <Garantias
+                  warranties={warranties}
+                  repairs={repairs}
+                  settings={settings}
+                  onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
+                  onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+                />
+              </Suspense>
             )}
           </>
         )}

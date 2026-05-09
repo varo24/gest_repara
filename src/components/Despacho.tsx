@@ -3,7 +3,7 @@ import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-r
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock } from '../lib/inventoryService';
-import { printInvoice } from './Facturacion';
+import { printInvoice } from '../lib/printInvoice';
 
 interface DespachoProps {
   repairs: RepairItem[];
