@@ -139,7 +139,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 

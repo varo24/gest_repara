@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
+import { uploadFacturaPDF } from '../lib/storageService';
 
 interface EmailSummary {
   uid: number;
@@ -424,6 +425,14 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   };
 
   // ── Import with anti-duplicate check ─────────────────────────────────────
+  const getPdfBase64 = (): string | undefined => {
+    if (!selected?.attachments) return undefined;
+    const pdf = selected.attachments.find(a =>
+      a.contentType === 'application/pdf' || (a.filename || '').toLowerCase().endsWith('.pdf')
+    );
+    return pdf?.data;
+  };
+
   const handleImportClick = (datos: DatosFactura) => {
     if (!selected) return;
     const claveUnica = `${selected.uid}-${datos.numero_factura}`;
@@ -431,14 +440,21 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (existing) {
       setDupeModal({ datos, emailUid: selected.uid, existing });
     } else {
-      doImport(datos, selected.uid, false);
+      doImport(datos, selected.uid, false, getPdfBase64());
     }
   };
 
-  const doImport = (datos: DatosFactura, emailUid: number, forzado: boolean) => {
+  const doImport = async (datos: DatosFactura, emailUid: number, forzado: boolean, pdfBase64?: string) => {
     const now = new Date().toISOString();
     const claveUnica = `${emailUid}-${datos.numero_factura}`;
     const importId = `IMP-${Date.now()}`;
+
+    let pdfUrl: string | undefined;
+    if (pdfBase64) {
+      try {
+        pdfUrl = await uploadFacturaPDF(pdfBase64, datos.proveedor, datos.numero_factura, datos.fecha);
+      } catch { /* upload failure is non-blocking */ }
+    }
 
     storage.save('facturas_importadas', importId, {
       id: importId,
@@ -451,6 +467,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       lineas: datos.lineas,
       importadoEn: now,
       forzado,
+      pdfUrl,
     });
 
     storage.save('correos_procesados', `PROC-${emailUid}`, {
@@ -616,7 +633,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                   Cancelar
                 </button>
                 <button
-                  onClick={() => doImport(dupeModal.datos, dupeModal.emailUid, true)}
+                  onClick={() => doImport(dupeModal.datos, dupeModal.emailUid, true, getPdfBase64())}
                   className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 transition-all"
                 >
                   Importar igualmente

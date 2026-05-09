@@ -96,6 +96,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       action: () => setView('correos'),
     },
     {
+      id: 'archivo-facturas', label: 'Archivo Facturas', desc: 'Historial de facturas proveedor',
+      icon: FaFileInvoiceDollar, gradient: 'linear-gradient(135deg, #0277bd, #0288d1)', accentColor: '#0288d1',
+      action: () => setView('archivo-facturas'),
+    },
+    {
       id: 'calendar', label: 'Planificador', desc: `${todayCitas} citas hoy`,
       icon: GiCalendar, gradient: 'linear-gradient(135deg, #1b5e20, #2e7d32)', accentColor: '#1b5e20',
       action: () => setView('calendar'),

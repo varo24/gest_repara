@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrrv6HYM-0MVxHOaoWbeJMFmQL54l3I3A",
@@ -14,3 +15,4 @@ console.log('[Firebase] Initializing — project:', firebaseConfig.projectId, '|
 
 export const firebaseApp = initializeApp(firebaseConfig, 'gestrepara-main')
 export const db = getFirestore(firebaseApp, 'gestrepara')
+export const fbStorage = getStorage(firebaseApp)

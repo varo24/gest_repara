@@ -21,6 +21,7 @@ import Inventario from './components/Inventario';
 import EntradaStock from './components/EntradaStock';
 import Garantias from './components/Garantias';
 import Correos from './components/Correos';
+import ArchivoFacturas from './components/ArchivoFacturas';
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
@@ -657,6 +658,12 @@ const App: React.FC = () => {
                   setPreFillEntrada(datos);
                   navigateTo('inventory-entrada');
                 }}
+                onBack={() => navigateTo('dashboard')}
+              />
+            )}
+            {currentView === 'archivo-facturas' && (
+              <ArchivoFacturas
+                settings={settings}
                 onBack={() => navigateTo('dashboard')}
               />
             )}
