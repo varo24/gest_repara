@@ -4,27 +4,10 @@ import {
   XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil,
   ChevronDown, ChevronRight, Layers
 } from 'lucide-react';
-import { AppSettings, InventoryItem } from '../types';
+import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborItem } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock, devolverStock } from '../lib/inventoryService';
 
-interface InvoiceLine { id: string; description: string; quantity: number; unitPrice: number; inventoryItemId?: string; }
-interface LaborLine  { id: string; description: string; hours: number; hourlyRate: number; }
-
-interface FullInvoice {
-  id: string; invoiceNumber: string;
-  repairId?: string; rmaNumber?: number;
-  customerName: string; customerPhone: string; customerTaxId?: string; customerAddress?: string;
-  date: string;
-  items: InvoiceLine[]; laborItems: LaborLine[];
-  subtotal: number; taxRate: number; taxAmount: number; total: number;
-  status: 'pendiente' | 'cobrada' | 'anulada';
-  payMethod?: string; paidAt?: string;
-  isRectificativa?: boolean; createdAt: string;
-  stockDescontado?: boolean;
-}
-
-interface Customer { id: string; name: string; phone: string; city?: string; address?: string; email?: string; taxId?: string; }
 interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; onBack?: () => void; }
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -40,7 +23,7 @@ const fmtDate  = (iso: string) => iso ? new Date(iso).toLocaleDateString('es-ES'
 const fmtRMA   = (n: number)   => `RMA-${String(n).padStart(5, '0')}`;
 const uid      = ()             => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
 
-const PAY_METHODS = ['efectivo','tarjeta','bizum','transferencia'];
+const PAY_METHODS = ['efectivo','tarjeta','bizum','transferencia'] as const;
 const PAY_LABELS: Record<string,string> = { efectivo:'Efectivo', tarjeta:'Tarjeta', bizum:'Bizum', transferencia:'Transferencia' };
 const STATUS_STYLE: Record<string,string> = {
   cobrada:  'bg-emerald-50 text-emerald-700',
@@ -1117,8 +1100,8 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
   const [customerAddress, setCustomerAddress] = useState(initialInvoice?.customerAddress || '');
   const [taxEnabled, setTaxEnabled]         = useState(isEditing ? (initialInvoice!.taxRate || 0) > 0 : true);
   const [taxRate, setTaxRate]               = useState(isEditing && (initialInvoice!.taxRate || 0) > 0 ? initialInvoice!.taxRate : settings.taxRate || 21);
-  const [items, setItems]                   = useState<InvoiceLine[]>(initialInvoice?.items?.length ? initialInvoice.items : [{ id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
-  const [laborItems, setLaborItems]         = useState<LaborLine[]>(initialInvoice?.laborItems || []);
+  const [items, setItems]                   = useState<BudgetItem[]>(initialInvoice?.items?.length ? initialInvoice.items : [{ id: uid(), description: '', quantity: 1, unitPrice: 0 }]);
+  const [laborItems, setLaborItems]         = useState<LaborItem[]>(initialInvoice?.laborItems || []);
   const [status, setStatus]                 = useState<'pendiente'|'cobrada'>(initialInvoice?.status === 'cobrada' ? 'cobrada' : 'pendiente');
   const [payMethod, setPayMethod]           = useState(initialInvoice?.payMethod || 'efectivo');
   const [notes, setNotes]                   = useState('');

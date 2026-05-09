@@ -52,7 +52,7 @@ export interface FieldNote {
 
 export interface BudgetItem {
   id: string;
-  repairId: string;
+  repairId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -83,19 +83,6 @@ export interface Budget {
   customerName?: string;
   customerPhone?: string;
   customerTaxId?: string;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  customerName: string;
-  customerPhone: string;
-  date: string;
-  items: BudgetItem[];
-  laborItems: LaborItem[];
-  subtotal: number;
-  taxAmount: number;
-  total: number;
 }
 
 export interface AppSettings {
@@ -234,6 +221,8 @@ export interface FullInvoice {
   rmaNumber?: number;
   customerName: string;
   customerPhone: string;
+  customerAddress?: string;
+  customerTaxId?: string;
   date: string;
   items: BudgetItem[];
   laborItems: LaborItem[];
@@ -245,5 +234,6 @@ export interface FullInvoice {
   payMethod?: 'efectivo' | 'tarjeta' | 'bizum' | 'transferencia';
   paidAt?: string;
   isRectificativa?: boolean;
+  stockDescontado?: boolean;
   createdAt: string;
 }
