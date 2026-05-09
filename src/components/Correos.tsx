@@ -223,14 +223,24 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     } finally { setLoadingList(false); }
   }, [serverUrl, apiKey, imapDays]);
 
-  const fetchFacturas = useCallback(async () => {
+  const fetchFacturas = useCallback(async (force = false) => {
     if (!serverUrl) return;
     setLoadingFacturas(true);
     setFacturaProgress(null);
     try {
-      const skipParam = Object.keys(correosAnalizadosRef.current).join(',');
+      // Only skip UIDs analyzed in the last 24h — older entries get re-analyzed
+      // (catches invoices Gemini may have missed previously)
+      // force=true (REANALIZAR button) bypasses all skipping
+      const TTL_MS = 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - TTL_MS;
+      const skipUids = force
+        ? []
+        : Object.values(correosAnalizadosRef.current)
+            .filter(d => new Date(d.analyzedAt).getTime() > cutoff)
+            .map(d => String(d.emailUid));
+
       const params = new URLSearchParams({ days: String(imapDays) });
-      if (skipParam) params.set('skip', skipParam);
+      if (skipUids.length) params.set('skip', skipUids.join(','));
       const r = await fetch(`${serverUrl}/emails/facturas?${params}`, {
         headers: { 'x-api-key': apiKey },
         signal: AbortSignal.timeout(180000),
@@ -238,6 +248,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       if (!r.ok) return;
       const data = await r.json();
       const now = new Date().toISOString();
+      // Save ALL analyzed results to cache (including es_factura:false) so they are
+      // properly skipped on the next call within 24h
       for (const result of (data.results || [])) {
         storage.save('correos_analizados', `ANAL-${result.uid}`, {
           id: `ANAL-${result.uid}`,
@@ -255,7 +267,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setFacturaProgress({
         analizados: data.analizados ?? 0,
         total: data.total_candidatos ?? 0,
-        facturas: data.facturas ?? 0,
+        facturas: (data.facturas as any[])?.length ?? 0,
       });
       if (data.results?.length) {
         const facturaUids = new Set(
@@ -804,12 +816,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
         {tab === 'facturas' && (
           <button
-            onClick={fetchFacturas}
+            onClick={() => fetchFacturas(true)}
             disabled={loadingFacturas}
             className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white rounded-xl text-xs font-black uppercase transition-all shadow-sm"
           >
             {loadingFacturas
-              ? <><RefreshCw size={12} className="animate-spin" /> Analizando correos…</>
+              ? <><RefreshCw size={12} className="animate-spin" /> Analizando facturas…</>
               : <><Play size={12} /> Reanalizar</>}
           </button>
         )}
@@ -821,8 +833,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           {loadingFacturas && facturasFromCache.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center space-y-3">
               <RefreshCw size={24} className="text-amber-400 mx-auto animate-spin" />
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Detectando facturas…</p>
-              <p className="text-[10px] text-slate-400">Analizando correos de los últimos {imapDays} días con IA</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Analizando facturas… esto puede tardar unos segundos</p>
+              <p className="text-[10px] text-slate-400">Procesando correos de los últimos {imapDays} días con IA</p>
               <div className="mx-auto w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full bg-amber-400 rounded-full animate-pulse w-2/3" />
               </div>
