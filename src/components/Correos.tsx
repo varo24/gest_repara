@@ -271,18 +271,85 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (serverUrl) { fetchEmails(); fetchFacturas(); }
   }, [serverUrl, imapDays]); // eslint-disable-line
 
+  const saveToCache = (uid: number, data: any, datos: DatosFactura | null, viaPdf: boolean) => {
+    const hasPdf = (data.attachments || []).some((a: any) =>
+      a.contentType === 'application/pdf' || (a.filename || '').toLowerCase().endsWith('.pdf')
+    );
+    storage.save('correos_analizados', `ANAL-${uid}`, {
+      id: `ANAL-${uid}`,
+      emailUid: uid,
+      es_factura: datos !== null,
+      from: data.from,
+      subject: data.subject,
+      date: data.date,
+      datos_factura: datos,
+      tiene_adjunto_pdf: hasPdf,
+      analizado_via: viaPdf ? 'pdf' : 'texto',
+      analyzedAt: new Date().toISOString(),
+    });
+  };
+
   const openEmail = async (uid: number) => {
     if (!serverUrl) return;
-    setLoadingDetail(true); setSelected(null);
+    setLoadingDetail(true); setSelected(null); setError('');
+
+    let emailData: any;
     try {
       const r = await fetch(`${serverUrl}/emails/${uid}`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
-      const data = await r.json();
-      setSelected(data);
-      setEmails(prev => prev.map(e => e.uid === uid ? { ...e, seen: true, es_factura: data.es_factura } : e));
+      emailData = await r.json();
     } catch (e: any) {
       setError(e.message || 'Error al cargar email');
-    } finally { setLoadingDetail(false); }
+      setLoadingDetail(false);
+      return;
+    }
+
+    setSelected(emailData);
+    setEmails(prev => prev.map(e => e.uid === uid ? { ...e, seen: true, es_factura: emailData.es_factura } : e));
+    setLoadingDetail(false); // show email immediately — PDF analysis runs in background
+
+    // If body analysis already found a factura, cache and done
+    if (emailData.es_factura && emailData.datos_factura) {
+      saveToCache(uid, emailData, emailData.datos_factura, false);
+      return;
+    }
+
+    // Auto-analyze the first PDF attachment
+    const pdfAtt = (emailData.attachments || []).find((a: any) =>
+      a.contentType === 'application/pdf' || (a.filename || '').toLowerCase().endsWith('.pdf')
+    );
+    if (!pdfAtt) return;
+
+    setAnalyzingAtt(pdfAtt.filename);
+    try {
+      const ar = await fetch(`${serverUrl}/analyze-attachment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({ filename: pdfAtt.filename, contentType: pdfAtt.contentType, data: pdfAtt.data }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!ar.ok) return;
+      const result = await ar.json();
+      const a = result.analysis || {};
+      if (result.ok && a.es_factura) {
+        const datos: DatosFactura = {
+          proveedor:      a.proveedor      || '',
+          numero_factura: a.numero_factura || '',
+          fecha:          a.fecha          || '',
+          total:          a.total          || 0,
+          lineas: (a.lineas || []).map((l: any) => ({
+            descripcion:     l.descripcion     || '',
+            referencia:      l.referencia      || '',
+            cantidad:        l.cantidad        || 1,
+            precio_unitario: l.precio_unitario || 0,
+          })),
+        };
+        setSelected(prev => prev ? { ...prev, es_factura: true, datos_factura: datos } : prev);
+        setEmails(prev => prev.map(e => e.uid === uid ? { ...e, es_factura: true } : e));
+        saveToCache(uid, emailData, datos, true);
+      }
+    } catch { /* silent */ }
+    finally { setAnalyzingAtt(null); }
   };
 
   const analyzeAttachment = async (att: Attachment) => {
@@ -315,6 +382,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         setSelected(prev => prev ? { ...prev, es_factura: true, datos_factura: datos } : prev);
         if (currentUid != null) {
           setEmails(prev => prev.map(e => e.uid === currentUid ? { ...e, es_factura: true } : e));
+          if (selected) saveToCache(currentUid, selected, datos, true);
         }
       } else {
         setError(result.error || 'El adjunto no parece una factura de proveedor');
@@ -443,7 +511,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   // ── Detail panel ──────────────────────────────────────────────────────────
   if (selected) {
-    const attachments = selected.attachments || [];
+    // Show only PDFs — hide decorative image logos/icons (images < 50 KB)
+    const attachments = (selected.attachments || []).filter((a: Attachment) =>
+      a.contentType === 'application/pdf' ||
+      (a.filename || '').toLowerCase().endsWith('.pdf') ||
+      (a.contentType.startsWith('image/') && a.size >= 50 * 1024)
+    );
     const isProcesado = !!procesados[String(selected.uid)];
     const claveUnica = `${selected.uid}-${selected.datos_factura?.numero_factura}`;
     const yaImportada = selected.datos_factura ? !!facturasImportadas[claveUnica] : false;
@@ -681,7 +754,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         {[
           { label: 'Total correos',       value: emails.length,                      color: 'text-slate-900' },
           { label: 'Pendientes de analizar', value: pendingCount,                       color: 'text-blue-600' },
-          { label: 'Facturas detectadas', value: emails.filter(e => e.es_factura === true).length, color: 'text-emerald-600' },
+          { label: 'Facturas detectadas', value: facturasFromCache.length,                          color: 'text-emerald-600' },
           { label: 'Importados',          value: Object.keys(procesados).length,     color: 'text-violet-600' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5">
