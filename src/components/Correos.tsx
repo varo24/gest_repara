@@ -69,6 +69,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const [correosAnalizados, setCorreosAnalizados] = useState<Record<string, AnalizadoDoc>>({});
   const correosAnalizadosRef = useRef<Record<string, AnalizadoDoc>>({});
+  const pdfCacheRef = useRef<Map<number, { base64: string; filename: string }>>(new Map());
+  const [importingUid, setImportingUid] = useState<number | null>(null);
   const [facturasImportadas, setFacturasImportadas] = useState<Record<string, any>>({});
   const [facturasDescartadas, setFacturasDescartadas] = useState<Record<string, any>>({});
   const facturasDescartadasRef = useRef<Record<string, any>>({});
@@ -141,6 +143,14 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           analyzedAt: now,
         });
       }
+      for (const f of (data.facturas || []) as any[]) {
+        if (f.attachment_base64 && f.uid) {
+          pdfCacheRef.current.set(Number(f.uid), {
+            base64: f.attachment_base64,
+            filename: f.attachment_filename || 'factura.pdf',
+          });
+        }
+      }
       setProgress({
         analizados: data.analizados ?? 0,
         total: data.total_candidatos ?? 0,
@@ -196,8 +206,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     onImportToStock(datos);
   };
 
-  const handleImport = (doc: AnalizadoDoc) => {
-    if (!doc.datos_factura) return;
+  const handleImport = async (doc: AnalizadoDoc) => {
+    if (!doc.datos_factura || importingUid !== null) return;
     const claveUnica = `${doc.emailUid}-${doc.datos_factura.numero_factura}`;
     if (facturasImportadas[claveUnica]) {
       setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: facturasImportadas[claveUnica] });
@@ -208,7 +218,11 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: existing || {} });
       return;
     }
-    doImport(doc.datos_factura, doc.emailUid, false);
+    const pdfData = pdfCacheRef.current.get(doc.emailUid);
+    setImportingUid(doc.emailUid);
+    try {
+      await doImport(doc.datos_factura, doc.emailUid, false, pdfData?.base64);
+    } finally { setImportingUid(null); }
   };
 
   const doDescartar = (doc: AnalizadoDoc) => {
@@ -338,7 +352,18 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
             </div>
             <div className="flex gap-3">
               <button onClick={() => setDupeModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
-              <button onClick={() => doImport(dupeModal.datos, dupeModal.emailUid, true)} className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 transition-all">Importar</button>
+              <button
+                onClick={async () => {
+                  const pdfData = pdfCacheRef.current.get(dupeModal.emailUid);
+                  setImportingUid(dupeModal.emailUid);
+                  try { await doImport(dupeModal.datos, dupeModal.emailUid, true, pdfData?.base64); }
+                  finally { setImportingUid(null); }
+                }}
+                disabled={importingUid === dupeModal.emailUid}
+                className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 disabled:opacity-60 transition-all"
+              >
+                {importingUid === dupeModal.emailUid ? 'Subiendo PDF…' : 'Importar'}
+              </button>
             </div>
           </div>
         </div>
@@ -558,10 +583,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                               <div className="flex flex-col items-end gap-2 shrink-0">
                                 <button
                                   onClick={() => handleImport(doc)}
-                                  className={`flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${posibleDuplicado ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                  disabled={importingUid === doc.emailUid}
+                                  className={`flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-sm disabled:opacity-60 ${posibleDuplicado ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                                 >
-                                  <Package size={11} />
-                                  {posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}
+                                  {importingUid === doc.emailUid
+                                    ? <><RefreshCw size={11} className="animate-spin" /> Subiendo PDF…</>
+                                    : <><Package size={11} /> {posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}</>}
                                 </button>
                                 <button
                                   onClick={() => setDescartarModal(doc)}
