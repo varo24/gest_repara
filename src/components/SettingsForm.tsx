@@ -393,6 +393,18 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
             Despliega gestrepara-imap en Railway y pega aquí la URL pública del servicio
           </p>
+
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mt-4 block">Clave API (x-api-key)</label>
+          <input
+            type="password"
+            className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none font-mono text-sm"
+            placeholder="gestrepara-2026-secure"
+            value={formData.imapApiKey || ''}
+            onChange={e => setFormData({ ...formData, imapApiKey: e.target.value })}
+          />
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+            Debe coincidir con la variable API_KEY en Railway
+          </p>
         </div>
       </div>
 

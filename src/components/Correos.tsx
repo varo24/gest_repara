@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Mail, RefreshCw, Inbox, FileText, AlertCircle,
   CheckCircle2, Paperclip, ArrowLeft, Package, X, Brain,
@@ -121,6 +121,7 @@ function sortGroupKeys(keys: string[]): string[] {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
+  const apiKey = settings.imapApiKey || 'gestrepara-2026-secure';
 
   const [tab, setTab]                       = useState<'bandeja' | 'facturas'>('bandeja');
   const [emails, setEmails]                 = useState<EmailSummary[]>([]);
@@ -145,6 +146,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
   const [searchQuery, setSearchQuery]        = useState('');
 
+  const cancelRef = useRef(false);
+
   // ── Storage subscriptions ─────────────────────────────────────────────────
   useEffect(() => {
     const unsub1 = storage.subscribe('correos_procesados', (data: any[]) => {
@@ -163,6 +166,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     return () => { unsub1(); unsub2(); };
   }, []);
 
+  useEffect(() => () => { cancelRef.current = true; }, []);
+
   const checkHealth = useCallback(async () => {
     if (!serverUrl) { setConnected(false); return; }
     setCheckingConn(true);
@@ -177,7 +182,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (!serverUrl) return;
     setLoadingList(true); setError('');
     try {
-      const r = await fetch(`${serverUrl}/emails`, { signal: AbortSignal.timeout(30000) });
+      const r = await fetch(`${serverUrl}/emails`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const data = await r.json();
       const list: EmailSummary[] = data.emails || [];
@@ -190,10 +195,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setError(e.message || 'Error al conectar con el servidor');
       setConnected(false);
     } finally { setLoadingList(false); }
-  }, [serverUrl]);
+  }, [serverUrl, apiKey]);
 
   useEffect(() => {
-    checkHealth();
     if (serverUrl) fetchEmails();
   }, [serverUrl]); // eslint-disable-line
 
@@ -201,7 +205,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (!serverUrl) return;
     setLoadingDetail(true); setSelected(null);
     try {
-      const r = await fetch(`${serverUrl}/emails/${uid}`, { signal: AbortSignal.timeout(30000) });
+      const r = await fetch(`${serverUrl}/emails/${uid}`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const data = await r.json();
       setSelected(data);
@@ -213,11 +217,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const analyzeAttachment = async (att: Attachment) => {
     if (!serverUrl) return;
+    const currentUid = selected?.uid;
     setAnalyzingAtt(att.filename); setError('');
     try {
       const r = await fetch(`${serverUrl}/analyze-attachment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
         body: JSON.stringify({ filename: att.filename, contentType: att.contentType, data: att.data }),
         signal: AbortSignal.timeout(60000),
       });
@@ -238,7 +243,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           })),
         };
         setSelected(prev => prev ? { ...prev, es_factura: true, datos_factura: datos } : prev);
-        setEmails(prev => prev.map(e => selected && e.uid === selected.uid ? { ...e, es_factura: true } : e));
+        if (currentUid != null) {
+          setEmails(prev => prev.map(e => e.uid === currentUid ? { ...e, es_factura: true } : e));
+        }
       } else {
         setError(result.error || 'El adjunto no parece una factura de proveedor');
       }
@@ -297,9 +304,10 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (!pending.length) return;
     setAnalyzingAll(true); setError('');
     for (let i = 0; i < pending.length; i++) {
+      if (cancelRef.current) break;
       setAnalyzeProgress({ current: i + 1, total: pending.length });
       try {
-        const r = await fetch(`${serverUrl}/emails/${pending[i].uid}`, { signal: AbortSignal.timeout(30000) });
+        const r = await fetch(`${serverUrl}/emails/${pending[i].uid}`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
         if (!r.ok) continue;
         const data: EmailDetail = await r.json();
         setEmails(prev => prev.map(e => e.uid === pending[i].uid ? { ...e, seen: true, es_factura: data.es_factura } : e));
@@ -308,7 +316,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           if (pdf) {
             const ar = await fetch(`${serverUrl}/analyze-attachment`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
               body: JSON.stringify({ filename: pdf.filename, contentType: pdf.contentType, data: pdf.data }),
               signal: AbortSignal.timeout(60000),
             });
@@ -323,7 +331,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       } catch {}
     }
     setAnalyzingAll(false); setAnalyzeProgress(null);
-  }, [serverUrl, emails, procesados, analyzingAll]);
+  }, [serverUrl, apiKey, emails, procesados, analyzingAll]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const filteredEmails = useMemo(() => {
@@ -378,11 +386,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           <p className="text-xs text-slate-400">
             Ve a <strong>Ajustes → Servidor de Correo</strong> e introduce la URL del servidor IMAP y pulsa <strong>Guardar</strong>.
           </p>
-          <p className="text-[10px] text-slate-300 font-mono break-all">
-            imapServerUrl recibido: {JSON.stringify(settings?.imapServerUrl ?? null)}
-          </p>
-          <button onClick={() => window.location.reload()} className="mx-auto flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition-all">
-            <RefreshCw size={12} /> Recargar página
+          <button onClick={onBack} className="mx-auto flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition-all">
+            <ArrowLeft size={12} /> Ir a Ajustes
           </button>
         </div>
       </div>
@@ -432,7 +437,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         )}
 
         <div className="flex items-center justify-between">
-          <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+          <button onClick={() => { setSelected(null); setError(''); }} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
             <ArrowLeft size={14} /> Volver
           </button>
           <div className="flex items-center gap-3">
@@ -628,7 +633,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       <div className="grid grid-cols-4 gap-4">
         {[
           { label: 'Total correos',       value: emails.length,                      color: 'text-slate-900' },
-          { label: 'No leídos',           value: emails.filter(e => !e.seen).length, color: 'text-blue-600' },
+          { label: 'Pendientes de analizar', value: pendingCount,                       color: 'text-blue-600' },
           { label: 'Facturas detectadas', value: emails.filter(e => e.es_factura === true).length, color: 'text-emerald-600' },
           { label: 'Importados',          value: Object.keys(procesados).length,     color: 'text-violet-600' },
         ].map(s => (
@@ -787,7 +792,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl p-8 shadow-2xl flex items-center gap-4">
             <RefreshCw size={20} className="text-blue-600 animate-spin" />
-            <span className="text-sm font-bold text-slate-700">Analizando correo con IA…</span>
+            <span className="text-sm font-bold text-slate-700">Cargando correo…</span>
           </div>
         </div>
       )}

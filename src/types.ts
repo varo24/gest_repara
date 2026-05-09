@@ -116,6 +116,7 @@ export interface AppSettings {
   dashboardModules?: string[];
   warrantyMonths?: number;
   imapServerUrl?: string;
+  imapApiKey?: string;
 }
 
 export interface Customer {
