@@ -9,7 +9,7 @@ type CB = (data: any[]) => void;
 // ── IndexedDB local cache ────────────────────────────────────────────────────
 
 const DB_NAME = 'ReparaPro_LocalDB';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const ALL_STORES = [
   'repairs', 'budgets', 'invoices', 'cash_movements', 'inventory',
   'inventory_entries', 'purchase_orders', 'warranties', 'time_entries',
@@ -20,6 +20,7 @@ const ALL_STORES = [
   // correos
   'correos_procesados',
   'facturas_importadas',
+  'correos_analizados',
 ];
 
 class LocalStore {

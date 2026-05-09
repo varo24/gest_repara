@@ -48,6 +48,17 @@ interface DupeModal {
   existing: any; // doc from facturas_importadas
 }
 
+interface AnalizadoDoc {
+  id: string;
+  emailUid: number;
+  es_factura: boolean;
+  from: string;
+  subject: string;
+  date: string | null;
+  datos_factura: DatosFactura | null;
+  analyzedAt: string;
+}
+
 interface CorreosProps {
   settings: AppSettings;
   onImportToStock: (datos: DatosFactura) => void;
@@ -132,15 +143,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   const [connected, setConnected]           = useState<boolean | null>(null);
   const [checkingConn, setCheckingConn]     = useState(false);
   const [analyzingAtt, setAnalyzingAtt]     = useState<string | null>(null);
-  const [analyzingAll, setAnalyzingAll]     = useState(false);
-  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null);
 
   // correos_procesados: keyed by emailUid
   const [procesados, setProcessados]         = useState<Record<string, any>>({});
   // facturas_importadas: keyed by claveUnica
   const [facturasImportadas, setFacturasImportadas] = useState<Record<string, any>>({});
+  // correos_analizados: keyed by emailUid (string)
+  const [correosAnalizados, setCorreosAnalizados] = useState<Record<string, AnalizadoDoc>>({});
+  const correosAnalizadosRef = useRef<Record<string, AnalizadoDoc>>({});
   // duplicate import modal
   const [dupeModal, setDupeModal]            = useState<DupeModal | null>(null);
+  const [loadingFacturas, setLoadingFacturas] = useState(false);
 
   const [showProcesados, setShowProcesados]  = useState(false);
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
@@ -163,8 +176,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       data.forEach(d => { if (d.claveUnica) map[d.claveUnica] = d; });
       setFacturasImportadas(map);
     });
-    return () => { unsub1(); unsub2(); };
+    const unsub3 = storage.subscribe('correos_analizados', (data: any[]) => {
+      const map: Record<string, AnalizadoDoc> = {};
+      data.forEach((d: AnalizadoDoc) => { if (d.emailUid) map[String(d.emailUid)] = d; });
+      setCorreosAnalizados(map);
+      correosAnalizadosRef.current = map;
+    });
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
+
+  // keep ref in sync so fetchFacturas always reads current cache
+  useEffect(() => { correosAnalizadosRef.current = correosAnalizados; }, [correosAnalizados]);
 
   useEffect(() => () => { cancelRef.current = true; }, []);
 
@@ -197,8 +219,44 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     } finally { setLoadingList(false); }
   }, [serverUrl, apiKey]);
 
+  const fetchFacturas = useCallback(async () => {
+    if (!serverUrl) return;
+    setLoadingFacturas(true);
+    try {
+      const skipParam = Object.keys(correosAnalizadosRef.current).join(',');
+      const url = `${serverUrl}/emails/facturas${skipParam ? `?skip=${encodeURIComponent(skipParam)}` : ''}`;
+      const r = await fetch(url, {
+        headers: { 'x-api-key': apiKey },
+        signal: AbortSignal.timeout(180000), // 3 min — up to 20 emails with Gemini
+      });
+      if (!r.ok) return; // silent — facturas tab degrades gracefully
+      const data = await r.json();
+      const now = new Date().toISOString();
+      for (const result of (data.results || [])) {
+        storage.save('correos_analizados', `ANAL-${result.uid}`, {
+          id: `ANAL-${result.uid}`,
+          emailUid: result.uid,
+          es_factura: result.es_factura,
+          from: result.from,
+          subject: result.subject,
+          date: result.date,
+          datos_factura: result.datos_factura ?? null,
+          analyzedAt: now,
+        });
+      }
+      // merge es_factura flag into the email list
+      if (data.results?.length) {
+        const facturaUids = new Set(
+          (data.results as any[]).filter(r => r.es_factura).map((r: any) => r.uid as number)
+        );
+        setEmails(prev => prev.map(e => facturaUids.has(e.uid) ? { ...e, es_factura: true } : e));
+      }
+    } catch { /* silent */ }
+    finally { setLoadingFacturas(false); }
+  }, [serverUrl, apiKey]);
+
   useEffect(() => {
-    if (serverUrl) fetchEmails();
+    if (serverUrl) { fetchEmails(); fetchFacturas(); }
   }, [serverUrl]); // eslint-disable-line
 
   const openEmail = async (uid: number) => {
@@ -297,41 +355,16 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     onImportToStock(datos);
   };
 
-  // ── Analizar todos pendientes ─────────────────────────────────────────────
-  const analyzePendingAll = useCallback(async () => {
-    if (!serverUrl || analyzingAll) return;
-    const pending = emails.filter(e => e.tiene_adjuntos && e.es_factura === undefined && !procesados[String(e.uid)]);
-    if (!pending.length) return;
-    setAnalyzingAll(true); setError('');
-    for (let i = 0; i < pending.length; i++) {
-      if (cancelRef.current) break;
-      setAnalyzeProgress({ current: i + 1, total: pending.length });
-      try {
-        const r = await fetch(`${serverUrl}/emails/${pending[i].uid}`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
-        if (!r.ok) continue;
-        const data: EmailDetail = await r.json();
-        setEmails(prev => prev.map(e => e.uid === pending[i].uid ? { ...e, seen: true, es_factura: data.es_factura } : e));
-        if (!data.es_factura) {
-          const pdf = (data.attachments || []).find(isAnalyzable);
-          if (pdf) {
-            const ar = await fetch(`${serverUrl}/analyze-attachment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-              body: JSON.stringify({ filename: pdf.filename, contentType: pdf.contentType, data: pdf.data }),
-              signal: AbortSignal.timeout(60000),
-            });
-            if (ar.ok) {
-              const aResult = await ar.json();
-              setEmails(prev => prev.map(e =>
-                e.uid === pending[i].uid ? { ...e, es_factura: !!aResult.analysis?.es_factura } : e
-              ));
-            }
-          }
-        }
-      } catch {}
+  const handleImportFromList = (doc: AnalizadoDoc) => {
+    if (!doc.datos_factura) return;
+    const claveUnica = `${doc.emailUid}-${doc.datos_factura.numero_factura}`;
+    const existing = facturasImportadas[claveUnica];
+    if (existing) {
+      setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing });
+    } else {
+      doImport(doc.datos_factura, doc.emailUid, false);
     }
-    setAnalyzingAll(false); setAnalyzeProgress(null);
-  }, [serverUrl, apiKey, emails, procesados, analyzingAll]);
+  };
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const filteredEmails = useMemo(() => {
@@ -344,18 +377,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     return list;
   }, [emails, procesados, showProcesados, searchQuery]);
 
-  const facturasEmails = useMemo(() =>
-    filteredEmails.filter(e => e.es_factura === true || (e.tiene_adjuntos && e.es_factura === undefined)),
-  [filteredEmails]);
-
   const pendingCount = useMemo(() =>
-    emails.filter(e => e.tiene_adjuntos && e.es_factura === undefined && !procesados[String(e.uid)]).length,
-  [emails, procesados]);
+    emails.filter(e => e.tiene_adjuntos && !correosAnalizados[String(e.uid)]).length,
+  [emails, correosAnalizados]);
 
   const groupedEmails = useMemo(() => {
-    const source = tab === 'bandeja' ? filteredEmails : facturasEmails;
     const map: Record<string, EmailSummary[]> = {};
-    source.forEach(e => {
+    filteredEmails.forEach(e => {
       const key = classifyDate(e.date);
       if (!map[key]) map[key] = [];
       map[key].push(e);
@@ -365,7 +393,14 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       emails: map[key],
       facturas: map[key].filter(e => e.es_factura === true).length,
     }));
-  }, [tab, filteredEmails, facturasEmails]);
+  }, [filteredEmails]);
+
+  // Facturas tab: all confirmed invoices from cache, sorted newest first
+  const facturasFromCache = useMemo(() =>
+    (Object.values(correosAnalizados) as AnalizadoDoc[])
+      .filter(d => d.es_factura)
+      .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()),
+  [correosAnalizados]);
 
   const toggleGroup = (key: string) =>
     setExpandedGroups(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
@@ -677,25 +712,99 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
               className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               {t === 'bandeja'
                 ? <span className="flex items-center gap-1.5"><Inbox size={12} /> Bandeja ({filteredEmails.length})</span>
-                : <span className="flex items-center gap-1.5"><FileText size={12} /> Facturas ({facturasEmails.length})</span>}
+                : <span className="flex items-center gap-1.5"><FileText size={12} /> Facturas ({facturasFromCache.length}){loadingFacturas && <RefreshCw size={10} className="animate-spin ml-1" />}</span>}
             </button>
           ))}
         </div>
 
-        {tab === 'facturas' && pendingCount > 0 && (
+        {tab === 'facturas' && (
           <button
-            onClick={analyzePendingAll}
-            disabled={analyzingAll}
+            onClick={fetchFacturas}
+            disabled={loadingFacturas}
             className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white rounded-xl text-xs font-black uppercase transition-all shadow-sm"
           >
-            {analyzingAll
-              ? <><RefreshCw size={12} className="animate-spin" /> Analizando {analyzeProgress?.current}/{analyzeProgress?.total}…</>
-              : <><Play size={12} /> Analizar {pendingCount} pendiente{pendingCount > 1 ? 's' : ''}</>}
+            {loadingFacturas
+              ? <><RefreshCw size={12} className="animate-spin" /> Analizando correos…</>
+              : <><Play size={12} /> Reanalizar</>}
           </button>
         )}
       </div>
 
-      {/* Grouped email list */}
+      {/* ── PESTAÑA FACTURAS ─────────────────────────────────────────────── */}
+      {tab === 'facturas' ? (
+        <div className="space-y-3">
+          {loadingFacturas && facturasFromCache.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
+              <RefreshCw size={24} className="text-amber-400 mx-auto mb-3 animate-spin" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Analizando correos con IA…</p>
+              <p className="text-[10px] text-slate-300 mt-1">Esto puede tardar hasta 2 minutos la primera vez</p>
+            </div>
+          ) : facturasFromCache.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
+              <FileText size={32} className="text-slate-200 mx-auto mb-3" />
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Sin facturas detectadas</p>
+              <p className="text-[10px] text-slate-300 mt-1">Pulsa "Reanalizar" para buscar de nuevo</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              {loadingFacturas && (
+                <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-100">
+                  <RefreshCw size={12} className="text-amber-500 animate-spin shrink-0" />
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Buscando más facturas en segundo plano…</p>
+                </div>
+              )}
+              <div className="divide-y divide-slate-50">
+                {facturasFromCache.map(doc => {
+                  const isProcesado = !!procesados[String(doc.emailUid)];
+                  const clave = `${doc.emailUid}-${doc.datos_factura?.numero_factura}`;
+                  const yaImportada = doc.datos_factura ? !!facturasImportadas[clave] : false;
+                  return (
+                    <div key={doc.emailUid} className={`flex items-start gap-4 px-6 py-4 ${isProcesado ? 'opacity-60' : ''}`}>
+                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="text-sm font-bold text-slate-800 truncate">{doc.from}</p>
+                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Factura</span>
+                          {isProcesado && <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0">✓ Importada</span>}
+                          {yaImportada && !isProcesado && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">⚠ Ya importada</span>}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mb-2">{doc.subject}</p>
+                        {doc.datos_factura && (
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="text-[10px] font-bold text-slate-700">{doc.datos_factura.proveedor}</span>
+                            <span className="text-[10px] text-slate-400">Nº {doc.datos_factura.numero_factura || '—'}</span>
+                            <span className="text-[10px] text-slate-400">{doc.datos_factura.fecha || '—'}</span>
+                            <span className="text-[10px] font-black text-slate-900">{(doc.datos_factura.total ?? 0).toFixed(2)} €</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <p className="text-[10px] text-slate-400 whitespace-nowrap">{fmtDate(doc.date)}</p>
+                        {doc.datos_factura && (
+                          <button
+                            onClick={() => handleImportFromList(doc)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-lg text-[10px] font-black uppercase transition-all ${yaImportada ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                          >
+                            <Package size={11} />
+                            {yaImportada ? 'Reimportar' : 'Importar'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openEmail(doc.emailUid)}
+                          className="text-[9px] text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                          Ver correo →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      /* ── PESTAÑA BANDEJA ───────────────────────────────────────────────── */
       <div className="space-y-3">
         {loadingList ? (
           <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
@@ -705,9 +814,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         ) : groupedEmails.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
             <Mail size={32} className="text-slate-200 mx-auto mb-3" />
-            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">
-              {tab === 'facturas' ? 'Sin facturas detectadas' : 'Sin correos'}
-            </p>
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Sin correos</p>
           </div>
         ) : (
           groupedEmails.map(group => (
@@ -733,9 +840,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
               {isGroupExpanded(group.key) && (
                 <div className="divide-y divide-slate-50">
                   {group.emails.map(email => {
-                    const isProcesadoRow  = !!procesados[String(email.uid)];
-                    const isAnalizado     = email.es_factura === true && !isProcesadoRow;
-                    const isSinAnalizar   = email.tiene_adjuntos && email.es_factura === undefined;
+                    const isProcesadoRow = !!procesados[String(email.uid)];
+                    const esFacturaDetectada = !!correosAnalizados[String(email.uid)]?.es_factura;
+                    const esFactura = email.es_factura === true || esFacturaDetectada;
                     return (
                       <button
                         key={email.uid}
@@ -743,13 +850,11 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                         className={`w-full flex items-start gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left ${!email.seen ? 'bg-blue-50/30' : ''} ${isProcesadoRow ? 'opacity-60' : ''}`}
                       >
                         <div className="shrink-0 mt-1">
-                          {isProcesadoRow
+                          {isProcesadoRow || esFactura
                             ? <CheckCircle2 size={15} className="text-emerald-500" />
-                            : email.es_factura === true
-                              ? <CheckCircle2 size={15} className="text-emerald-500" />
-                              : email.seen
-                                ? <Mail size={15} className="text-slate-300" />
-                                : <Mail size={15} className="text-blue-500" />}
+                            : email.seen
+                              ? <Mail size={15} className="text-slate-300" />
+                              : <Mail size={15} className="text-blue-500" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -757,17 +862,11 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                               {email.from}
                             </p>
                             {email.tiene_adjuntos && <Paperclip size={11} className="text-slate-400 shrink-0" />}
-                            {/* Estado: Importado */}
                             {isProcesadoRow && (
                               <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>
                             )}
-                            {/* Estado: Analizado (factura detectada, no importada) */}
-                            {isAnalizado && (
-                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">🔍 Analizado</span>
-                            )}
-                            {/* Estado: Sin analizar (en pestaña Facturas) */}
-                            {!isProcesadoRow && !isAnalizado && isSinAnalizar && tab === 'facturas' && (
-                              <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">Sin analizar</span>
+                            {!isProcesadoRow && esFactura && (
+                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">📄 Factura</span>
                             )}
                           </div>
                           <p className={`text-xs truncate ${!email.seen ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
@@ -786,6 +885,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           ))
         )}
       </div>
+      )}
 
       {/* Loading detail overlay */}
       {loadingDetail && (
