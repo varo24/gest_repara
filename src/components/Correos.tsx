@@ -3,7 +3,7 @@ import {
   Mail, RefreshCw, Inbox, FileText, AlertCircle,
   CheckCircle2, Paperclip, ArrowLeft, Package, X, Brain,
   ChevronDown, ChevronRight, Search, Eye, EyeOff, Play,
-  AlertTriangle,
+  AlertTriangle, Trash2,
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -154,8 +154,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   // correos_analizados: keyed by emailUid (string)
   const [correosAnalizados, setCorreosAnalizados] = useState<Record<string, AnalizadoDoc>>({});
   const correosAnalizadosRef = useRef<Record<string, AnalizadoDoc>>({});
+  // facturas_descartadas: keyed by emailUid (string)
+  const [facturasDescartadas, setFacturasDescartadas] = useState<Record<string, any>>({});
+  const facturasDescartadasRef = useRef<Record<string, any>>({});
   // duplicate import modal
   const [dupeModal, setDupeModal]            = useState<DupeModal | null>(null);
+  // discard confirmation modal
+  const [descartarModal, setDescartarModal]  = useState<AnalizadoDoc | null>(null);
   const [loadingFacturas, setLoadingFacturas] = useState(false);
   const [facturaProgress, setFacturaProgress] = useState<{ analizados: number; total: number; facturas: number } | null>(null);
 
@@ -188,7 +193,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setCorreosAnalizados(map);
       correosAnalizadosRef.current = map;
     });
-    return () => { unsub1(); unsub2(); unsub3(); };
+    const unsub4 = storage.subscribe('facturas_descartadas', (data: any[]) => {
+      const map: Record<string, any> = {};
+      data.forEach(d => { if (d.emailUid) map[String(d.emailUid)] = d; });
+      setFacturasDescartadas(map);
+      facturasDescartadasRef.current = map;
+    });
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, []);
 
   // keep ref in sync so fetchFacturas always reads current cache
@@ -240,9 +251,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         : Object.values(correosAnalizadosRef.current)
             .filter(d => new Date(d.analyzedAt).getTime() > cutoff)
             .map(d => String(d.emailUid));
+      // Discarded facturas are permanently excluded regardless of TTL or force
+      const descartadasUids = Object.values(facturasDescartadasRef.current)
+        .map(d => String(d.emailUid)).filter(Boolean);
 
       const params = new URLSearchParams({ days: String(imapDays) });
       if (skipUids.length) params.set('skip', skipUids.join(','));
+      if (descartadasUids.length) params.set('descartadas', descartadasUids.join(','));
       const r = await fetch(`${serverUrl}/emails/facturas?${params}`, {
         headers: { 'x-api-key': apiKey },
         signal: AbortSignal.timeout(180000),
@@ -468,6 +483,19 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     doImport(doc.datos_factura, doc.emailUid, false);
   };
 
+  const doDescartar = (doc: AnalizadoDoc) => {
+    storage.save('facturas_descartadas', `DESC-${Date.now()}`, {
+      id: `DESC-${Date.now()}`,
+      emailUid: doc.emailUid,
+      proveedor: doc.datos_factura?.proveedor || '',
+      numeroFactura: doc.datos_factura?.numero_factura || '',
+      fecha: doc.datos_factura?.fecha || '',
+      descartadoEn: new Date().toISOString(),
+      motivo: 'manual',
+    });
+    setDescartarModal(null);
+  };
+
   // ── Derived data ──────────────────────────────────────────────────────────
   const filteredEmails = useMemo(() => {
     let list = emails;
@@ -497,12 +525,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     }));
   }, [filteredEmails]);
 
-  // Facturas tab: all confirmed invoices from cache, sorted newest first
+  // Facturas tab: confirmed invoices from cache, excluding discarded ones
   const facturasFromCache = useMemo(() =>
     (Object.values(correosAnalizados) as AnalizadoDoc[])
-      .filter(d => d.es_factura)
+      .filter(d => d.es_factura && !facturasDescartadas[String(d.emailUid)])
       .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()),
-  [correosAnalizados]);
+  [correosAnalizados, facturasDescartadas]);
 
   // Set of all imported numero_factura values (for cross-email duplicate detection)
   const importedNumeros = useMemo(() => {
@@ -758,6 +786,42 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   // ── Main list view ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
+
+      {/* Discard confirmation modal */}
+      {descartarModal && (
+        <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-4 bg-red-50 rounded-2xl">
+                <Trash2 size={28} className="text-red-400" />
+              </div>
+              <h2 className="text-base font-black text-slate-900 uppercase tracking-tight">¿Descartar factura?</h2>
+              <div className="text-xs text-slate-600 space-y-1">
+                <p><strong>{descartarModal.datos_factura?.proveedor || descartarModal.from}</strong></p>
+                {descartarModal.datos_factura?.numero_factura && (
+                  <p className="text-slate-400">Nº {descartarModal.datos_factura.numero_factura}</p>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">No se importará al stock</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDescartarModal(null)}
+                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => doDescartar(descartarModal)}
+                className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition-all"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -1010,6 +1074,14 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                             >
                               <Package size={11} />
                               {yaImportada ? 'Reimportar a Stock' : posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}
+                            </button>
+                          )}
+                          {!isProcesado && (
+                            <button
+                              onClick={() => setDescartarModal(doc)}
+                              className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-red-500 transition-colors font-bold"
+                            >
+                              <Trash2 size={10} /> Descartar
                             </button>
                           )}
                           <button
