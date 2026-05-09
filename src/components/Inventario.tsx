@@ -90,42 +90,49 @@ const Inventario: React.FC<InventarioProps> = ({ settings, inventoryItems, stock
       onNotify('error', 'Referencia y descripción son obligatorios');
       return;
     }
-    const now = new Date().toISOString();
-    const id = editingItem?.id || crypto.randomUUID();
-    const item: InventoryItem = {
-      id,
-      ...formData,
-      ref: formData.ref.trim(),
-      description: formData.description.trim(),
-      createdAt: editingItem?.createdAt || now,
-      updatedAt: now,
-    };
-    // Record adjustment if stock changed on edit
-    if (editingItem && editingItem.stock !== formData.stock) {
-      const diff = formData.stock - editingItem.stock;
-      const movement: StockMovement = {
-        id: crypto.randomUUID(),
-        itemId: id,
-        ref: item.ref,
-        description: item.description,
-        type: 'ajuste',
-        qty: diff,
-        costPrice: item.costPrice,
-        date: now.slice(0, 10),
-        origin: 'manual',
-        notes: 'Ajuste manual de stock',
-        createdAt: now,
+    try {
+      const now = new Date().toISOString();
+      const id = editingItem?.id || crypto.randomUUID();
+      const item: InventoryItem = {
+        id,
+        ...formData,
+        ref: formData.ref.trim(),
+        description: formData.description.trim(),
+        createdAt: editingItem?.createdAt || now,
+        updatedAt: now,
       };
-      await storage.save('stock_movements', movement.id, movement);
+      if (editingItem && editingItem.stock !== formData.stock) {
+        const diff = formData.stock - editingItem.stock;
+        const movement: StockMovement = {
+          id: crypto.randomUUID(),
+          itemId: id,
+          ref: item.ref,
+          description: item.description,
+          type: 'ajuste',
+          qty: diff,
+          costPrice: item.costPrice,
+          date: now.slice(0, 10),
+          origin: 'manual',
+          notes: 'Ajuste manual de stock',
+          createdAt: now,
+        };
+        await storage.save('stock_movements', movement.id, movement);
+      }
+      await storage.save('inventory', id, item);
+      onNotify('success', editingItem ? 'Artículo actualizado' : 'Artículo añadido al catálogo');
+      setShowForm(false);
+    } catch {
+      onNotify('error', 'Error al guardar el artículo');
     }
-    await storage.save('inventory', id, item);
-    onNotify('success', editingItem ? 'Artículo actualizado' : 'Artículo añadido al catálogo');
-    setShowForm(false);
   };
 
   const handleDelete = async (id: string) => {
-    await storage.remove('inventory', id);
-    onNotify('success', 'Artículo eliminado');
+    try {
+      await storage.remove('inventory', id);
+      onNotify('success', 'Artículo eliminado');
+    } catch {
+      onNotify('error', 'Error al eliminar el artículo');
+    }
     setDeletingId(null);
   };
 

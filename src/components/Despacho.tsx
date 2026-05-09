@@ -31,6 +31,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
   const [pay, setPay] = useState<PayMethod>('efectivo');
   const [lastInvoice, setLastInvoice] = useState<any>(null);
   const [lastWarranty, setLastWarranty] = useState<any>(null);
+  const [isCobrar, setIsCobrar] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const bufRef = useRef('');
   const tmrRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,7 +82,8 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
   };
 
   const cobrar = async () => {
-    if (!repair) return;
+    if (!repair || isCobrar) return;
+    setIsCobrar(true);
     const { subtotal, taxAmount, total, budget } = getTotals(repair);
     const now = new Date().toISOString();
 
@@ -155,6 +157,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     setLastInvoice(invoice);
     setLastWarranty(warrantyData);
     setPhase('done');
+    setIsCobrar(false);
   };
 
   const printTicket = (r: RepairItem) => {
@@ -291,8 +294,8 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
                 </div>
               </div>
               <div className="flex gap-3 flex-wrap">
-                <button onClick={cobrar} className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
-                  <CheckCircle2 size={18} /> Cobrar {fmtMoney(total)} y entregar
+                <button onClick={cobrar} disabled={isCobrar} className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-60 disabled:pointer-events-none">
+                  <CheckCircle2 size={18} /> {isCobrar ? 'Procesando…' : `Cobrar ${fmtMoney(total)} y entregar`}
                 </button>
                 <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-4 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all">
                   <Printer size={14} /> Ticket

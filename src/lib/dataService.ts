@@ -52,7 +52,6 @@ class LocalStore {
         } catch {}
       }
     }
-    console.log(`[dataService] IDB: ${this.idb ? 'OK' : 'NO'}`);
   }
 
   getAll(store: string): any[] {
@@ -134,7 +133,6 @@ const activeListeners: Record<string, () => void> = {};
 
 const startListener = (col: string) => {
   if (activeListeners[col] || !firestoreAvailable) return;
-  console.log(`[DS] startListener — ${col}`);
   try {
     const unsub = onSnapshot(collection(db, col), snapshot => {
       let changed = false;
@@ -143,7 +141,6 @@ const startListener = (col: string) => {
         const data = normalizeDoc(raw);
 
         if (change.type === 'removed') {
-          console.log(`[DS] onSnapshot REMOVED — ${col}/${change.doc.id}`);
           localStore.delete(col, change.doc.id);
           changed = true;
         } else if (change.type === 'modified') {
@@ -205,8 +202,6 @@ const addPending = (col: string, id: string, data: any, action: 'save' | 'remove
 };
 const flushPending = async () => {
   if (!pendingQueue.length || !firestoreAvailable) return;
-  console.log(`[DS] flushPending — ${pendingQueue.length} items`, navigator.userAgent.slice(0, 80));
-
   const now = Date.now();
   const failed: PendingItem[] = [];
 
@@ -218,21 +213,17 @@ const flushPending = async () => {
         const queuedAt = p.queuedAt ? new Date(p.queuedAt).getTime() : 0;
         const ageMs = now - queuedAt;
         if (!p.queuedAt || ageMs > MAX_PENDING_REMOVE_AGE_MS) {
-          console.warn(`[DS] flushPending — SKIPPING stale remove: ${p.col}/${p.id} (queued ${Math.round(ageMs / 60000)} min ago)`);
           continue; // drop stale remove silently
         }
-        console.log(`[DS] flushPending — remove ${p.col}/${p.id}`);
         await deleteDoc(doc(db, p.col, p.id));
       } else {
-        console.log(`[DS] flushPending — save ${p.col}/${p.id}`);
         await setDoc(doc(db, p.col, p.id), p.data, { merge: true });
       }
     } catch { failed.push(p); }
   }
   pendingQueue = failed;
   savePending();
-  if (!failed.length) console.log('[DS] Pending queue flushed ✅');
-  else console.warn(`[DS] flushPending — ${failed.length} items failed, kept in queue`);
+  if (failed.length) console.warn(`[DS] flushPending — ${failed.length} items failed, kept in queue`);
 };
 
 // ── Connectivity test ────────────────────────────────────────────────────────
@@ -242,9 +233,7 @@ let initialized = false;
 
 const testFirestore = async (): Promise<boolean> => {
   try {
-    console.log('[DS] Testing Firestore connection (db: gestrepara)...');
     await getDocs(collection(db, 'settings'));
-    console.log('[DS] Firestore OK ✅');
     return true;
   } catch (e: any) {
     const code = e?.code ?? 'unknown';
@@ -263,6 +252,21 @@ const testFirestore = async (): Promise<boolean> => {
 
 // ── Initial Firestore pull ────────────────────────────────────────────────────
 
+const SYNC_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const SYNC_TS_KEY = 'gestrepara_last_sync';
+
+const isSyncFresh = (): boolean => {
+  try {
+    const ts = localStorage.getItem(SYNC_TS_KEY);
+    if (!ts) return false;
+    return Date.now() - parseInt(ts, 10) < SYNC_TTL_MS;
+  } catch { return false; }
+};
+
+const markSyncDone = () => {
+  try { localStorage.setItem(SYNC_TS_KEY, String(Date.now())); } catch {}
+};
+
 const pullAll = async () => {
   let totalDocs = 0;
   for (const col of ALL_STORES) {
@@ -274,10 +278,9 @@ const pullAll = async () => {
         const existing = localStore.getAll(col).find(x => x.id === data.id);
         if (!existing || newerWins(existing, data)) localStore.put(col, data);
       });
-      if (snap.size > 0) console.log(`[DS] pullAll — ${col}: ${snap.size} docs`);
     } catch (e) { console.warn(`[DS] pullAll error on ${col}:`, e); }
   }
-  console.log(`[DS] pullAll complete — ${totalDocs} total docs from Firestore`);
+  markSyncDone();
   ALL_STORES.forEach(col => broadcast(col));
 };
 
@@ -288,24 +291,19 @@ export const storage = {
     if (initialized) return;
     initialized = true;
 
-    console.log('[DS] init() called —', navigator.userAgent.slice(0, 100));
     await localStore.init();
     loadPending();
-    console.log(`[DS] init() — IDB loaded, pending queue: ${pendingQueue.length} items`);
-    if (pendingQueue.length) {
-      const removes = pendingQueue.filter(p => p.action === 'remove');
-      const saves   = pendingQueue.filter(p => p.action === 'save');
-      console.log(`[DS] init() — pending: ${saves.length} saves, ${removes.length} removes`);
-      removes.forEach(p => console.log(`[DS] init() — pending remove: ${p.col}/${p.id} queued at ${p.queuedAt || 'UNKNOWN'}`));
-    }
 
     try {
       firestoreAvailable = await testFirestore();
       if (firestoreAvailable) {
-        console.log('[DS] Firestore ✅ — descargando datos...');
+        console.log('[DS] Firestore ✅');
         if (pendingQueue.length) await flushPending();
-        await pullAll();
-        // Start real-time listeners for all collections already subscribed by components
+        if (!isSyncFresh()) {
+          await pullAll();
+        } else {
+          ALL_STORES.forEach(col => broadcast(col));
+        }
         restartActiveListeners();
         console.log('[DS] Sincronización inicial completa ✅');
       } else {
@@ -339,10 +337,8 @@ export const storage = {
       // - If online: restart any dead listeners
       setInterval(async () => {
         if (!firestoreAvailable) {
-          console.log('[DS] Heartbeat — offline, attempting reconnect...');
           firestoreAvailable = await testFirestore();
           if (firestoreAvailable) {
-            console.log('[DS] Heartbeat — reconnected ✅');
             await flushPending();
             restartActiveListeners();
           }
@@ -350,10 +346,7 @@ export const storage = {
         }
         const cols = Object.keys(subs).filter(c => subs[c].length > 0);
         const dead = cols.filter(c => !activeListeners[c]);
-        if (dead.length > 0) {
-          console.log('[DS] Heartbeat — restarting dead listeners:', dead);
-          dead.forEach(startListener);
-        }
+        dead.forEach(startListener);
       }, 30_000);
     }
   },
