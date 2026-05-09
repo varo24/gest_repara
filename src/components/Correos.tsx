@@ -56,6 +56,8 @@ interface AnalizadoDoc {
   subject: string;
   date: string | null;
   datos_factura: DatosFactura | null;
+  tiene_adjunto_pdf?: boolean;
+  analizado_via?: 'pdf' | 'texto';
   analyzedAt: string;
 }
 
@@ -132,7 +134,8 @@ function sortGroupKeys(keys: string[]): string[] {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
-  const apiKey = settings.imapApiKey || 'gestrepara-2026-secure';
+  const apiKey    = settings.imapApiKey || 'gestrepara-2026-secure';
+  const imapDays  = settings.imapDays ?? 7;
 
   const [tab, setTab]                       = useState<'bandeja' | 'facturas'>('bandeja');
   const [emails, setEmails]                 = useState<EmailSummary[]>([]);
@@ -154,6 +157,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   // duplicate import modal
   const [dupeModal, setDupeModal]            = useState<DupeModal | null>(null);
   const [loadingFacturas, setLoadingFacturas] = useState(false);
+  const [facturaProgress, setFacturaProgress] = useState<{ analizados: number; total: number; facturas: number } | null>(null);
 
   const [showProcesados, setShowProcesados]  = useState(false);
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
@@ -204,7 +208,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (!serverUrl) return;
     setLoadingList(true); setError('');
     try {
-      const r = await fetch(`${serverUrl}/emails`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
+      const r = await fetch(`${serverUrl}/emails?days=${imapDays}`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
       const data = await r.json();
       const list: EmailSummary[] = data.emails || [];
@@ -217,19 +221,21 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setError(e.message || 'Error al conectar con el servidor');
       setConnected(false);
     } finally { setLoadingList(false); }
-  }, [serverUrl, apiKey]);
+  }, [serverUrl, apiKey, imapDays]);
 
   const fetchFacturas = useCallback(async () => {
     if (!serverUrl) return;
     setLoadingFacturas(true);
+    setFacturaProgress(null);
     try {
       const skipParam = Object.keys(correosAnalizadosRef.current).join(',');
-      const url = `${serverUrl}/emails/facturas${skipParam ? `?skip=${encodeURIComponent(skipParam)}` : ''}`;
-      const r = await fetch(url, {
+      const params = new URLSearchParams({ days: String(imapDays) });
+      if (skipParam) params.set('skip', skipParam);
+      const r = await fetch(`${serverUrl}/emails/facturas?${params}`, {
         headers: { 'x-api-key': apiKey },
-        signal: AbortSignal.timeout(180000), // 3 min — up to 20 emails with Gemini
+        signal: AbortSignal.timeout(180000),
       });
-      if (!r.ok) return; // silent — facturas tab degrades gracefully
+      if (!r.ok) return;
       const data = await r.json();
       const now = new Date().toISOString();
       for (const result of (data.results || [])) {
@@ -241,23 +247,29 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           subject: result.subject,
           date: result.date,
           datos_factura: result.datos_factura ?? null,
+          tiene_adjunto_pdf: result.tiene_adjunto_pdf ?? false,
+          analizado_via: result.analizado_via ?? 'texto',
           analyzedAt: now,
         });
       }
-      // merge es_factura flag into the email list
+      setFacturaProgress({
+        analizados: data.analizados ?? 0,
+        total: data.total_candidatos ?? 0,
+        facturas: data.facturas ?? 0,
+      });
       if (data.results?.length) {
         const facturaUids = new Set(
-          (data.results as any[]).filter(r => r.es_factura).map((r: any) => r.uid as number)
+          (data.results as any[]).filter((r: any) => r.es_factura).map((r: any) => r.uid as number)
         );
         setEmails(prev => prev.map(e => facturaUids.has(e.uid) ? { ...e, es_factura: true } : e));
       }
     } catch { /* silent */ }
     finally { setLoadingFacturas(false); }
-  }, [serverUrl, apiKey]);
+  }, [serverUrl, apiKey, imapDays]);
 
   useEffect(() => {
     if (serverUrl) { fetchEmails(); fetchFacturas(); }
-  }, [serverUrl]); // eslint-disable-line
+  }, [serverUrl, imapDays]); // eslint-disable-line
 
   const openEmail = async (uid: number) => {
     if (!serverUrl) return;
@@ -734,25 +746,35 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       {tab === 'facturas' ? (
         <div className="space-y-3">
           {loadingFacturas && facturasFromCache.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
-              <RefreshCw size={24} className="text-amber-400 mx-auto mb-3 animate-spin" />
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Analizando correos con IA…</p>
-              <p className="text-[10px] text-slate-300 mt-1">Esto puede tardar hasta 2 minutos la primera vez</p>
+            <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center space-y-3">
+              <RefreshCw size={24} className="text-amber-400 mx-auto animate-spin" />
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Detectando facturas…</p>
+              <p className="text-[10px] text-slate-400">Analizando correos de los últimos {imapDays} días con IA</p>
+              <div className="mx-auto w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-400 rounded-full animate-pulse w-2/3" />
+              </div>
             </div>
           ) : facturasFromCache.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
               <FileText size={32} className="text-slate-200 mx-auto mb-3" />
               <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Sin facturas detectadas</p>
-              <p className="text-[10px] text-slate-300 mt-1">Pulsa "Reanalizar" para buscar de nuevo</p>
+              <p className="text-[10px] text-slate-300 mt-1">Pulsa "Reanalizar" para buscar de nuevo en los últimos {imapDays} días</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              {loadingFacturas && (
+              {loadingFacturas ? (
                 <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-100">
                   <RefreshCw size={12} className="text-amber-500 animate-spin shrink-0" />
-                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Buscando más facturas en segundo plano…</p>
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Detectando facturas en los últimos {imapDays} días…</p>
                 </div>
-              )}
+              ) : facturaProgress ? (
+                <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-b border-slate-100">
+                  <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Analizados {facturaProgress.analizados} de {facturaProgress.total} candidatos · {facturaProgress.facturas} factura{facturaProgress.facturas !== 1 ? 's' : ''} detectada{facturaProgress.facturas !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              ) : null}
               <div className="divide-y divide-slate-50">
                 {facturasFromCache.map(doc => {
                   const isProcesado = !!procesados[String(doc.emailUid)];
@@ -765,7 +787,10 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <p className="text-sm font-bold text-slate-800 truncate">{doc.from}</p>
                           <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Factura</span>
-                          {isProcesado && <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0">✓ Importada</span>}
+                          {doc.tiene_adjunto_pdf
+                            ? <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">📎 PDF</span>
+                            : <span className="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">📝 Texto</span>}
+                          {isProcesado && <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>}
                           {yaImportada && !isProcesado && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">⚠ Ya importada</span>}
                         </div>
                         <p className="text-xs text-slate-500 truncate mb-2">{doc.subject}</p>
@@ -780,13 +805,13 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
                         <p className="text-[10px] text-slate-400 whitespace-nowrap">{fmtDate(doc.date)}</p>
-                        {doc.datos_factura && (
+                        {doc.datos_factura && !isProcesado && (
                           <button
                             onClick={() => handleImportFromList(doc)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-lg text-[10px] font-black uppercase transition-all ${yaImportada ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                           >
                             <Package size={11} />
-                            {yaImportada ? 'Reimportar' : 'Importar'}
+                            {yaImportada ? 'Reimportar a Stock' : 'Importar a Stock'}
                           </button>
                         )}
                         <button

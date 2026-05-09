@@ -405,6 +405,20 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
             Debe coincidir con la variable API_KEY en Railway
           </p>
+
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mt-4 block">Días a analizar</label>
+          <input
+            type="number"
+            min={1}
+            max={90}
+            className="w-32 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none text-center text-lg"
+            placeholder="7"
+            value={formData.imapDays ?? 7}
+            onChange={e => setFormData({ ...formData, imapDays: Math.min(90, Math.max(1, parseInt(e.target.value) || 7)) })}
+          />
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+            Período que se analiza automáticamente al abrir Correos (1-90 días)
+          </p>
         </div>
       </div>
 

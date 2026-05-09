@@ -117,6 +117,7 @@ export interface AppSettings {
   warrantyMonths?: number;
   imapServerUrl?: string;
   imapApiKey?: string;
+  imapDays?: number;
 }
 
 export interface Customer {
