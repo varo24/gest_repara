@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Clock, Activity, CheckCircle, TrendingUp, AlertCircle, Euro, Users } from 'lucide-react';
+import { Activity, CheckCircle, TrendingUp, AlertCircle, Euro, Users } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from 'recharts';
 

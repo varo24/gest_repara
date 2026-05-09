@@ -183,10 +183,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
     let pdfUrl: string | undefined;
     if (pdfBase64) {
-      console.log('[Storage] Subiendo PDF:', datos.proveedor, datos.numero_factura);
       try {
         pdfUrl = await uploadFacturaPDF(pdfBase64, datos.proveedor, datos.numero_factura, datos.fecha);
-        console.log('[Storage] PDF subido OK:', pdfUrl);
       } catch (e) {
         console.warn('[Storage] Error subiendo PDF (la importación continúa):', e);
       }
