@@ -10,9 +10,9 @@ import WhatsAppPanel from './WhatsAppPanel';
 interface RepairListProps {
   repairs: RepairItem[];
   budgets: Budget[];
-  selectedIds: string[];
-  onToggleSelect: (id: string) => void;
-  onSelectAll: (ids: string[]) => void;
+  selectedIds?: string[];
+  onToggleSelect?: (id: string) => void;
+  onSelectAll?: (ids: string[]) => void;
   onStatusChange: (id: string, status: RepairStatus, noteAppend?: string) => void;
   onEdit: (repair: RepairItem) => void;
   onCreateBudget: (repair: RepairItem) => void;

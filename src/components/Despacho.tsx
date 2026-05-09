@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-react';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
-import { storage, localDB } from '../lib/dataService';
+import { storage } from '../lib/dataService';
 import { descontarStock } from '../lib/inventoryService';
 import { printInvoice } from './Facturacion';
 
@@ -85,10 +85,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     const { subtotal, taxAmount, total, budget } = getTotals(repair);
     const now = new Date().toISOString();
 
-    const allInvoices = localDB.getAll('invoices');
-    const nums = allInvoices.map((i: any) => parseInt(i.invoiceNumber?.replace(/\D/g, '') || '0')).filter(Boolean);
-    const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
-    const invoiceNumber = `FAC-${String(nextNum).padStart(5, '0')}`;
+    const invoiceNumber = storage.nextInvoiceNumber('FAC');
 
     const invoiceItems = budget?.items ?? [];
 
@@ -121,8 +118,9 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     };
 
     storage.save('invoices', invoice.id, invoice);
-    storage.save('cash_movements', `CASH-${Date.now()}`, {
-      id: `CASH-${Date.now()}`,
+    const cashId = `CASH-${Date.now()}`;
+    storage.save('cash_movements', cashId, {
+      id: cashId,
       type: 'ingreso',
       invoiceId: invoice.id,
       description: `${invoiceNumber} — ${repair.customerName}`,

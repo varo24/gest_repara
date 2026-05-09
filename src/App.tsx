@@ -14,7 +14,6 @@ import ThermalTicket from './components/ThermalTicket';
 import CalendarView from './components/CalendarView';
 import ExternalAppsView from './components/ExternalAppsView';
 import ExternalAppViewer from './components/ExternalAppViewer';
-import SupabaseDiagnostic from './components/SupabaseDiagnostic';
 import Despacho from './components/Despacho';
 import Facturacion from './components/Facturacion';
 import Inventario from './components/Inventario';
@@ -48,8 +47,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
-  const [repairs, setRepairs] = useState<RepairItem[] | null>(null);
-  const [budgets, setBudgets] = useState<Budget[] | null>(null);
+  const [repairs, setRepairs] = useState<RepairItem[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -67,8 +66,8 @@ const App: React.FC = () => {
 
   // New module states
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [citas, setCitas] = useState<Cita[] | null>(null);
-  const [externalApps, setExternalApps] = useState<ExternalApp[] | null>(null);
+  const [citas, setCitas] = useState<Cita[]>([]);
+  const [externalApps, setExternalApps] = useState<ExternalApp[]>([]);
   const [activeExternalApp, setActiveExternalApp] = useState<ExternalApp | null>(null);
   const [customersDB, setCustomersDB] = useState<Customer[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -228,9 +227,9 @@ const App: React.FC = () => {
         onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
         appName={settings.appName}
         version={APP_VERSION}
-        repairs={repairs ?? []}
-        budgets={budgets ?? []}
-        citas={citas ?? []}
+        repairs={repairs}
+        budgets={budgets}
+        citas={citas}
         warranties={warranties}
       />
 
@@ -359,9 +358,9 @@ const App: React.FC = () => {
           <>
             {currentView === 'dashboard' && (
               <Dashboard
-                repairs={repairs ?? []}
-                budgets={budgets ?? []}
-                citas={citas ?? []}
+                repairs={repairs}
+                budgets={budgets}
+                citas={citas}
                 settings={settings}
                 setView={navigateTo}
                 onNewRepair={() => navigateTo('new-repair')}
@@ -370,22 +369,16 @@ const App: React.FC = () => {
             )}
             {currentView === 'repairs' && (
               <RepairList
-                repairs={repairs ?? []}
-                budgets={budgets ?? []}
-                selectedIds={[]}
-                onToggleSelect={() => {}}
-                onSelectAll={() => {}}
+                repairs={repairs}
+                budgets={budgets}
                 onBack={() => navigateTo('dashboard')}
                 onStatusChange={async (id, status, noteAppend) => {
-                  console.log(`[App] STATUS CHANGE requested: ${id} → ${status}`);
-                  const repair = repairs?.find(r => r.id === id);
-                  if (!repair) { console.error('[App] Repair not found:', id); return; }
-                  console.log(`[App] Saving status: ${repair.status} → ${status}`);
+                  const repair = repairs.find(r => r.id === id);
+                  if (!repair) return;
                   const updatedNotes = noteAppend
                     ? [repair.notes, noteAppend].filter(Boolean).join('\n')
                     : repair.notes;
                   await storage.save('repairs', id, { ...repair, status, notes: updatedNotes });
-                  console.log(`[App] Save complete for ${id}`);
                   if (status === RepairStatus.READY) {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que su equipo está listo?`, () => {
                       notifyReady({ ...repair, status }, settings);
@@ -404,7 +397,7 @@ const App: React.FC = () => {
                 onEdit={r => { setEditingRepair(r); navigateTo('new-repair'); }}
                 onCreateBudget={r => setActiveBudgetRepair(r)}
                 onEditBudget={b => {
-                  const r = repairs?.find(rep => rep.id === b.repairId);
+                  const r = repairs.find(rep => rep.id === b.repairId);
                   if (r) { setEditingBudget(b); setActiveBudgetRepair(r); }
                 }}
                 onPrintReceipt={r => setShowReceiptFor(r)}
@@ -418,20 +411,20 @@ const App: React.FC = () => {
                 onSave={handleSaveRepair}
                 onCancel={() => navigateTo('repairs')}
                 initialData={editingRepair || undefined}
-                repairs={repairs ?? []}
+                repairs={repairs}
                 prefillCustomer={prefillCustomer}
               />
             )}
             {currentView === 'budgets' && (
               <BudgetList
-                budgets={budgets ?? []}
-                repairs={repairs ?? []}
+                budgets={budgets}
+                repairs={repairs}
                 customers={customersDB}
                 settings={settings}
                 onBack={() => navigateTo('dashboard')}
                 onNewFreeBudget={() => { setEditingBudget(null); setFreeBudgetMode(true); }}
                 onViewBudget={(b) => {
-                  const r = repairs?.find(rep => rep.id === b.repairId);
+                  const r = repairs.find(rep => rep.id === b.repairId);
                   if (r) {
                     setEditingBudget(b);
                     setActiveBudgetRepair(r);
@@ -441,7 +434,7 @@ const App: React.FC = () => {
                   }
                 }}
                 onPrintBudget={(budget) => {
-                  const r = repairs?.find(rep => rep.id === budget.repairId);
+                  const r = repairs.find(rep => rep.id === budget.repairId);
                   if (r) {
                     setEditingBudget(budget);
                     setActiveBudgetRepair(r);
@@ -471,8 +464,12 @@ const App: React.FC = () => {
                   // Descontar stock (usa inventoryItemId si disponible, sino busca por descripción)
                   // Solo si el presupuesto no había descontado ya (budget.stockDescontado)
                   if (!budget.stockDescontado) {
-                    await descontarStock(budget.items, 'presupuesto', rmaRef);
-                    storage.save('budgets', budget.id, { ...budget, status: 'accepted', stockDescontado: true });
+                    try {
+                      await descontarStock(budget.items, 'presupuesto', rmaRef);
+                      storage.save('budgets', budget.id, { ...budget, status: 'accepted', stockDescontado: true });
+                    } catch {
+                      notify('error', 'Error al descontar stock. Revisa el inventario.');
+                    }
                   }
 
                   const invoice = {
@@ -503,7 +500,7 @@ const App: React.FC = () => {
             )}
             {currentView === 'customers' && (
               <CustomerList
-                repairs={repairs ?? []}
+                repairs={repairs}
                 customers={customersDB}
                 onBack={() => navigateTo('dashboard')}
                 onSelectCustomer={() => {}}
@@ -511,7 +508,7 @@ const App: React.FC = () => {
                 onSaveCustomer={async (customer) => {
                   await storage.save('customers', customer.id, customer);
                   // Also update name in all repairs with same phone
-                  const customerRepairs = (repairs ?? []).filter(r => r.customerPhone === customer.phone);
+                  const customerRepairs = (repairs).filter(r => r.customerPhone === customer.phone);
                   for (const r of customerRepairs) {
                     if (r.customerName !== customer.name) {
                       await storage.save('repairs', r.id, { ...r, customerName: customer.name });
@@ -530,11 +527,11 @@ const App: React.FC = () => {
                 }}
               />
             )}
-            {currentView === 'stats' && <StatsView repairs={repairs ?? []} budgets={budgets ?? []} onBack={() => navigateTo('dashboard')} />}
+            {currentView === 'stats' && <StatsView repairs={repairs} budgets={budgets} onBack={() => navigateTo('dashboard')} />}
             {currentView === 'calendar' && (
               <CalendarView
-                citas={citas ?? []}
-                repairs={repairs ?? []}
+                citas={citas}
+                repairs={repairs}
                 settings={settings}
                 onBack={() => navigateTo('dashboard')}
                 onSaveCita={handleSaveCita}
@@ -579,7 +576,7 @@ const App: React.FC = () => {
             )}
             {currentView === 'external-apps' && (
               <ExternalAppsView
-                apps={externalApps ?? []}
+                apps={externalApps}
                 onSaveApp={handleSaveExternalApp}
                 onDeleteApp={handleDeleteExternalApp}
                 onViewApp={handleViewExternalApp}
@@ -607,12 +604,12 @@ const App: React.FC = () => {
             )}
             {currentView === 'despacho' && (
               <Despacho
-                repairs={repairs ?? []}
-                budgets={budgets ?? []}
+                repairs={repairs}
+                budgets={budgets}
                 settings={settings}
                 onBack={() => navigateTo('dashboard')}
                 onStatusChange={async (id, status) => {
-                  const repair = repairs?.find(r => r.id === id);
+                  const repair = repairs.find(r => r.id === id);
                   if (repair) await storage.save('repairs', id, { ...repair, status });
                 }}
                 onNotify={notify}
@@ -670,15 +667,12 @@ const App: React.FC = () => {
             {currentView === 'garantias' && (
               <Garantias
                 warranties={warranties}
-                repairs={repairs ?? []}
+                repairs={repairs}
                 settings={settings}
                 onBack={() => navigateTo('dashboard')}
                 onNotify={notify}
                 onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
               />
-            )}
-            {currentView === 'diagnostic' && (
-              <SupabaseDiagnostic onClose={() => navigateTo('settings')} />
             )}
           </>
         )}

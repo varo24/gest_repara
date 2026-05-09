@@ -54,7 +54,7 @@ const fmtDateTime = (iso: string | null) => {
 
 export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
-  const apiKey    = settings.imapApiKey || 'gestrepara-2026-secure';
+  const apiKey    = settings.imapApiKey || '';
 
   const [days, setDays]               = useState<number>(settings.imapDays ?? 7);
   const [connected, setConnected]     = useState<boolean | null>(null);

@@ -477,6 +477,7 @@ export const storage = {
       'inventory', 'stock_movements', 'warranties', 'customers',
       'appointments', 'reminders', 'surveys', 'settings',
       'citas', 'apps_externas', 'inventory_entries', 'purchase_orders',
+      'facturas_importadas', 'facturas_descartadas',
     ];
     const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v2-full' };
     for (const col of BACKUP_COLS) result[col] = localStore.getAll(col);
