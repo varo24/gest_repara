@@ -19,6 +19,7 @@ const ALL_STORES = [
   'citas', 'apps_externas',
   // correos
   'correos_procesados',
+  'facturas_importadas',
 ];
 
 class LocalStore {

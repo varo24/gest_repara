@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Plus, X, Save, ScanLine,
   Brain, Upload, CheckCircle2, AlertTriangle, Package,
-  ArrowLeft, RefreshCw, Search, FileText
+  ArrowLeft, RefreshCw, Search, FileText, Mail, Clock,
 } from 'lucide-react';
 import { InventoryItem, StockMovement, AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -63,15 +63,38 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Anti-duplicate + historial
+  const [facturasImportadas, setFacturasImportadas] = useState<any[]>([]);
+  const [recentMovements, setRecentMovements] = useState<any[]>([]);
+  const [dupeWarning, setDupeWarning] = useState<{ numeroFactura: string; importadoEn: string } | null>(null);
+  const [dupeFacAck, setDupeFacAck] = useState(false);
+  const [preFillFromCorreo, setPreFillFromCorreo] = useState(false);
+
   const categories = settings.inventoryCategories?.length ? settings.inventoryCategories : DEFAULT_CATS;
 
   useEffect(() => {
     if (activeTab === 'scanner') barcodeInputRef.current?.focus();
   }, [activeTab]);
 
+  // Subscribe to facturas_importadas and recent stock movements
+  useEffect(() => {
+    const unsub1 = storage.subscribe('facturas_importadas', (data: any[]) => setFacturasImportadas(data));
+    const unsub2 = storage.subscribe('stock_movements', (data: any[]) => {
+      const sorted = [...data]
+        .filter(m => m.type === 'entrada')
+        .sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime())
+        .slice(0, 10);
+      setRecentMovements(sorted);
+    });
+    return () => { unsub1(); unsub2(); };
+  }, []);
+
   useEffect(() => {
     if (!preFillData) return;
     setActiveTab('ai');
+    setPreFillFromCorreo(true);
+    setDupeWarning(null);
+    setDupeFacAck(false);
     setAiMeta({
       proveedor: preFillData.proveedor,
       numero_factura: preFillData.numero_factura,
@@ -125,7 +148,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     value: EntryLine[keyof EntryLine],
   ) => setter(prev => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
 
-  const commitEntries = async (lines: EntryLine[], notes: string, date: string) => {
+  const commitEntries = async (lines: EntryLine[], notes: string, date: string, origin: StockMovement['origin'] = 'entrada-stock') => {
     if (!lines.length) return;
     setIsSaving(true);
     try {
@@ -182,7 +205,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
           qty: line.qty,
           costPrice: line.costPrice,
           date,
-          origin: 'entrada-stock',
+          origin,
           notes: notes || undefined,
           createdAt: now,
         };
@@ -282,12 +305,27 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   };
 
   const handleAiSave = async () => {
+    // Verificar número de factura duplicado (solo si hay numero_factura y no ha sido reconocido ya)
+    if (aiMeta?.numero_factura && !dupeFacAck) {
+      const existing = facturasImportadas.find(f =>
+        f.numeroFactura === aiMeta.numero_factura || f.numero_factura === aiMeta.numero_factura
+      );
+      if (existing) {
+        setDupeWarning({ numeroFactura: aiMeta.numero_factura, importadoEn: existing.importadoEn });
+        return;
+      }
+    }
+    setDupeWarning(null);
+    setDupeFacAck(false);
+
+    const origin = preFillFromCorreo ? 'correo' : 'entrada-stock';
     const notesStr = ['Gemini IA', aiMeta?.proveedor, aiMeta?.numero_factura, aiFile?.name].filter(Boolean).join(' · ');
-    await commitEntries(aiLines, notesStr, entryDate);
+    await commitEntries(aiLines, notesStr, entryDate, origin);
     setAiLines([]);
     setAiFile(null);
     setAiRawText('');
     setAiMeta(null);
+    setPreFillFromCorreo(false);
   };
 
   // ── Shared lines table with editable ref, category, location ──────────────
@@ -530,6 +568,35 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         </div>
       )}
 
+      {/* ── Historial de entradas recientes ── */}
+      {recentMovements.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <Clock size={14} className="text-slate-400" />
+            <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Últimas entradas</span>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {recentMovements.map(m => (
+              <div key={m.id} className="flex items-center gap-4 px-6 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 truncate">{m.description}</p>
+                  <p className="text-[10px] text-slate-400">{m.notes || '—'}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {m.origin === 'correo' && (
+                    <span className="flex items-center gap-1 text-[9px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      <Mail size={9} /> Desde correo
+                    </span>
+                  )}
+                  <span className="text-[10px] font-bold text-emerald-600">+{m.qty}</span>
+                  <span className="text-[10px] text-slate-400">{m.date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── AI tab ── */}
       {activeTab === 'ai' && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
@@ -595,6 +662,42 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             {aiParsing ? <RefreshCw size={16} className="animate-spin" /> : <Brain size={16} />}
             {aiParsing ? 'Analizando con Gemini...' : 'Analizar con Gemini AI'}
           </button>
+
+          {/* Badge de origen correo */}
+          {preFillFromCorreo && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+              <Mail size={13} className="text-blue-500 shrink-0" />
+              <p className="text-xs font-bold text-blue-700">Datos importados desde correo electrónico</p>
+            </div>
+          )}
+
+          {/* Warning de duplicado */}
+          {dupeWarning && (
+            <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
+              <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-amber-800">Número de factura ya procesado</p>
+                <p className="text-[10px] text-amber-700 mt-0.5">
+                  La factura <strong>{dupeWarning.numeroFactura}</strong> ya fue importada el{' '}
+                  <strong>{new Date(dupeWarning.importadoEn).toLocaleDateString('es-ES')}</strong>.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setDupeWarning(null)}
+                    className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-[10px] font-black uppercase transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => { setDupeFacAck(true); handleAiSave(); }}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase transition-all"
+                  >
+                    Proceder de todas formas
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {aiMeta && (
             <div className="grid grid-cols-3 gap-3">

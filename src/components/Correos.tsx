@@ -3,6 +3,7 @@ import {
   Mail, RefreshCw, Inbox, FileText, AlertCircle,
   CheckCircle2, Paperclip, ArrowLeft, Package, X, Brain,
   ChevronDown, ChevronRight, Search, Eye, EyeOff, Play,
+  AlertTriangle,
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -41,6 +42,12 @@ interface EmailDetail extends EmailSummary {
   attachments?: Attachment[];
 }
 
+interface DupeModal {
+  datos: DatosFactura;
+  emailUid: number;
+  existing: any; // doc from facturas_importadas
+}
+
 interface CorreosProps {
   settings: AppSettings;
   onImportToStock: (datos: DatosFactura) => void;
@@ -48,9 +55,12 @@ interface CorreosProps {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const fmtDate = (iso: string | null) => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const fmtDate = (iso: string | null) =>
+  !iso ? '—' : new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+const fmtDateShort = (iso: string) => {
+  try { return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  catch { return iso; }
 };
 
 const fmtSize = (bytes: number) => {
@@ -99,17 +109,12 @@ function classifyDate(dateStr: string | null): string {
 
 function sortGroupKeys(keys: string[]): string[] {
   return [...keys].sort((a, b) => {
-    const ia = GROUP_ORDER.indexOf(a);
-    const ib = GROUP_ORDER.indexOf(b);
+    const ia = GROUP_ORDER.indexOf(a); const ib = GROUP_ORDER.indexOf(b);
     if (ia !== -1 && ib !== -1) return ia - ib;
     if (ia !== -1) return -1;
     if (ib !== -1) return 1;
-    // "Month YYYY" — sort descending
-    const parseMonthYear = (s: string) => {
-      const parts = s.split(' ');
-      return parseInt(parts[1] || '0') * 100 + MONTHS_ES.indexOf(parts[0]);
-    };
-    return parseMonthYear(b) - parseMonthYear(a);
+    const parse = (s: string) => { const p = s.split(' '); return parseInt(p[1] || '0') * 100 + MONTHS_ES.indexOf(p[0]); };
+    return parse(b) - parse(a);
   });
 }
 
@@ -129,18 +134,33 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   const [analyzingAll, setAnalyzingAll]     = useState(false);
   const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // correos_procesados: keyed by emailUid
   const [procesados, setProcessados]         = useState<Record<string, any>>({});
+  // facturas_importadas: keyed by claveUnica
+  const [facturasImportadas, setFacturasImportadas] = useState<Record<string, any>>({});
+  // duplicate import modal
+  const [dupeModal, setDupeModal]            = useState<DupeModal | null>(null);
+
   const [showProcesados, setShowProcesados]  = useState(false);
   const [expandedGroups, setExpandedGroups]  = useState<Set<string>>(new Set(['Hoy']));
   const [searchQuery, setSearchQuery]        = useState('');
 
-  // Subscribe to correos_procesados (self-contained — doesn't need App.tsx)
+  // ── Storage subscriptions ─────────────────────────────────────────────────
   useEffect(() => {
-    return storage.subscribe('correos_procesados', (data: any[]) => {
+    const unsub1 = storage.subscribe('correos_procesados', (data: any[]) => {
       const map: Record<string, any> = {};
-      data.forEach(d => { map[String(d.uid)] = d; });
+      data.forEach(d => {
+        const key = String(d.emailUid ?? d.uid ?? '');
+        if (key) map[key] = d;
+      });
       setProcessados(map);
     });
+    const unsub2 = storage.subscribe('facturas_importadas', (data: any[]) => {
+      const map: Record<string, any> = {};
+      data.forEach(d => { if (d.claveUnica) map[d.claveUnica] = d; });
+      setFacturasImportadas(map);
+    });
+    return () => { unsub1(); unsub2(); };
   }, []);
 
   const checkHealth = useCallback(async () => {
@@ -155,8 +175,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const fetchEmails = useCallback(async () => {
     if (!serverUrl) return;
-    setLoadingList(true);
-    setError('');
+    setLoadingList(true); setError('');
     try {
       const r = await fetch(`${serverUrl}/emails`, { signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
@@ -164,7 +183,6 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       const list: EmailSummary[] = data.emails || [];
       setEmails(list);
       setConnected(true);
-      // Auto-expand first non-empty group
       const keys = [...new Set(list.map(e => classifyDate(e.date)))];
       const sorted = sortGroupKeys(keys);
       if (sorted.length) setExpandedGroups(new Set([sorted[0]]));
@@ -181,8 +199,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const openEmail = async (uid: number) => {
     if (!serverUrl) return;
-    setLoadingDetail(true);
-    setSelected(null);
+    setLoadingDetail(true); setSelected(null);
     try {
       const r = await fetch(`${serverUrl}/emails/${uid}`, { signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`Error ${r.status}`);
@@ -196,8 +213,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
 
   const analyzeAttachment = async (att: Attachment) => {
     if (!serverUrl) return;
-    setAnalyzingAtt(att.filename);
-    setError('');
+    setAnalyzingAtt(att.filename); setError('');
     try {
       const r = await fetch(`${serverUrl}/analyze-attachment`, {
         method: 'POST',
@@ -231,26 +247,55 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     } finally { setAnalyzingAtt(null); }
   };
 
-  const handleImport = (datos: DatosFactura) => {
+  // ── Import with anti-duplicate check ─────────────────────────────────────
+  const handleImportClick = (datos: DatosFactura) => {
     if (!selected) return;
-    const docId = `correo-${selected.uid}`;
-    storage.save('correos_procesados', docId, {
-      id: docId,
-      uid: selected.uid,
-      fecha: new Date().toISOString(),
+    const claveUnica = `${selected.uid}-${datos.numero_factura}`;
+    const existing = facturasImportadas[claveUnica];
+    if (existing) {
+      setDupeModal({ datos, emailUid: selected.uid, existing });
+    } else {
+      doImport(datos, selected.uid, false);
+    }
+  };
+
+  const doImport = (datos: DatosFactura, emailUid: number, forzado: boolean) => {
+    const now = new Date().toISOString();
+    const claveUnica = `${emailUid}-${datos.numero_factura}`;
+    const importId = `IMP-${Date.now()}`;
+
+    storage.save('facturas_importadas', importId, {
+      id: importId,
+      emailUid,
+      claveUnica,
+      proveedor: datos.proveedor,
+      numeroFactura: datos.numero_factura,
+      fecha: datos.fecha,
+      total: datos.total,
+      lineas: datos.lineas,
+      importadoEn: now,
+      forzado,
+    });
+
+    storage.save('correos_procesados', `PROC-${emailUid}`, {
+      id: `PROC-${emailUid}`,
+      emailUid,
       tipo: 'stock_importado',
       proveedor: datos.proveedor,
-      numero_factura: datos.numero_factura,
+      numeroFactura: datos.numero_factura,
+      procesadoEn: now,
     });
+
+    setDupeModal(null);
     onImportToStock(datos);
   };
 
+  // ── Analizar todos pendientes ─────────────────────────────────────────────
   const analyzePendingAll = useCallback(async () => {
     if (!serverUrl || analyzingAll) return;
     const pending = emails.filter(e => e.tiene_adjuntos && e.es_factura === undefined && !procesados[String(e.uid)]);
     if (!pending.length) return;
-    setAnalyzingAll(true);
-    setError('');
+    setAnalyzingAll(true); setError('');
     for (let i = 0; i < pending.length; i++) {
       setAnalyzeProgress({ current: i + 1, total: pending.length });
       try {
@@ -277,8 +322,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         }
       } catch {}
     }
-    setAnalyzingAll(false);
-    setAnalyzeProgress(null);
+    setAnalyzingAll(false); setAnalyzeProgress(null);
   }, [serverUrl, emails, procesados, analyzingAll]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -349,8 +393,44 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   if (selected) {
     const attachments = selected.attachments || [];
     const isProcesado = !!procesados[String(selected.uid)];
+    const claveUnica = `${selected.uid}-${selected.datos_factura?.numero_factura}`;
+    const yaImportada = selected.datos_factura ? !!facturasImportadas[claveUnica] : false;
+
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
+        {/* Duplicate import modal */}
+        {dupeModal && (
+          <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="text-center space-y-3">
+                <div className="inline-flex p-4 bg-amber-50 rounded-2xl">
+                  <AlertTriangle size={28} className="text-amber-500" />
+                </div>
+                <h2 className="text-base font-black text-slate-900 uppercase tracking-tight">Factura ya importada</h2>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <p>La factura <strong>{dupeModal.datos.numero_factura}</strong> de <strong>{dupeModal.datos.proveedor}</strong></p>
+                  <p>ya fue importada el <strong>{fmtDateShort(dupeModal.existing.importadoEn)}</strong>.</p>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">¿Deseas importarla igualmente?</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDupeModal(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => doImport(dupeModal.datos, dupeModal.emailUid, true)}
+                  className="flex-1 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-600 transition-all"
+                >
+                  Importar igualmente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
             <ArrowLeft size={14} /> Volver
@@ -363,10 +443,11 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
             )}
             {selected.datos_factura && (
               <button
-                onClick={() => handleImport(selected.datos_factura!)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all shadow-sm"
+                onClick={() => handleImportClick(selected.datos_factura!)}
+                className={`flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-xs font-black uppercase transition-all shadow-sm ${yaImportada ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
               >
-                <Package size={13} /> Importar a Entrada de Stock
+                <Package size={13} />
+                {yaImportada ? 'Reimportar a Stock' : 'Importar a Entrada de Stock'}
               </button>
             )}
           </div>
@@ -417,8 +498,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                   </div>
                 ))}
               </div>
+              {yaImportada && (
+                <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                  <AlertTriangle size={12} className="text-amber-500 shrink-0" />
+                  <p className="text-[10px] font-bold text-amber-700">
+                    Esta factura ya fue importada el {fmtDateShort(facturasImportadas[claveUnica]?.importadoEn)}.
+                    Si la reimportas se creará una entrada de stock duplicada.
+                  </p>
+                </div>
+              )}
               {selected.datos_factura.lineas?.length > 0 && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto mt-3">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-[9px] font-bold text-slate-400 uppercase bg-white/60">
@@ -462,9 +552,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                         disabled={analyzingAtt !== null}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white rounded-lg text-[10px] font-black uppercase transition-all shrink-0"
                       >
-                        {analyzingAtt === att.filename
-                          ? <RefreshCw size={11} className="animate-spin" />
-                          : <Brain size={11} />}
+                        {analyzingAtt === att.filename ? <RefreshCw size={11} className="animate-spin" /> : <Brain size={11} />}
                         Analizar IA
                       </button>
                     )}
@@ -501,8 +589,6 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
   }
 
   // ── Main list view ─────────────────────────────────────────────────────────
-  const totalFacturas = emails.filter(e => e.es_factura === true).length;
-
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* Header */}
@@ -541,10 +627,10 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total correos',       value: emails.length,                         color: 'text-slate-900' },
-          { label: 'No leídos',           value: emails.filter(e => !e.seen).length,    color: 'text-blue-600' },
-          { label: 'Facturas detectadas', value: totalFacturas,                          color: 'text-emerald-600' },
-          { label: 'Importados',          value: Object.keys(procesados).length,         color: 'text-violet-600' },
+          { label: 'Total correos',       value: emails.length,                      color: 'text-slate-900' },
+          { label: 'No leídos',           value: emails.filter(e => !e.seen).length, color: 'text-blue-600' },
+          { label: 'Facturas detectadas', value: emails.filter(e => e.es_factura === true).length, color: 'text-emerald-600' },
+          { label: 'Importados',          value: Object.keys(procesados).length,     color: 'text-violet-600' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -553,9 +639,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         ))}
       </div>
 
-      {/* Controls row */}
+      {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Search */}
         <div className="flex-1 min-w-48 relative">
           <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -570,15 +655,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
             </button>
           )}
         </div>
-
-        {/* Toggle procesados */}
         <button
           onClick={() => setShowProcesados(v => !v)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all border ${
-            showProcesados
-              ? 'bg-violet-100 text-violet-700 border-violet-200'
-              : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all border ${showProcesados ? 'bg-violet-100 text-violet-700 border-violet-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
         >
           {showProcesados ? <Eye size={13} /> : <EyeOff size={13} />}
           {showProcesados ? 'Ocultar importados' : 'Mostrar importados'}
@@ -598,7 +677,6 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
           ))}
         </div>
 
-        {/* Analizar todos los pendientes (only in facturas tab) */}
         {tab === 'facturas' && pendingCount > 0 && (
           <button
             onClick={analyzePendingAll}
@@ -629,7 +707,6 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
         ) : (
           groupedEmails.map(group => (
             <div key={group.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              {/* Group header */}
               <button
                 onClick={() => toggleGroup(group.key)}
                 className="w-full flex items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors"
@@ -648,12 +725,12 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                 )}
               </button>
 
-              {/* Group rows */}
               {isGroupExpanded(group.key) && (
                 <div className="divide-y divide-slate-50">
                   {group.emails.map(email => {
-                    const isProcesadoRow = !!procesados[String(email.uid)];
-                    const isSinAnalizar = email.tiene_adjuntos && email.es_factura === undefined;
+                    const isProcesadoRow  = !!procesados[String(email.uid)];
+                    const isAnalizado     = email.es_factura === true && !isProcesadoRow;
+                    const isSinAnalizar   = email.tiene_adjuntos && email.es_factura === undefined;
                     return (
                       <button
                         key={email.uid}
@@ -663,7 +740,7 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                         <div className="shrink-0 mt-1">
                           {isProcesadoRow
                             ? <CheckCircle2 size={15} className="text-emerald-500" />
-                            : email.es_factura
+                            : email.es_factura === true
                               ? <CheckCircle2 size={15} className="text-emerald-500" />
                               : email.seen
                                 ? <Mail size={15} className="text-slate-300" />
@@ -675,14 +752,17 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                               {email.from}
                             </p>
                             {email.tiene_adjuntos && <Paperclip size={11} className="text-slate-400 shrink-0" />}
+                            {/* Estado: Importado */}
                             {isProcesadoRow && (
                               <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">✓ Importado</span>
                             )}
-                            {!isProcesadoRow && email.es_factura && (
-                              <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full shrink-0">FACTURA</span>
+                            {/* Estado: Analizado (factura detectada, no importada) */}
+                            {isAnalizado && (
+                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">🔍 Analizado</span>
                             )}
-                            {!isProcesadoRow && isSinAnalizar && tab === 'facturas' && (
-                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">Sin analizar</span>
+                            {/* Estado: Sin analizar (en pestaña Facturas) */}
+                            {!isProcesadoRow && !isAnalizado && isSinAnalizar && tab === 'facturas' && (
+                              <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">Sin analizar</span>
                             )}
                           </div>
                           <p className={`text-xs truncate ${!email.seen ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
