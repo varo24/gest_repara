@@ -80,3 +80,21 @@ export async function getFacturasProveedores(): Promise<ArchivoFactura[]> {
 export async function deleteFacturaPDF(path: string): Promise<void> {
   await deleteObject(ref(fbStorage, path))
 }
+
+// Upload a File object directly (for manual upload from disk)
+export async function uploadFacturaFile(
+  file: File,
+  proveedor: string,
+  numeroFactura: string,
+  fecha: string,
+): Promise<string> {
+  const d = fecha ? new Date(fecha) : new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const provSlug = sanitize(proveedor)
+  const numSlug = sanitize(numeroFactura)
+  const path = `facturas-proveedores/${provSlug}/${year}/${month}/${numSlug}.pdf`
+  const storageRef = ref(fbStorage, path)
+  await uploadBytes(storageRef, file, { contentType: 'application/pdf' })
+  return getDownloadURL(storageRef)
+}
