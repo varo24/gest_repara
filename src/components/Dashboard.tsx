@@ -4,7 +4,7 @@ import {
   Users, Receipt, ClipboardCheck, Puzzle, SlidersHorizontal,
   CheckCircle, Mail, Zap, FileBarChart
 } from 'lucide-react';
-import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
+import { ViewType, RepairItem, Budget, Cita, AppSettings, Notificacion } from '../types';
 
 interface DashboardProps {
   repairs: RepairItem[];
@@ -14,6 +14,7 @@ interface DashboardProps {
   setView: (view: ViewType) => void;
   onNewRepair: () => void;
   onEditRepair: (repair: RepairItem) => void;
+  notificaciones?: Notificacion[];
 }
 
 type Module = {
@@ -27,17 +28,23 @@ type Module = {
   badge?: number;
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings, setView, onNewRepair }) => {
+const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings, setView, onNewRepair, notificaciones = [] }) => {
   const activeRepairs  = repairs.filter(r => !['Entregado', 'Cancelado'].includes(r.status)).length;
   const readyRepairs   = repairs.filter(r => r.status === 'Listo para Entrega').length;
   const pendingBudgets = budgets.filter(b => b.status === 'pending').length;
   const todayCitas     = citas.filter(c => c.fecha?.startsWith(new Date().toISOString().slice(0, 10))).length;
 
+  const unread = notificaciones.filter(n => !n.leida);
+  const repairAlerts  = unread.filter(n => n.tipo === 'reparacion').length;
+  const garantiaAlerts = unread.filter(n => n.tipo === 'garantia').length;
+  const stockAlerts   = unread.filter(n => n.tipo === 'stock').length;
+  const facturaAlerts = unread.filter(n => n.tipo === 'factura').length;
+
   const stats = [
-    { label: 'Activas',      value: activeRepairs,  color: '#1976d2', icon: Settings2,          action: () => setView('repairs') },
-    { label: 'Listas',       value: readyRepairs,   color: '#2e7d32', icon: CheckCircle,        action: () => setView('despacho') },
-    { label: 'Presupuestos', value: pendingBudgets, color: '#7b1fa2', icon: ClipboardCheck,     action: () => setView('budgets') },
-    { label: 'Citas hoy',    value: todayCitas,     color: '#f57f17', icon: Calendar,           action: () => setView('calendar') },
+    { label: 'Activas',      value: activeRepairs,  color: '#1976d2', icon: Settings2,      action: () => setView('repairs'),  alert: 0 },
+    { label: 'Listas',       value: readyRepairs,   color: '#2e7d32', icon: CheckCircle,    action: () => setView('despacho'), alert: repairAlerts },
+    { label: 'Presupuestos', value: pendingBudgets, color: '#7b1fa2', icon: ClipboardCheck, action: () => setView('budgets'),  alert: 0 },
+    { label: 'Citas hoy',    value: todayCitas,     color: '#f57f17', icon: Calendar,       action: () => setView('calendar'), alert: 0 },
   ];
 
   const allModules: Module[] = [
@@ -64,7 +71,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     {
       id: 'invoices', label: 'Facturas', desc: 'Emisión y cobro',
       icon: Receipt, gradient: 'linear-gradient(135deg, #f57f17, #ffa000)', accentColor: '#f57f17',
-      action: () => setView('invoices'),
+      action: () => setView('invoices'), badge: facturaAlerts || undefined,
     },
     {
       id: 'customers', label: 'Clientes', desc: 'Agenda y ficha de cliente',
@@ -74,7 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     {
       id: 'inventory', label: 'Inventario', desc: 'Stock de piezas',
       icon: Package, gradient: 'linear-gradient(135deg, #4e342e, #6d4c41)', accentColor: '#4e342e',
-      action: () => setView('inventory'),
+      action: () => setView('inventory'), badge: stockAlerts || undefined,
     },
     {
       id: 'inventory-entrada', label: 'Entrada Stock', desc: 'Registrar entradas de almacén',
@@ -84,7 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
     {
       id: 'garantias', label: 'Garantías', desc: 'Control de vencimientos',
       icon: Shield, gradient: 'linear-gradient(135deg, #b71c1c, #c62828)', accentColor: '#b71c1c',
-      action: () => setView('garantias'),
+      action: () => setView('garantias'), badge: garantiaAlerts || undefined,
     },
     {
       id: 'correos', label: 'Correos/Facturas', desc: 'Bandeja IMAP y facturas proveedor',
@@ -166,10 +173,10 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
             <button
               key={s.label}
               onClick={s.action}
-              className="stat-card text-left active:scale-95"
+              className="stat-card relative text-left active:scale-95"
               style={{
                 background: '#ffffff',
-                border: '1px solid #e0e0e0',
+                border: s.alert > 0 ? '1px solid #ffcdd2' : '1px solid #e0e0e0',
                 borderRadius: 12,
                 padding: 20,
                 cursor: 'pointer',
@@ -177,6 +184,12 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                 '--stat-color': s.color,
               } as React.CSSProperties}
             >
+              {s.alert > 0 && (
+                <span className="absolute top-2 right-2 text-[8px] font-black px-1.5 py-0.5 rounded-full"
+                  style={{ background: '#c62828', color: '#fff' }}>
+                  {s.alert} alerta{s.alert > 1 ? 's' : ''}
+                </span>
+              )}
               <div className="flex items-center gap-2">
                 <StatIcon size={14} style={{ color: s.color, flexShrink: 0 }} />
                 <span className="text-[28px] font-black leading-none" style={{ color: s.color }}>{s.value}</span>

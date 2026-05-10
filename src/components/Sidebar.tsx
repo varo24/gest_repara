@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Wrench, PlusCircle, FileText,
   Settings, TrendingUp, Users,
   Calendar, AppWindow, RefreshCw,
-  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart
+  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart,
+  Bell, X, ArrowRight, ShieldAlert, AlertTriangle
 } from 'lucide-react';
-import { ViewType, RepairItem, Budget, Cita, Warranty } from '../types';
+import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion } from '../types';
 import { storage } from '../lib/dataService';
 import GlobalSearch from './GlobalSearch';
 
@@ -20,6 +21,9 @@ interface SidebarProps {
   budgets: Budget[];
   citas: Cita[];
   warranties?: Warranty[];
+  notificaciones?: Notificacion[];
+  onMarcarLeida?: (id: string) => void;
+  onMarcarTodasLeidas?: () => void;
 }
 
 type NavItem = { id: ViewType | 'new-repair'; label: string; icon: React.ElementType; badge?: number };
@@ -27,12 +31,34 @@ type NavGroup = { label: string; items: NavItem[] };
 
 const GREEN = '#2e7d32';
 
+const NOTIF_ICONS: Record<string, React.ElementType> = {
+  garantia: ShieldAlert,
+  stock: Package,
+  cita: Calendar,
+  reparacion: Wrench,
+  factura: Receipt,
+};
+const NOTIF_COLORS: Record<string, string> = {
+  garantia: '#c62828',
+  stock: '#f57f17',
+  cita: '#1565c0',
+  reparacion: '#e65100',
+  factura: '#6a1b9a',
+};
+const PRIO_DOT: Record<string, string> = { alta: '#c62828', media: '#f57f17', baja: '#388e3c' };
+const TIPO_LABEL: Record<string, string> = {
+  garantia: 'Garantías', stock: 'Stock', cita: 'Citas', reparacion: 'Reparaciones', factura: 'Facturas',
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   currentView, setView, onNewRepair, onEditRepair,
-  appName, repairs, budgets, citas, warranties = []
+  appName, repairs, budgets, citas, warranties = [],
+  notificaciones = [], onMarcarLeida, onMarcarTodasLeidas,
 }) => {
   const [online, setOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const check = () => setOnline(storage.isOnline());
@@ -40,6 +66,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     const t = setInterval(check, 3000);
     return () => clearInterval(t);
   }, []);
+
+  const unreadNotifs = notificaciones.filter(n => !n.leida);
+  const altaCount = unreadNotifs.filter(n => n.prioridad === 'alta').length;
 
   const readyCount  = repairs.filter(r => r.status === 'Listo para Entrega').length;
   const activeCount = repairs.filter(r => !['Entregado', 'Cancelado'].includes(r.status)).length;
@@ -176,6 +205,118 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </nav>
+
+      {/* ── Bell ── */}
+      <div className="px-3 pt-2 pb-1" style={{ borderTop: '1px solid #1e1e1e' }}>
+        <button
+          ref={bellRef}
+          onClick={() => setNotifOpen(o => !o)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
+          style={{ background: notifOpen ? '#1e1e1e' : 'transparent', color: altaCount > 0 ? '#ff5252' : '#666' }}
+        >
+          <Bell size={14} style={{ flexShrink: 0 }} />
+          <span className="flex-1 text-left text-[10px] font-black uppercase tracking-widest">Notificaciones</span>
+          {unreadNotifs.length > 0 && (
+            <span className="text-[9px] font-black px-1.5 py-px rounded-full"
+              style={{ background: altaCount > 0 ? '#c62828' : '#555', color: '#fff' }}>
+              {unreadNotifs.length > 99 ? '99+' : unreadNotifs.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Notification panel overlay ── */}
+      {notifOpen && (
+        <>
+          <div className="fixed inset-0 z-[490]" onClick={() => setNotifOpen(false)} />
+          <div
+            className="fixed top-0 bottom-0 z-[491] flex flex-col"
+            style={{ left: 210, width: 320, background: '#fff', boxShadow: '6px 0 24px rgba(0,0,0,0.18)' }}
+          >
+            {/* Panel header */}
+            <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100">
+              <Bell size={16} style={{ color: '#1565c0' }} />
+              <p className="flex-1 text-sm font-black uppercase tracking-widest text-slate-900">Notificaciones</p>
+              {unreadNotifs.length > 0 && (
+                <button
+                  onClick={() => { onMarcarTodasLeidas?.(); }}
+                  className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors px-2 py-1"
+                >
+                  Leer todas
+                </button>
+              )}
+              <button onClick={() => setNotifOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 rounded-lg">
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Panel body */}
+            <div className="flex-1 overflow-y-auto">
+              {unreadNotifs.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+                    <Bell size={20} style={{ color: '#2e7d32' }} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Todo en orden</p>
+                </div>
+              ) : (
+                <div className="py-2">
+                  {(['cita', 'garantia', 'reparacion', 'stock', 'factura'] as const).map(tipo => {
+                    const group = unreadNotifs.filter(n => n.tipo === tipo);
+                    if (!group.length) return null;
+                    const Icon = NOTIF_ICONS[tipo];
+                    const color = NOTIF_COLORS[tipo];
+                    return (
+                      <div key={tipo}>
+                        <p className="px-4 py-1.5 text-[8px] font-black uppercase tracking-widest"
+                          style={{ color, background: `${color}10` }}>
+                          {TIPO_LABEL[tipo]} ({group.length})
+                        </p>
+                        {group.map(n => (
+                          <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                              style={{ background: `${color}15` }}>
+                              <Icon size={13} style={{ color }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ background: PRIO_DOT[n.prioridad] }} />
+                                <p className="text-[11px] font-black text-slate-900 truncate">{n.titulo}</p>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-bold truncate">{n.mensaje}</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                              {n.vistaDestino && (
+                                <button
+                                  onClick={() => {
+                                    onMarcarLeida?.(n.id);
+                                    setView(n.vistaDestino as ViewType);
+                                    setNotifOpen(false);
+                                  }}
+                                  className="p-1 rounded hover:bg-slate-100 transition-colors"
+                                  title="Ver">
+                                  <ArrowRight size={12} style={{ color }} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => onMarcarLeida?.(n.id)}
+                                className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors"
+                                title="Marcar como leída">
+                                <X size={11} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Sync ── */}
       <div className="p-3" style={{ borderTop: '1px solid #1e1e1e' }}>

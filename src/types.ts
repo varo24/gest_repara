@@ -240,6 +240,18 @@ export interface Supplier {
   updatedAt: string;
 }
 
+export interface Notificacion {
+  id: string;
+  tipo: 'garantia' | 'stock' | 'cita' | 'reparacion' | 'factura';
+  prioridad: 'alta' | 'media' | 'baja';
+  titulo: string;
+  mensaje: string;
+  enlace?: string;
+  vistaDestino?: string;
+  leida: boolean;
+  createdAt: string;
+}
+
 export interface InformeRecord {
   id: string;
   periodo: string;

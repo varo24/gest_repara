@@ -23,7 +23,8 @@ const Correos        = lazy(() => import('./components/Correos'));
 const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
 const Proveedores    = lazy(() => import('./components/Proveedores'));
 const Informes       = lazy(() => import('./components/Informes'));
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord } from './types';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
+import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
@@ -84,6 +85,7 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [facturasImportadas, setFacturasImportadas] = useState<any[]>([]);
   const [informes, setInformes] = useState<InformeRecord[]>([]);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
@@ -148,6 +150,35 @@ const App: React.FC = () => {
       }
     };
     initApp();
+  }, []);
+
+  // Regenerate notifications whenever source data changes
+  useEffect(() => {
+    const nuevas = generarNotificaciones({
+      garantias: warranties,
+      inventory: inventoryItems,
+      citas,
+      repairs,
+      invoices,
+    });
+    setNotificaciones(prev => {
+      const leidasIds = new Set(prev.filter(n => n.leida).map(n => n.id));
+      return nuevas.map(n => ({ ...n, leida: leidasIds.has(n.id) }));
+    });
+  }, [warranties, inventoryItems, citas, repairs, invoices]);
+
+  useEffect(() => { solicitarPermiso(); }, []);
+
+  useEffect(() => {
+    if (notificaciones.length > 0) enviarNotificacionesBrowser(notificaciones);
+  }, [notificaciones]);
+
+  const marcarLeida = useCallback((id: string) => {
+    setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
+  }, []);
+
+  const marcarTodasLeidas = useCallback(() => {
+    setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
   }, []);
 
   const navigateTo = (view: ViewType) => {
@@ -246,6 +277,9 @@ const App: React.FC = () => {
         budgets={budgets}
         citas={citas}
         warranties={warranties}
+        notificaciones={notificaciones}
+        onMarcarLeida={marcarLeida}
+        onMarcarTodasLeidas={marcarTodasLeidas}
       />
 
       <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
@@ -380,6 +414,7 @@ const App: React.FC = () => {
                 setView={navigateTo}
                 onNewRepair={() => navigateTo('new-repair')}
                 onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+                notificaciones={notificaciones}
               />
             )}
             {currentView === 'repairs' && (
