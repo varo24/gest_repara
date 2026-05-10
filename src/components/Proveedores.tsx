@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Truck, Search, Plus, ArrowLeft, Phone, Mail, Globe, Building2,
-  Edit2, Trash2, Save, X, FileText, Package, BarChart2,
-  Euro, TrendingUp, Clock, CheckCircle, ExternalLink,
+  Edit2, Trash2, Save, FileText, Package, BarChart2,
+  Euro, TrendingUp, Clock, ExternalLink,
 } from 'lucide-react';
 import { Supplier, StockMovement } from '../types';
 import { storage } from '../lib/dataService';
