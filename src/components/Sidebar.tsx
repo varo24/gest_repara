@@ -137,23 +137,27 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className="h-screen flex flex-col fixed left-0 top-0 z-40 no-print"
-      style={{ width: 210, background: '#0d0d0d', borderRight: '1px solid #2a2a2a', fontFamily: "'Barlow Condensed', sans-serif" }}
+      style={{ width: 220, background: '#0a0a0a', borderRight: '1px solid #1e1e1e', fontFamily: "'Barlow Condensed', sans-serif" }}
     >
       {/* ── Logo ── */}
-      <div className="px-4 py-4" style={{ borderBottom: '1px solid #1e1e1e' }}>
+      <div className="px-4 py-5" style={{ borderBottom: '1px solid #1a1a1a' }}>
         <button
           onClick={() => setView('dashboard')}
-          className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 w-full text-left group"
         >
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 font-black text-lg leading-none text-white"
-            style={{ background: GREEN }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-xl leading-none text-white shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${GREEN}, #4caf50)` }}
           >
             {appName.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-black tracking-widest uppercase text-white truncate leading-none">{appName}</div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5" style={{ color: GREEN }}>v8 · Taller Pro</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12px] font-black tracking-widest uppercase text-white leading-tight break-words line-clamp-2 group-hover:opacity-90 transition-opacity">
+              {appName}
+            </div>
+            <div className="text-[8px] font-bold uppercase tracking-[0.18em] mt-1" style={{ color: '#4caf50' }}>
+              v8 · Taller Pro
+            </div>
           </div>
         </button>
       </div>
@@ -167,13 +171,23 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
         {groups.map((group, gi) => (
           <div key={group.label}>
-            {gi > 0 && <div className="mx-2 my-1.5" style={{ borderTop: '1px solid #1e1e1e' }} />}
-            <p className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: '#444' }}>
-              {group.label}
-            </p>
+            {gi > 0 && (
+              <div className="mx-3 my-2 flex items-center gap-2">
+                <div className="flex-1 h-px" style={{ background: '#1e1e1e' }} />
+                <span className="text-[7px] font-black uppercase tracking-[0.25em]" style={{ color: '#2a2a2a' }}>
+                  {group.label}
+                </span>
+                <div className="flex-1 h-px" style={{ background: '#1e1e1e' }} />
+              </div>
+            )}
+            {gi === 0 && (
+              <p className="px-3 pt-0 pb-1 text-[8px] font-black uppercase tracking-[0.22em]" style={{ color: '#333' }}>
+                {group.label}
+              </p>
+            )}
             {group.items.map(item => {
               const Icon = item.icon;
               const isNew    = item.id === 'new-repair';
@@ -182,18 +196,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => isNew ? onNewRepair() : setView(item.id as ViewType)}
-                  className={`sidebar-nav-btn w-full flex items-center gap-2.5 px-3 py-[7px] text-[11px] font-black uppercase tracking-wider mb-px group${isActive ? ' is-active' : ''}`}
-                  style={isActive ? { background: GREEN, color: '#fff' } : { color: '#888' }}
+                  className={`sidebar-nav-btn w-full flex items-center gap-2.5 px-3 py-[7px] text-[11px] font-black uppercase tracking-wide mb-px group${isActive ? ' is-active' : ''}`}
+                  style={isActive ? { color: '#4caf50' } : { color: '#777' }}
                 >
                   <Icon
-                    size={15}
-                    style={{ color: isActive ? '#fff' : '#555', flexShrink: 0 }}
+                    size={14}
+                    style={{ color: isActive ? '#4caf50' : '#444', flexShrink: 0 }}
                     className={isActive ? '' : 'group-hover:!text-[#4caf50]'}
                   />
-                  <span className="flex-1 text-left truncate group-hover:text-white">{item.label}</span>
+                  <span className="flex-1 text-left truncate">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className="text-[9px] font-black px-1.5 py-px leading-none rounded-sm"
+                      className="text-[9px] font-black px-1.5 py-px leading-none rounded-full"
                       style={getBadgeStyle(item.id as string)}
                     >
                       {item.badge}
@@ -231,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="fixed inset-0 z-[490]" onClick={() => setNotifOpen(false)} />
           <div
             className="fixed top-0 bottom-0 z-[491] flex flex-col"
-            style={{ left: 210, width: 320, background: '#fff', boxShadow: '6px 0 24px rgba(0,0,0,0.18)' }}
+            style={{ left: 220, width: 320, background: '#fff', boxShadow: '6px 0 24px rgba(0,0,0,0.18)' }}
           >
             {/* Panel header */}
             <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100">

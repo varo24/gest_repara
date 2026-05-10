@@ -2,49 +2,67 @@
 
 /* ── Print styles ── */
 @media print {
-  .no-print, .no-print * {
-    display: none !important;
-  }
-  body {
-    background: white !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  .no-print, .no-print * { display: none !important; }
+  body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print\:shadow-none { box-shadow: none !important; }
   .print\:border-none { border: none !important; }
   .print\:p-0 { padding: 0 !important; }
 }
 
 /* Safe area for mobile fixed bottom bars */
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
 /* ── Font ── */
-@theme {
-  --font-sans: 'Nunito', sans-serif;
-}
+@theme { --font-sans: 'Nunito', sans-serif; }
 
-/* ── Light Theme Base ── */
-html {
-  background-color: #f5f5f5;
-  color: #1a1a1a;
-  min-height: 100vh;
-}
-body {
-  font-family: 'Nunito', sans-serif;
-  background-color: #f5f5f5;
-  color: #1a1a1a;
-  min-height: 100vh;
-}
-#root {
-  background-color: #f5f5f5;
-  color: #1a1a1a;
-  min-height: 100vh;
-}
-
-/* ── Theme Variables ── */
+/* ── Design System Variables ── */
 :root {
+  /* Base colors */
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8f9fa;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  /* Text */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  /* Primary (green) */
+  --color-primary: #2e7d32;
+  --color-primary-light: #4caf50;
+  --color-primary-dark: #1b5e20;
+  --color-primary-bg: #f0fdf4;
+
+  /* States */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-info: #2563eb;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.12);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+
+  /* Typography */
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+
+  /* Legacy aliases (keep for backward compat) */
   --ind-bg:      #f5f5f5;
   --ind-surface: #ffffff;
   --ind-card:    #ffffff;
@@ -56,81 +74,213 @@ body {
   --ind-border:  #e0e0e0;
 }
 
-/* ── Form fields — light theme ── */
-input, textarea, select, [contenteditable] {
-  color: #1a1a1a !important;
-  background-color: #ffffff !important;
-  caret-color: #1a1a1a !important;
-  border-color: #d0d0d0 !important;
+/* ── Base ── */
+html, body, #root {
+  font-family: 'Nunito', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
 }
 
+/* ── Form fields ── */
+input, textarea, select, [contenteditable] {
+  color: var(--color-text-primary) !important;
+  background-color: var(--color-surface) !important;
+  caret-color: var(--color-text-primary) !important;
+  border-color: var(--color-border-strong) !important;
+  border-width: 1.5px !important;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
 input::placeholder, textarea::placeholder {
-  color: #999999 !important;
+  color: var(--color-text-muted) !important;
   opacity: 1 !important;
 }
-
 input:focus, textarea:focus, select:focus {
-  color: #1a1a1a !important;
-  outline-color: #2e7d32 !important;
-  border-color: #2e7d32 !important;
+  color: var(--color-text-primary) !important;
+  outline: none !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(46,125,50,0.1);
 }
-
 select option {
-  background-color: #ffffff !important;
-  color: #1a1a1a !important;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
 }
 
 /* ── Tables ── */
-table, thead, tbody, tr, td, th {
-  color: #1a1a1a !important;
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--color-surface-2); }
+th {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary) !important;
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--color-border) !important;
+}
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+  font-size: var(--font-size-base);
+}
+tbody tr:hover { background: var(--color-surface-2); }
+tbody tr:last-child td { border-bottom: none !important; }
+
+/* ── Card utility ── */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-hover { transition: box-shadow 0.18s, transform 0.18s; }
+.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+/* ── Button utilities ── */
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 8px 18px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(46,125,50,0.25);
+}
+.btn-primary:hover { background: var(--color-primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(46,125,50,0.35); }
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 8px 18px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-bg); }
+
+/* ── Badge utilities ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.6;
+}
+.badge-green  { background: #dcfce7; color: #15803d; }
+.badge-red    { background: #fee2e2; color: #dc2626; }
+.badge-amber  { background: #fef3c7; color: #d97706; }
+.badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.badge-purple { background: #ede9fe; color: #7c3aed; }
+.badge-gray   { background: #f3f4f6; color: #6b7280; }
+.badge-orange { background: #ffedd5; color: #ea580c; }
+
+/* ── Module header pattern ── */
+.module-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.module-header-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+.module-header-sub {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
 }
 
-/* ── Sidebar nav item — left-border accent ── */
+/* ── Sidebar nav item ── */
 .sidebar-nav-btn {
   border-left: 3px solid transparent;
-  transition: border-color 120ms, background-color 120ms, color 120ms;
+  border-radius: 0 8px 8px 0;
+  transition: border-color 150ms, background-color 150ms, color 150ms;
 }
 .sidebar-nav-btn:hover {
-  border-left-color: #2e7d32;
+  border-left-color: rgba(76,175,80,0.5);
+  background: rgba(255,255,255,0.04) !important;
+  color: #ccc !important;
 }
 .sidebar-nav-btn.is-active {
-  border-left-color: #2e7d32;
+  border-left-color: var(--color-primary-light);
+  background: rgba(46,125,50,0.14) !important;
+  color: var(--color-primary-light) !important;
 }
 
-/* ── Industrial card hover (light) ── */
+/* ── Industrial card hover ── */
 .industrial-card {
   transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
 }
 .industrial-card:hover {
-  border-color: #2e7d32 !important;
+  border-color: var(--color-primary) !important;
   background-color: #f9fbe7 !important;
-  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.12) !important;
+  box-shadow: 0 4px 16px rgba(46,125,50,0.12) !important;
 }
 
-/* ── Sync button hover ── */
-.sync-btn:hover {
-  border-color: #2e7d32 !important;
-}
+/* ── Sync button ── */
+.sync-btn { border-radius: 8px; transition: border-color 0.15s, background 0.15s; }
+.sync-btn:hover { border-color: var(--color-primary) !important; background: rgba(46,125,50,0.06) !important; }
 
 /* ── Dashboard stat card ── */
+.stat-card {
+  transition: all 0.18s ease;
+  border-radius: 14px !important;
+}
 .stat-card:hover {
-  border-color: var(--stat-color, #2e7d32) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+  border-color: var(--stat-color, var(--color-primary)) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
+  transform: translateY(-2px);
 }
 
 /* ── Dashboard module card ── */
+.module-card {
+  transition: all 0.2s ease;
+  border-radius: 16px !important;
+}
 .module-card:hover {
-  filter: brightness(1.1);
-  transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
+  filter: brightness(1.08);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.25) !important;
 }
 
 /* ── Back-to-dashboard button ── */
 .back-to-dash {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 14px; border-radius: 10px;
-  border: 1.5px solid #2e7d32; color: #2e7d32;
+  border: 1.5px solid var(--color-primary); color: var(--color-primary);
   font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em;
   background: transparent; cursor: pointer; transition: all 0.15s ease; white-space: nowrap; line-height: 1;
 }
-.back-to-dash:hover { background: #2e7d32; color: #fff; }
+.back-to-dash:hover { background: var(--color-primary); color: #fff; }
+
+/* ── Elegant scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }

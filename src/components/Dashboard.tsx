@@ -216,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
                 borderRadius: 16,
                 background: mod.gradient,
                 border: 'none',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                boxShadow: `0 4px 14px ${mod.accentColor}40`,
                 transition: 'all 0.2s ease',
               }}
             >
