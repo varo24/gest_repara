@@ -21,7 +21,8 @@ const EntradaStock   = lazy(() => import('./components/EntradaStock'));
 const Garantias      = lazy(() => import('./components/Garantias'));
 const Correos        = lazy(() => import('./components/Correos'));
 const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty } from './types';
+const Proveedores    = lazy(() => import('./components/Proveedores'));
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier } from './types';
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
@@ -44,7 +45,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hourlyRate: 45,
   taxRate: 21,
   letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.',
-  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','correos','calendar','stats','external-apps','settings'],
+  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','correos','archivo-facturas','suppliers','calendar','stats','external-apps','settings'],
   legalTerms: 'LOS PRESUPUESTOS QUE NO SUPEREN LOS 40€ NO REQUIEREN FIRMA DEL CLIENTE. EL TALLER NO SE HACE RESPONSABLE DE LA PÉRDIDA DE DATOS. SE RECOMIENDA REALIZAR UNA COPIA DE SEGURIDAD ANTES DE ENTREGAR EL EQUIPO. LOS EQUIPOS NO RETIRADOS EN UN PLAZO DE 6 MESES DESDE LA NOTIFICACIÓN AL CLIENTE PODRÁN SER OBJETO DE TRATAMIENTO CONFORME A LA NORMATIVA VIGENTE. EL PRESUPUESTO TIENE UNA VALIDEZ DE 15 DÍAS DESDE SU EMISIÓN. SE APLICARÁ EL IVA VIGENTE EN EL MOMENTO DE LA FACTURACIÓN.',
   geminiApiKey: '',
   warrantyMonths: 3,
@@ -79,6 +80,9 @@ const App: React.FC = () => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [warranties, setWarranties] = useState<Warranty[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [facturasImportadas, setFacturasImportadas] = useState<any[]>([]);
+  const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
 
@@ -133,6 +137,8 @@ const App: React.FC = () => {
         storage.subscribe('inventory', setInventoryItems);
         storage.subscribe('stock_movements', setStockMovements);
         storage.subscribe('warranties', setWarranties);
+        storage.subscribe('suppliers', setSuppliers);
+        storage.subscribe('facturas_importadas', setFacturasImportadas);
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
@@ -677,6 +683,23 @@ const App: React.FC = () => {
                 <ArchivoFacturas
                   settings={settings}
                   onBack={() => navigateTo('dashboard')}
+                  onViewSupplier={(name) => {
+                    setSupplierToOpen(name);
+                    navigateTo('suppliers');
+                  }}
+                />
+              </Suspense>
+            )}
+            {currentView === 'suppliers' && (
+              <Suspense fallback={<LazyFallback />}>
+                <Proveedores
+                  settings={settings}
+                  suppliers={suppliers}
+                  facturasImportadas={facturasImportadas}
+                  stockMovements={stockMovements}
+                  onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
+                  initialSupplierName={supplierToOpen}
                 />
               </Suspense>
             )}

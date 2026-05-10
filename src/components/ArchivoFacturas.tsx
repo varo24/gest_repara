@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   FolderOpen, Search, RefreshCw, ExternalLink,
   Download, Trash2, ChevronDown, ChevronRight, FileText,
-  AlertCircle, Loader2, LayoutList, LayoutGrid, Upload,
+  AlertCircle, Loader2, LayoutList, LayoutGrid, Upload, Truck,
 } from 'lucide-react';
 import { storage } from '../lib/dataService';
 import { getFacturasProveedores, deleteFacturaPDF, uploadFacturaFile, ArchivoFactura } from '../lib/storageService';
@@ -11,6 +11,7 @@ import { AppSettings } from '../types';
 interface ArchivoFacturasProps {
   settings: AppSettings;
   onBack: () => void;
+  onViewSupplier?: (supplierName: string) => void;
 }
 
 interface ImportadaDoc {
@@ -72,7 +73,7 @@ const fmtDate = (iso: string) => {
 const fmtEuros = (n?: number) =>
   n != null ? n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) : '—';
 
-export default function ArchivoFacturas({ onBack }: ArchivoFacturasProps) {
+export default function ArchivoFacturas({ onBack, onViewSupplier }: ArchivoFacturasProps) {
   const [importadasList, setImportadasList]       = useState<ImportadaDoc[]>([]);
   const [storageFiles, setStorageFiles]           = useState<ArchivoFactura[]>([]);
   const [loadingStorage, setLoadingStorage]       = useState(true);
@@ -444,18 +445,29 @@ export default function ArchivoFacturas({ onBack }: ArchivoFacturasProps) {
                   const provConPdf = Object.values(years).flatMap(m => Object.values(m)).flat().filter(e => e.hasPdf).length;
                   return (
                     <div key={prov} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                      <button
-                        onClick={() => toggleProv(prov)}
-                        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
-                      >
-                        {provOpen
-                          ? <ChevronDown size={15} className="text-slate-400 shrink-0" />
-                          : <ChevronRight size={15} className="text-slate-400 shrink-0" />}
-                        <FolderOpen size={16} className="text-sky-400 shrink-0" />
-                        <span className="flex-1 font-black text-slate-900 uppercase text-sm tracking-wide">{prov}</span>
-                        <span className="text-[10px] font-bold text-emerald-600 mr-1">{provConPdf} PDF</span>
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{provTotal}</span>
-                      </button>
+                      <div className="flex items-center w-full">
+                        <button
+                          onClick={() => toggleProv(prov)}
+                          className="flex-1 flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                        >
+                          {provOpen
+                            ? <ChevronDown size={15} className="text-slate-400 shrink-0" />
+                            : <ChevronRight size={15} className="text-slate-400 shrink-0" />}
+                          <FolderOpen size={16} className="text-sky-400 shrink-0" />
+                          <span className="flex-1 font-black text-slate-900 uppercase text-sm tracking-wide">{prov}</span>
+                          <span className="text-[10px] font-bold text-emerald-600 mr-1">{provConPdf} PDF</span>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{provTotal}</span>
+                        </button>
+                        {onViewSupplier && (
+                          <button
+                            onClick={() => onViewSupplier(prov)}
+                            className="flex items-center gap-1 mr-3 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors shrink-0"
+                            title="Ver ficha del proveedor"
+                          >
+                            <Truck size={11} /> Ficha
+                          </button>
+                        )}
+                      </div>
 
                       {provOpen && (
                         <div className="border-t border-slate-100">

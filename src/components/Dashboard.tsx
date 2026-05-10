@@ -97,6 +97,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       action: () => setView('archivo-facturas'),
     },
     {
+      id: 'suppliers', label: 'Proveedores', desc: 'Ficha y compras por proveedor',
+      icon: Truck, gradient: 'linear-gradient(135deg, #4e342e, #5d4037)', accentColor: '#4e342e',
+      action: () => setView('suppliers'),
+    },
+    {
       id: 'calendar', label: 'Planificador', desc: `${todayCitas} citas hoy`,
       icon: Calendar, gradient: 'linear-gradient(135deg, #1b5e20, #2e7d32)', accentColor: '#1b5e20',
       action: () => setView('calendar'),

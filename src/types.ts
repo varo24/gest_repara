@@ -126,7 +126,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
@@ -212,6 +212,25 @@ export interface Warranty {
   status: 'activa' | 'vencida' | 'reclamada';
   notes?: string;
   createdAt: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  comercialName?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  website?: string;
+  iban?: string;
+  paymentTerms?: string;
+  notes?: string;
+  categories?: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FullInvoice {

@@ -9,12 +9,13 @@ type CB = (data: any[]) => void;
 // ── IndexedDB local cache ────────────────────────────────────────────────────
 
 const DB_NAME = 'ReparaPro_LocalDB';
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 const ALL_STORES = [
   'repairs', 'budgets', 'invoices', 'cash_movements', 'inventory',
   'warranties', 'customers', 'settings', 'stock_movements',
   'citas', 'apps_externas',
   'correos_procesados', 'facturas_importadas', 'correos_analizados', 'facturas_descartadas',
+  'suppliers',
 ];
 
 class LocalStore {
@@ -463,7 +464,7 @@ export const storage = {
       'inventory', 'stock_movements', 'warranties', 'customers',
       'appointments', 'reminders', 'surveys', 'settings',
       'citas', 'apps_externas', 'inventory_entries', 'purchase_orders',
-      'facturas_importadas', 'facturas_descartadas',
+      'facturas_importadas', 'facturas_descartadas', 'suppliers',
     ];
     const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v2-full' };
     for (const col of BACKUP_COLS) result[col] = localStore.getAll(col);

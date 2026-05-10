@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Wrench, PlusCircle, FileText,
   Settings, TrendingUp, Users,
   Calendar, AppWindow, RefreshCw,
-  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox
+  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty } from '../types';
 import { storage } from '../lib/dataService';
@@ -73,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'customers',         label: 'Clientes',         icon: Users },
         { id: 'correos',           label: 'Facturas Recibidas', icon: Inbox },
         { id: 'archivo-facturas',  label: 'Archivo Facturas', icon: FolderOpen },
+        { id: 'suppliers',         label: 'Proveedores',       icon: Truck },
         { id: 'calendar',          label: 'Planificador',     icon: Calendar },
       ]
     },
