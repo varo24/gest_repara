@@ -81,6 +81,19 @@ export async function deleteFacturaPDF(path: string): Promise<void> {
   await deleteObject(ref(fbStorage, path))
 }
 
+export async function uploadInformeHTML(html: string, periodo: string, fecha: string): Promise<string> {
+  const d = fecha ? new Date(fecha) : new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const periodoSlug = sanitize(periodo)
+  const fechaSlug = sanitize(fecha || new Date().toISOString().slice(0, 10))
+  const path = `informes/${year}/${month}/informe_${periodoSlug}_${fechaSlug}.html`
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const storageRef = ref(fbStorage, path)
+  await uploadBytes(storageRef, blob, { contentType: 'text/html;charset=utf-8' })
+  return getDownloadURL(storageRef)
+}
+
 // Upload a File object directly (for manual upload from disk)
 export async function uploadFacturaFile(
   file: File,

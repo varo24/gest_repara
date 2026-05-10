@@ -126,7 +126,7 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers' | 'informes';
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
@@ -236,6 +236,23 @@ export interface Supplier {
   paymentTerms?: string;
   notes?: string;
   categories?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InformeRecord {
+  id: string;
+  periodo: string;
+  fechaInicio: string;
+  fechaFin: string;
+  url?: string;
+  stats: {
+    totalFacturado: number;
+    nReparaciones: number;
+    valorStock: number;
+    totalCompras: number;
+  };
+  generadoEn: string;
   createdAt: string;
   updatedAt: string;
 }

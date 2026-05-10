@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Wrench, Settings2, Shield, Package, Truck, Calendar, BarChart2,
   Users, Receipt, ClipboardCheck, Puzzle, SlidersHorizontal,
-  CheckCircle, Mail, Zap
+  CheckCircle, Mail, Zap, FileBarChart
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, AppSettings } from '../types';
 
@@ -115,6 +115,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       id: 'external-apps', label: 'Módulos Ext.', desc: 'Aplicaciones integradas',
       icon: Puzzle, gradient: 'linear-gradient(135deg, #4a148c, #6a1b9a)', accentColor: '#4a148c',
       action: () => setView('external-apps'),
+    },
+    {
+      id: 'informes', label: 'Informes', desc: 'Informes PDF de gestión',
+      icon: FileBarChart, gradient: 'linear-gradient(135deg, #1565c0, #1976d2)', accentColor: '#1565c0',
+      action: () => setView('informes'),
     },
     {
       id: 'settings', label: 'Ajustes', desc: 'Configuración del sistema',

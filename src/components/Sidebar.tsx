@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Wrench, PlusCircle, FileText,
   Settings, TrendingUp, Users,
   Calendar, AppWindow, RefreshCw,
-  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck
+  Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty } from '../types';
 import { storage } from '../lib/dataService';
@@ -92,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     {
       label: 'Sistema',
       items: [
+        { id: 'informes',          label: 'Informes',         icon: FileBarChart },
         { id: 'stats',             label: 'Rendimiento',      icon: TrendingUp },
         { id: 'external-apps',     label: 'Módulos Ext.',     icon: AppWindow },
         { id: 'settings',          label: 'Ajustes',          icon: Settings },
