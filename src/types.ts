@@ -130,6 +130,7 @@ export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'cus
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
+// Legacy enums — kept for backward compat with old stored data
 export enum CitaEstado {
   Confirmada = 'Confirmada',
   Cancelada = 'Cancelada',
@@ -145,16 +146,22 @@ export enum EstadoVisita {
 
 export interface Cita {
   id: string;
-  clienteNombre: string;
-  fecha: string; // ISO date string
-  servicio: string;
-  estado: CitaEstado;
-  estadoVisita: EstadoVisita;
+  tipo: 'taller' | 'domicilio' | 'interno';
+  titulo: string;
+  clienteName?: string;
+  clientePhone?: string;
+  clienteId?: string;
+  repairId?: string;
+  fecha: string;        // YYYY-MM-DD
+  horaInicio: string;   // HH:MM
+  horaFin: string;      // HH:MM
+  descripcion?: string;
   direccion?: string;
-  ciudad?: string;
-  telefono?: string;
-  notas?: string;
-  rmaId?: string; // link to repair
+  estado: 'pendiente' | 'confirmada' | 'completada' | 'cancelada';
+  recordatorioEnviado?: boolean;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExternalApp {

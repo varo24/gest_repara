@@ -65,19 +65,25 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ repairs, budgets, citas, on
 
     // Search citas
     const citaResults: SearchResult[] = citas
-      .filter(c =>
-        c.clienteNombre.toLowerCase().includes(q) ||
-        c.servicio?.toLowerCase().includes(q) ||
-        c.direccion?.toLowerCase().includes(q)
-      )
+      .filter(c => {
+        const name = c.clienteName || (c as any).clienteNombre || '';
+        const title = c.titulo || (c as any).servicio || '';
+        return name.toLowerCase().includes(q) ||
+          title.toLowerCase().includes(q) ||
+          c.direccion?.toLowerCase().includes(q);
+      })
       .slice(0, 3)
-      .map(c => ({
-        type: 'cita',
-        id: c.id,
-        title: c.clienteNombre,
-        subtitle: `${c.servicio} · ${new Date(c.fecha).toLocaleDateString('es-ES')}`,
-        action: () => { onNavigate('calendar'); close(); },
-      }));
+      .map(c => {
+        const name = c.clienteName || (c as any).clienteNombre || 'Sin cliente';
+        const title = c.titulo || (c as any).servicio || '';
+        return {
+          type: 'cita' as const,
+          id: c.id,
+          title: name,
+          subtitle: `${title} · ${c.fecha}`,
+          action: () => { onNavigate('calendar'); close(); },
+        };
+      });
 
     return [...repairResults, ...customerResults, ...citaResults];
   }, [query, repairs, citas]);

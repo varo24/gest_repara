@@ -158,7 +158,7 @@ const App: React.FC = () => {
   // Citas handlers
   const handleSaveCita = async (cita: Cita) => {
     storage.save('citas', cita.id, cita);
-    notify('success', `Cita para ${cita.clienteNombre} guardada.`);
+    notify('success', `Cita "${cita.titulo || cita.clienteName || 'nueva'}" guardada.`);
   };
 
   const handleDeleteCita = async (id: string) => {
@@ -544,45 +544,43 @@ const App: React.FC = () => {
               <CalendarView
                 citas={citas}
                 repairs={repairs}
+                customers={customersDB}
                 settings={settings}
                 onBack={() => navigateTo('dashboard')}
                 onSaveCita={handleSaveCita}
                 onDeleteCita={handleDeleteCita}
+                onNotify={notify}
                 onNavigateToRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
                 onCreateRepairFromCita={(cita) => {
-                  // Generate new RMA number
                   const newRma = storage.nextRmaNumber();
                   const repairId = `RMA-${Date.now()}`;
 
-                  // Create repair from cita data
                   const newRepair: RepairItem = {
                     id: repairId,
                     rmaNumber: newRma,
-                    repairType: cita.direccion ? 'domicilio' : 'taller',
-                    customerName: cita.clienteNombre,
-                    customerPhone: cita.telefono || '',
+                    repairType: cita.tipo === 'domicilio' ? 'domicilio' : 'taller',
+                    customerName: cita.clienteName || '',
+                    customerPhone: cita.clientePhone || '',
                     deviceType: '',
                     brand: '',
                     model: '',
                     serialNumber: '',
                     problemDescription: [
-                      cita.servicio,
-                      cita.notas ? `\n--- Notas de inspección ---\n${cita.notas}` : '',
+                      cita.titulo,
+                      cita.descripcion ? `\nNotas: ${cita.descripcion}` : '',
                     ].filter(Boolean).join(''),
                     entryDate: new Date().toISOString(),
                     status: RepairStatus.PENDING,
                     address: cita.direccion || '',
-                    city: cita.ciudad || '',
+                    city: '',
                   };
 
-                  // Link cita → repair
-                  const updatedCita: Cita = { ...cita, rmaId: repairId };
+                  const updatedCita: Cita = { ...cita, repairId };
                   storage.save('citas', cita.id, updatedCita);
 
-                  // Open repair form pre-filled
                   setEditingRepair(newRepair);
                   navigateTo('new-repair');
-                  notify('success', `Orden de trabajo creada desde cita de ${cita.clienteNombre}. Complete los datos del equipo.`);
+                  notify('success', `Orden creada desde cita de ${cita.clienteName}. Complete los datos del equipo.`);
                 }}
               />
             )}

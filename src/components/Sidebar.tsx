@@ -43,6 +43,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const readyCount  = repairs.filter(r => r.status === 'Listo para Entrega').length;
   const activeCount = repairs.filter(r => !['Entregado', 'Cancelado'].includes(r.status)).length;
+  const todayCitasCount = (() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return citas.filter(c => c.fecha === today && c.estado !== 'cancelada' && c.estado !== 'completada').length;
+  })();
 
   const warrantyAlertCount = (() => {
     const todayMs = new Date().setHours(0, 0, 0, 0);
@@ -74,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'correos',           label: 'Facturas Recibidas', icon: Inbox },
         { id: 'archivo-facturas',  label: 'Archivo Facturas', icon: FolderOpen },
         { id: 'suppliers',         label: 'Proveedores',       icon: Truck },
-        { id: 'calendar',          label: 'Planificador',     icon: Calendar },
+        { id: 'calendar',          label: 'Planificador',     icon: Calendar,    badge: todayCitasCount },
       ]
     },
     {
