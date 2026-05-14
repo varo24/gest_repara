@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Wallet, Plus, X, Printer, ArrowLeft,
-  AlertTriangle, CheckCircle, Eye, RotateCcw
+  AlertTriangle, CheckCircle, Eye, RotateCcw, Pencil, Trash2
 } from 'lucide-react';
 import { AppSettings, CierreCaja as CierreCajaType, DetalleBilletes } from '../types';
 import { storage } from '../lib/dataService';
@@ -119,6 +119,15 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
   const [cierrePor, setCierrePor] = useState('');
   const [selectedCierre, setSelectedCierre] = useState<CierreCajaType | null>(null);
   const [historialMes, setHistorialMes] = useState(() => new Date().toISOString().slice(0, 7));
+
+  // Edit cierre state
+  const [editingCierre, setEditingCierre] = useState<CierreCajaType | null>(null);
+  const [editBilletes, setEditBilletes] = useState<Record<string, number>>({ ...INIT_BILLETES });
+  const [editSaldoInicial, setEditSaldoInicial] = useState('');
+  const [editNotas, setEditNotas] = useState('');
+  const [editCerradoPor, setEditCerradoPor] = useState('');
+  // Delete cierre state
+  const [deletingCierre, setDeletingCierre] = useState<CierreCajaType | null>(null);
 
   // Apertura modal
   const [saldoInicial, setSaldoInicial] = useState('');
@@ -265,6 +274,75 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     closeCierreModal();
   };
 
+  // ── Edit / Delete cierre ─────────────────────────────────────────────────
+
+  const openEditModal = (c: CierreCajaType) => {
+    setEditingCierre(c);
+    setEditSaldoInicial(String(c.apertura));
+    setEditNotas(c.notas || '');
+    setEditCerradoPor(c.cerradoPor || '');
+    if (c.detalleBilletes) {
+      const db = c.detalleBilletes;
+      setEditBilletes({
+        b200: db.b200 || 0, b100: db.b100 || 0, b50: db.b50 || 0,
+        b20:  db.b20  || 0, b10:  db.b10  || 0, b5:  db.b5  || 0,
+        m200: db.m200 || 0, m100: db.m100 || 0, m050: db.m050 || 0,
+        m020: db.m020 || 0, m010: db.m010 || 0,
+      });
+    } else {
+      setEditBilletes({ ...INIT_BILLETES });
+    }
+  };
+
+  const setEditDenom = (key: string, val: string) => {
+    const n = Math.max(0, parseInt(val) || 0);
+    setEditBilletes(prev => ({ ...prev, [key]: n }));
+  };
+
+  const handleEditCierre = async () => {
+    if (!editingCierre) return;
+    const apertura = parseFloat(editSaldoInicial.replace(',', '.')) || editingCierre.apertura;
+    const dayMovs    = allMovements.filter(m => m.fecha === editingCierre.fecha);
+    const dayIngs    = dayMovs.filter(m => m.tipo === 'ingreso');
+    const dayGsts    = dayMovs.filter(m => m.tipo === 'gasto');
+    const dayRets    = dayMovs.filter(m => m.tipo === 'retirada');
+    const ef  = dayIngs.filter(m => m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+    const tar = dayIngs.filter(m => m.payMethod === 'tarjeta').reduce((s, m) => s + m.importe, 0);
+    const biz = dayIngs.filter(m => m.payMethod === 'bizum').reduce((s, m) => s + m.importe, 0);
+    const tra = dayIngs.filter(m => m.payMethod === 'transferencia').reduce((s, m) => s + m.importe, 0);
+    const totalIngs = dayIngs.reduce((s, m) => s + m.importe, 0);
+    const totalGsts = dayGsts.reduce((s, m) => s + m.importe, 0) + dayRets.reduce((s, m) => s + m.importe, 0);
+    const gstEf = dayGsts.filter(m => !m.payMethod || m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+    const retEf = dayRets.reduce((s, m) => s + m.importe, 0);
+    const saldoEsp = apertura + ef - gstEf - retEf;
+    const contado  = computeTotal(editBilletes);
+    const diff     = Math.round((contado - saldoEsp) * 100) / 100;
+    const detalleBilletes: DetalleBilletes = {
+      b200: editBilletes.b200 || 0, b100: editBilletes.b100 || 0,
+      b50:  editBilletes.b50  || 0, b20:  editBilletes.b20  || 0,
+      b10:  editBilletes.b10  || 0, b5:   editBilletes.b5   || 0,
+      m200: editBilletes.m200 || 0, m100: editBilletes.m100 || 0,
+      m050: editBilletes.m050 || 0, m020: editBilletes.m020 || 0,
+      m010: editBilletes.m010 || 0,
+    };
+    await storage.save('cierres_caja', editingCierre.id, {
+      ...editingCierre,
+      apertura, totalIngresos: totalIngs, totalGastos: totalGsts,
+      totalEfectivo: ef, totalTarjeta: tar, totalBizum: biz, totalTransferencia: tra,
+      saldoFinal: contado, saldoEsperado: saldoEsp, diferencia: diff,
+      detalleBilletes, notas: editNotas || undefined, cerradoPor: editCerradoPor || undefined,
+    });
+    onNotify('success', 'Cierre actualizado correctamente');
+    setEditingCierre(null);
+  };
+
+  const handleDeleteCierre = async () => {
+    if (!deletingCierre) return;
+    await storage.remove('cierres_caja', deletingCierre.id);
+    onNotify('success', `Cierre del ${deletingCierre.fecha} eliminado`);
+    setDeletingCierre(null);
+  };
+
   // ── Print ─────────────────────────────────────────────────────────────────
 
   const printCierre = (cierre: CierreCajaType, movs: NormMov[]) => {
@@ -358,6 +436,21 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
   };
+
+  // Edit modal derived values (zero when editingCierre is null — modal hidden)
+  const editSubtotalBilletes = DENOMINACIONES.filter(d => d.esBillete).reduce((s, d) => s + Math.round(d.valor * 100) * (editBilletes[d.key] || 0), 0) / 100;
+  const editSubtotalMonedas  = DENOMINACIONES.filter(d => !d.esBillete).reduce((s, d) => s + Math.round(d.valor * 100) * (editBilletes[d.key] || 0), 0) / 100;
+  const editEfectivoNum      = computeTotal(editBilletes);
+  const editApertParsed      = parseFloat(editSaldoInicial.replace(',', '.')) || 0;
+  const editDayMovs  = editingCierre ? allMovements.filter(m => m.fecha === editingCierre.fecha) : [];
+  const editDayIngs  = editDayMovs.filter(m => m.tipo === 'ingreso');
+  const editDayGsts  = editDayMovs.filter(m => m.tipo === 'gasto');
+  const editDayRets  = editDayMovs.filter(m => m.tipo === 'retirada');
+  const editEfIng    = editDayIngs.filter(m => m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+  const editGstEf    = editDayGsts.filter(m => !m.payMethod || m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+  const editRetEf    = editDayRets.reduce((s, m) => s + m.importe, 0);
+  const editSaldoEsp = editApertParsed + editEfIng - editGstEf - editRetEf;
+  const editDiff     = Math.round((editEfectivoNum - editSaldoEsp) * 100) / 100;
 
   const historialFiltered = useMemo(() =>
     cierresCaja.filter(c => c.fecha.startsWith(historialMes)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
@@ -590,15 +683,21 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                       <span className={`text-sm font-black tabular-nums ${diff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {diff >= 0 ? '+' : ''}{fmt(diff)}
                       </span>
-                      <div className="flex gap-2">
-                        <button onClick={() => setSelectedCierre(c)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors" title="Ver detalle">
-                          <Eye size={16} />
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditModal(c)} className="p-2 rounded-xl hover:bg-blue-50 text-blue-300 hover:text-blue-600 transition-colors" title="Editar cierre">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => setSelectedCierre(c)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors" title="Ver detalle">
+                          <Eye size={15} />
                         </button>
                         <button
                           onClick={() => { const movs = allMovements.filter(m => (c.movimientos || []).includes(m.id)); printCierre(c, movs); }}
-                          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors" title="Reimprimir"
+                          className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors" title="Reimprimir"
                         >
-                          <Printer size={16} />
+                          <Printer size={15} />
+                        </button>
+                        <button onClick={() => setDeletingCierre(c)} className="p-2 rounded-xl hover:bg-red-50 text-red-300 hover:text-red-500 transition-colors" title="Eliminar cierre">
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </div>
@@ -962,6 +1061,191 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
           </div>
         </div>
       )}
+
+      {/* ── MODAL EDITAR CIERRE ── */}
+      {editingCierre && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl p-6 md:p-8 space-y-5 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Editar Cierre</h2>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{editingCierre.fecha}</p>
+              </div>
+              <button onClick={() => setEditingCierre(null)} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+            </div>
+
+            {/* Saldo inicial */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Saldo inicial (apertura) €</label>
+              <input
+                type="number" min="0" step="0.01"
+                value={editSaldoInicial} onChange={e => setEditSaldoInicial(e.target.value)}
+                className="w-full px-4 py-3 text-lg font-black border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">Saldo esperado se recalculará automáticamente desde los movimientos del día</p>
+            </div>
+
+            {/* Bill/coin table */}
+            <div className="rounded-2xl overflow-hidden border border-slate-200">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100" style={{ background: '#fafafa' }}>
+                <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Recuento de efectivo</p>
+                <button onClick={() => setEditBilletes({ ...INIT_BILLETES })}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all">
+                  <RotateCcw size={12} /> Limpiar
+                </button>
+              </div>
+              <div className="grid grid-cols-[1fr_80px_80px_90px] gap-0 px-3 py-2 border-b border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest" style={{ background: '#f9f9f9' }}>
+                <span>Denominación</span><span className="text-center">Cantidad</span><span className="text-right">Valor</span><span className="text-right">Total fila</span>
+              </div>
+              {/* Billetes */}
+              <div className="border-b-2 border-slate-200">
+                <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest" style={{ background: '#fffde7' }}>💶 BILLETES</div>
+                {DENOMINACIONES.filter(d => d.esBillete).map(d => {
+                  const qty = editBilletes[d.key] || 0;
+                  const rowTotal = Math.round(d.valor * 100) * qty / 100;
+                  return (
+                    <div key={d.key} className={`grid grid-cols-[1fr_80px_80px_90px] items-center gap-2 px-3 py-2 border-b border-slate-50 ${qty > 0 ? 'bg-amber-50' : ''}`}>
+                      <span className="text-sm font-bold text-slate-700">{d.emoji} {d.label}</span>
+                      <input type="number" min="0" step="1" inputMode="numeric"
+                        value={qty === 0 ? '' : qty} onChange={e => setEditDenom(d.key, e.target.value)} placeholder="0"
+                        className="w-full text-center text-base font-black border-2 rounded-xl py-2 focus:outline-none focus:border-blue-500 tabular-nums"
+                        style={{ borderColor: qty > 0 ? '#f59e0b' : '#e2e8f0' }} />
+                      <span className="text-right text-xs text-slate-400 tabular-nums">{fmt(d.valor)}</span>
+                      <span className={`text-right text-sm font-black tabular-nums ${qty > 0 ? 'text-amber-700' : 'text-slate-300'}`}>{fmt(rowTotal)}</span>
+                    </div>
+                  );
+                })}
+                <div className="grid grid-cols-[1fr_80px_80px_90px] px-3 py-2.5" style={{ background: '#fef9c3' }}>
+                  <span className="text-[11px] font-black text-slate-600 uppercase tracking-wide col-span-3">Subtotal billetes</span>
+                  <span className="text-right text-sm font-black text-amber-700 tabular-nums">{fmt(editSubtotalBilletes)}</span>
+                </div>
+              </div>
+              {/* Monedas */}
+              <div>
+                <div className="px-3 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest" style={{ background: '#f3e5f5' }}>🪙 MONEDAS</div>
+                {DENOMINACIONES.filter(d => !d.esBillete).map(d => {
+                  const qty = editBilletes[d.key] || 0;
+                  const rowTotal = Math.round(d.valor * 100) * qty / 100;
+                  return (
+                    <div key={d.key} className={`grid grid-cols-[1fr_80px_80px_90px] items-center gap-2 px-3 py-2 border-b border-slate-50 ${qty > 0 ? 'bg-purple-50' : ''}`}>
+                      <span className="text-sm font-bold text-slate-700">{d.emoji} {d.label}</span>
+                      <input type="number" min="0" step="1" inputMode="numeric"
+                        value={qty === 0 ? '' : qty} onChange={e => setEditDenom(d.key, e.target.value)} placeholder="0"
+                        className="w-full text-center text-base font-black border-2 rounded-xl py-2 focus:outline-none focus:border-blue-500 tabular-nums"
+                        style={{ borderColor: qty > 0 ? '#a855f7' : '#e2e8f0' }} />
+                      <span className="text-right text-xs text-slate-400 tabular-nums">{fmt(d.valor)}</span>
+                      <span className={`text-right text-sm font-black tabular-nums ${qty > 0 ? 'text-purple-700' : 'text-slate-300'}`}>{fmt(rowTotal)}</span>
+                    </div>
+                  );
+                })}
+                <div className="grid grid-cols-[1fr_80px_80px_90px] px-3 py-2.5" style={{ background: '#f3e5f5' }}>
+                  <span className="text-[11px] font-black text-slate-600 uppercase tracking-wide col-span-3">Subtotal monedas</span>
+                  <span className="text-right text-sm font-black text-purple-700 tabular-nums">{fmt(editSubtotalMonedas)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="rounded-2xl overflow-hidden border border-slate-200">
+              <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-500">Subtotal billetes</span>
+                <span className="text-sm font-black text-amber-700 tabular-nums">{fmt(editSubtotalBilletes)}</span>
+              </div>
+              <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-500">Subtotal monedas</span>
+                <span className="text-sm font-black text-purple-700 tabular-nums">{fmt(editSubtotalMonedas)}</span>
+              </div>
+              <div className="flex justify-between items-center px-4 py-4" style={{ background: '#e8f5e9' }}>
+                <span className="text-sm font-black uppercase tracking-wide text-green-800">💰 Total contado</span>
+                <span className="text-2xl font-black tabular-nums" style={{ color: '#1b5e20' }}>{fmt(editEfectivoNum)}</span>
+              </div>
+              <div className="flex justify-between items-center px-4 py-3 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-500">Efectivo esperado (recalculado)</span>
+                <span className="text-sm font-black text-slate-700 tabular-nums">{fmt(editSaldoEsp)}</span>
+              </div>
+              <div className={`flex justify-between items-center px-4 py-3 border-t ${Math.abs(editDiff) > 5 ? 'bg-red-50' : editDiff === 0 ? 'bg-slate-50' : 'bg-emerald-50'}`}>
+                <span className="text-xs font-black uppercase tracking-wide" style={{ color: editDiff >= 0 ? '#1b5e20' : '#b71c1c' }}>Diferencia</span>
+                <span className="text-lg font-black tabular-nums" style={{ color: editDiff >= 0 ? '#1b5e20' : '#b71c1c' }}>
+                  {editDiff >= 0 ? '+' : ''}{fmt(editDiff)}
+                </span>
+              </div>
+            </div>
+
+            {/* Notas + cerrado por */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Notas del cierre</label>
+              <textarea value={editNotas} onChange={e => setEditNotas(e.target.value)}
+                placeholder="Observaciones..." rows={2}
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500 font-bold text-slate-700 resize-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Cerrado por</label>
+              <input type="text" list="tecnico-list-edit"
+                value={editCerradoPor} onChange={e => setEditCerradoPor(e.target.value)}
+                placeholder="Nombre del responsable"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500 font-bold text-slate-700" />
+              <datalist id="tecnico-list-edit">
+                {(settings.technicians || []).map(t => <option key={t} value={t} />)}
+              </datalist>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setEditingCierre(null)}
+                className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all text-[11px]">
+                Cancelar
+              </button>
+              <button onClick={handleEditCierre}
+                className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-white transition-all hover:opacity-90 text-[11px]"
+                style={{ background: '#1565c0' }}>
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL CONFIRMAR BORRADO CIERRE ── */}
+      {deletingCierre && (() => {
+        const daysOld = (Date.now() - new Date(deletingCierre.fecha).getTime()) / (1000 * 60 * 60 * 24);
+        const isOld = daysOld > 30;
+        return (
+          <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Eliminar cierre</h2>
+                <button onClick={() => setDeletingCierre(null)} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+              </div>
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 space-y-2">
+                <p className="text-sm font-black text-red-800">
+                  ¿Eliminar el cierre del {deletingCierre.fecha}?
+                </p>
+                <p className="text-xs text-red-600">
+                  Esta acción no se puede deshacer. Los movimientos del día NO se eliminarán.
+                </p>
+              </div>
+              {isOld && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs font-bold text-amber-700">
+                    Este cierre tiene más de 30 días. ¿Seguro que quieres eliminarlo?
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => setDeletingCierre(null)}
+                  className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all text-[11px]">
+                  Cancelar
+                </button>
+                <button onClick={handleDeleteCierre}
+                  className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-white transition-all hover:opacity-90 text-[11px]"
+                  style={{ background: '#b71c1c' }}>
+                  Eliminar cierre
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── MODAL DETALLE CIERRE HISTORIAL ── */}
       {selectedCierre && (
