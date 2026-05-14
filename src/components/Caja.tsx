@@ -121,6 +121,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   const [cierrePor, setCierrePor] = useState('');
   const [selectedCierre, setSelectedCierre] = useState<CierreCajaType | null>(null);
   const [historialMes, setHistorialMes] = useState(() => new Date().toISOString().slice(0, 7));
+  const [deletingMov, setDeletingMov] = useState<NormMov | null>(null);
 
   // Edit cierre state
   const [editingCierre, setEditingCierre] = useState<CierreCajaType | null>(null);
@@ -299,6 +300,14 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
     });
     onNotify('success', 'Caja cerrada correctamente');
     closeCierreModal();
+  };
+
+  const handleDeleteMov = async () => {
+    if (!deletingMov) return;
+    await storage.remove('cash_movements', deletingMov.id);
+    // todayMovements se recalcula automáticamente porque es useMemo sobre cashMovements (prop reactiva)
+    onNotify('success', 'Movimiento eliminado');
+    setDeletingMov(null);
   };
 
   const handleCajaPay = async (facturaId: string, pay: string) => {
@@ -678,8 +687,9 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                   <div className="divide-y divide-slate-50">
                     {todayMovements.map(m => {
                       const badge = TIPO_BADGE[m.tipo] || TIPO_BADGE.ingreso;
+                      const canDelete = m.tipo !== 'apertura' && m.tipo !== 'cierre';
                       return (
-                        <div key={m.id} className="flex items-center gap-4 px-5 py-3">
+                        <div key={m.id} className="flex items-center gap-3 px-5 py-3">
                           <span className="text-[10px] font-bold text-slate-400 tabular-nums w-10 shrink-0">{m.hora}</span>
                           <span className="text-[10px] font-black px-2 py-1 rounded-lg shrink-0"
                             style={{ background: badge.bg, color: badge.color }}>
@@ -693,6 +703,15 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                             style={{ color: m.tipo === 'ingreso' ? '#1b5e20' : m.tipo === 'apertura' ? '#1565c0' : '#b71c1c' }}>
                             {m.tipo === 'ingreso' ? '+' : m.tipo === 'apertura' ? '' : '−'}{fmt(m.importe)}
                           </span>
+                          {canDelete && (
+                            <button
+                              onClick={() => setDeletingMov(m)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                              title="Eliminar movimiento"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -1347,6 +1366,38 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
           </div>
         );
       })()}
+
+      {/* ── MODAL CONFIRMAR BORRADO MOVIMIENTO ── */}
+      {deletingMov && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Eliminar movimiento</h2>
+              <button onClick={() => setDeletingMov(null)} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+            </div>
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 space-y-2">
+              <p className="text-sm font-black text-red-800 truncate">{deletingMov.concepto}</p>
+              <p className="text-lg font-black tabular-nums" style={{ color: '#b71c1c' }}>
+                {deletingMov.tipo === 'ingreso' ? '+' : '−'}{fmt(deletingMov.importe)}
+              </p>
+              <p className="text-xs text-red-600">
+                Esta acción no se puede deshacer. El saldo del día se recalculará automáticamente.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingMov(null)}
+                className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all text-[11px]">
+                Cancelar
+              </button>
+              <button onClick={handleDeleteMov}
+                className="flex-1 py-3.5 rounded-2xl font-black uppercase tracking-widest text-white transition-all hover:opacity-90 text-[11px]"
+                style={{ background: '#b71c1c' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL DETALLE CIERRE HISTORIAL ── */}
       {selectedCierre && (
