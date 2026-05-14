@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon } from 'lucide-react';
 import { Budget, RepairItem, AppSettings, Customer } from '../types';
 
 interface BudgetListProps {
@@ -12,7 +12,8 @@ interface BudgetListProps {
   onDeleteBudget: (budgetId: string) => void;
   onNewFreeBudget?: () => void;
   onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
-  onConvertToInvoice?: (budget: Budget, repair: RepairItem) => void;
+  onConvertToInvoice?: (budget: Budget, repair: RepairItem, tipo?: 'FAC' | 'REC') => void;
+  onUpdateBudgetStatus?: (budget: Budget, status: 'accepted' | 'rejected' | 'pending', motivo?: string) => void;
   onBack?: () => void;
 }
 
@@ -24,13 +25,34 @@ const getMonthLabel = (key: string) => {
   return `${MONTH_NAMES_ES[parseInt(mo, 10) - 1]} ${yr}`;
 };
 
-const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget, onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onBack }) => {
+function isExpired(budget: Budget): boolean {
+  if (budget.status && budget.status !== 'pending') return false;
+  const days = (Date.now() - new Date(budget.date).getTime()) / (1000 * 60 * 60 * 24);
+  return days > 30;
+}
+
+function getBadgeInfo(budget: Budget): { label: string; bg: string; color: string } {
+  if (budget.status === 'accepted') return { label: '✅ Aceptado',  bg: '#dcfce7', color: '#166534' };
+  if (budget.status === 'rejected') return { label: '✗ Rechazado', bg: '#fee2e2', color: '#991b1b' };
+  if (isExpired(budget))            return { label: '⌛ Expirado',  bg: '#f3f4f6', color: '#4b5563' };
+  return                                   { label: '⏳ Pendiente', bg: '#fef3c7', color: '#92400e' };
+}
+
+const BudgetList: React.FC<BudgetListProps> = ({
+  budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget,
+  onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onBack,
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
 
+  // Modal state
+  const [rejectModal, setRejectModal] = useState<{ budget: Budget; repair: RepairItem | null } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [acceptModal, setAcceptModal] = useState<{ budget: Budget; repair: RepairItem } | null>(null);
+
   const formatRMA = (num: number) => `RMA-${num.toString().padStart(5, '0')}`;
-  const getRepairInfo = (repairId: string) => repairs.find(r => r.id === repairId);
+  const getRepairInfo = (repairId?: string) => repairId ? repairs.find(r => r.id === repairId) : undefined;
 
   const toggleMonth = (key: string) => {
     setExpandedMonths(prev => {
@@ -60,6 +82,39 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
     }
     return [...map.entries()].sort(([a], [b]) => b.localeCompare(a));
   })();
+
+  const handleAccept = (budget: Budget, repair: RepairItem | null) => {
+    if (repair) {
+      setAcceptModal({ budget, repair });
+    } else {
+      onUpdateBudgetStatus?.(budget, 'accepted');
+    }
+  };
+
+  const handleReject = (budget: Budget, repair: RepairItem | null) => {
+    setRejectReason('');
+    setRejectModal({ budget, repair });
+  };
+
+  const confirmReject = () => {
+    if (!rejectModal) return;
+    onUpdateBudgetStatus?.(rejectModal.budget, 'rejected', rejectReason || undefined);
+    setRejectModal(null);
+    setRejectReason('');
+  };
+
+  const confirmAcceptWithDoc = (tipo: 'FAC' | 'REC') => {
+    if (!acceptModal) return;
+    onUpdateBudgetStatus?.(acceptModal.budget, 'accepted');
+    onConvertToInvoice?.(acceptModal.budget, acceptModal.repair, tipo);
+    setAcceptModal(null);
+  };
+
+  const confirmAcceptOnly = () => {
+    if (!acceptModal) return;
+    onUpdateBudgetStatus?.(acceptModal.budget, 'accepted');
+    setAcceptModal(null);
+  };
 
   return (
     <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
@@ -91,7 +146,7 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
             <tr>
               <th className="px-8 py-5">Identificador</th>
               <th className="px-4 py-5">Cliente / Equipo</th>
-              <th className="px-4 py-5">Total Valoración</th>
+              <th className="px-4 py-5">Total / Estado</th>
               <th className="px-4 py-5">Fecha</th>
               <th className="px-8 py-5 text-right">Gestión</th>
             </tr>
@@ -111,7 +166,6 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
 
                 return (
                   <React.Fragment key={monthKey}>
-                    {/* Month header */}
                     <tr
                       onClick={() => !isSearching && toggleMonth(monthKey)}
                       className={`select-none bg-slate-50 hover:bg-slate-100/80 transition-all border-b border-slate-100 ${!isSearching ? 'cursor-pointer' : ''}`}
@@ -137,11 +191,14 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
                         </div>
                       </td>
                     </tr>
-                    {/* Budget rows */}
                     {isExpanded && monthBudgets.map(budget => {
                       const repair = getRepairInfo(budget.repairId);
                       const displayName = repair?.customerName || budget.customerName || 'N/A';
                       const isFreeBudget = !repair;
+                      const badge = getBadgeInfo(budget);
+                      const isPending   = !budget.status || budget.status === 'pending';
+                      const isAccepted  = budget.status === 'accepted';
+                      const isRejected  = budget.status === 'rejected';
 
                       return (
                         <tr key={budget.id} className="hover:bg-slate-50 transition-all group border-b border-slate-50">
@@ -167,17 +224,76 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
                           </td>
                           <td className="px-4 py-6">
                             <p className="text-sm font-black text-blue-600">{(budget.total || 0).toFixed(2)}€</p>
-                            <p className="text-[8px] font-bold text-slate-400 uppercase">IVA {budget.taxRate}% INCL.</p>
+                            <span
+                              className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full mt-1"
+                              style={{ background: badge.bg, color: badge.color }}
+                              title={isRejected && budget.motivoRechazo ? `Motivo: ${budget.motivoRechazo}` : undefined}
+                            >
+                              {badge.label}
+                            </span>
+                            {isRejected && budget.motivoRechazo && (
+                              <p className="text-[8px] text-red-400 mt-0.5 max-w-[120px] truncate" title={budget.motivoRechazo}>
+                                {budget.motivoRechazo}
+                              </p>
+                            )}
                           </td>
                           <td className="px-4 py-6 text-[10px] font-bold text-slate-500">{new Date(budget.date).toLocaleDateString('es-ES')}</td>
                           <td className="px-8 py-6 text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-1.5 flex-wrap">
+                              {/* Status actions */}
+                              {isPending && onUpdateBudgetStatus && (
+                                <>
+                                  <button
+                                    onClick={() => handleAccept(budget, repair || null)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase hover:bg-emerald-600 transition-all"
+                                    title="Aceptar presupuesto"
+                                  >
+                                    ✅ Aceptar
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(budget, repair || null)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-500 text-white rounded-xl text-[9px] font-black uppercase hover:bg-red-600 transition-all"
+                                    title="Rechazar presupuesto"
+                                  >
+                                    ✗ Rechazar
+                                  </button>
+                                </>
+                              )}
+                              {isAccepted && repair && onConvertToInvoice && (
+                                <>
+                                  <button
+                                    onClick={() => onConvertToInvoice(budget, repair, 'FAC')}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase hover:bg-blue-700 transition-all"
+                                    title="Crear factura con IVA"
+                                  >
+                                    🧾 FAC-
+                                  </button>
+                                  <button
+                                    onClick={() => onConvertToInvoice(budget, repair, 'REC')}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-500 text-white rounded-xl text-[9px] font-black uppercase hover:bg-slate-600 transition-all"
+                                    title="Crear recibo sin IVA"
+                                  >
+                                    📄 REC-
+                                  </button>
+                                </>
+                              )}
+                              {isRejected && onUpdateBudgetStatus && (
+                                <button
+                                  onClick={() => onUpdateBudgetStatus(budget, 'pending')}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white rounded-xl text-[9px] font-black uppercase hover:bg-amber-600 transition-all"
+                                  title="Reactivar como pendiente"
+                                >
+                                  <RotateCcw size={11} /> Reactivar
+                                </button>
+                              )}
+
+                              {/* Standard actions */}
                               {repair && onSendWhatsApp && (
                                 <button onClick={() => onSendWhatsApp(budget, repair)} className="p-2.5 bg-white text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white border border-slate-100 transition-all" title="Enviar WhatsApp"><MessageCircle size={14} /></button>
                               )}
                               <button onClick={() => onViewBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white border border-slate-100 transition-all" title="Ver / Editar"><Eye size={14} /></button>
                               <button onClick={() => onPrintBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all" title="Imprimir"><Printer size={14} /></button>
-                              {repair && onConvertToInvoice && (
+                              {isAccepted && repair && onConvertToInvoice && (
                                 <button onClick={() => onConvertToInvoice(budget, repair)} className="p-2.5 bg-white text-violet-400 rounded-xl hover:bg-violet-600 hover:text-white border border-slate-100 transition-all" title="Convertir a factura"><Receipt size={14} /></button>
                               )}
                               <button onClick={() => onDeleteBudget(budget.id)} className="p-2.5 bg-white text-slate-200 rounded-xl hover:bg-red-600 hover:text-white border border-slate-100 transition-all" title="Eliminar"><Trash2 size={14} /></button>
@@ -193,6 +309,82 @@ const BudgetList: React.FC<BudgetListProps> = ({ budgets, repairs, customers = [
           </tbody>
         </table>
       </div>
+
+      {/* Accept modal */}
+      {acceptModal && (
+        <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-4 bg-emerald-50 rounded-2xl">
+                <FileCheck size={28} className="text-emerald-500" />
+              </div>
+              <h2 className="text-base font-black text-slate-900 uppercase">Presupuesto aceptado</h2>
+              <p className="text-xs text-slate-600">
+                ¿Deseas crear un documento ahora para <strong>{acceptModal.repair.customerName}</strong>?
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => confirmAcceptWithDoc('FAC')}
+                className="w-full py-3.5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all"
+              >
+                🧾 Crear Factura con IVA (FAC-)
+              </button>
+              <button
+                onClick={() => confirmAcceptWithDoc('REC')}
+                className="w-full py-3.5 bg-slate-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all"
+              >
+                📄 Crear Recibo sin IVA (REC-)
+              </button>
+              <button
+                onClick={confirmAcceptOnly}
+                className="w-full py-3.5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Solo aceptar, crear documento después
+              </button>
+              <button
+                onClick={() => setAcceptModal(null)}
+                className="w-full py-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest hover:text-slate-600 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-4 bg-red-50 rounded-2xl">
+                <XIcon size={28} className="text-red-500" />
+              </div>
+              <h2 className="text-base font-black text-slate-900 uppercase">Rechazar presupuesto</h2>
+              <p className="text-xs text-slate-600">¿Confirmar rechazo?</p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Motivo del rechazo (opcional)</label>
+              <textarea
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200"
+                rows={3}
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Cliente no aceptó el precio, esperará, etc."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setRejectModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">
+                Cancelar
+              </button>
+              <button onClick={confirmReject} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-700 transition-all">
+                ✗ Rechazar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

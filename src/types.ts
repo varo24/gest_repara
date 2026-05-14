@@ -102,6 +102,7 @@ export interface Budget {
   date: string;
   signature?: string;
   status?: 'pending' | 'accepted' | 'rejected';
+  motivoRechazo?: string;
   stockDescontado?: boolean;
   // Campos para presupuestos libres (sin reparación asociada)
   customerName?: string;

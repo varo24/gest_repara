@@ -102,10 +102,10 @@ const TIPO_COLOR: Record<string, { bg: string; light: string; border: string }> 
 };
 
 const ESTADO_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  pendiente:  { bg: '#fff8e1', text: '#f57f17', label: 'Pendiente' },
-  confirmada: { bg: '#e8f5e9', text: '#2e7d32', label: 'Confirmada' },
-  completada: { bg: '#ede7f6', text: '#6a1b9a', label: 'Completada' },
-  cancelada:  { bg: '#fce4ec', text: '#c62828', label: 'Cancelada'  },
+  pendiente:  { bg: '#fff8e1', text: '#f57f17', label: '⏳ Pendiente' },
+  confirmada: { bg: '#e8f5e9', text: '#2e7d32', label: '✅ Confirmada' },
+  completada: { bg: '#e5e7eb', text: '#9ca3af', label: '✓ Completada' },
+  cancelada:  { bg: '#fee2e2', text: '#ef4444', label: '✗ Cancelada'  },
 };
 
 const fmtDate = (s: string) => {
@@ -116,11 +116,16 @@ const fmtDate = (s: string) => {
 // ── CitaChip — tiny colored chip for month/week cells ─────────────────────
 const CitaChip = ({ c, onClick }: { c: ReturnType<typeof norm>; onClick: () => void }) => {
   const col = TIPO_COLOR[c.tipo] || TIPO_COLOR.taller;
+  const isComp = c.estado === 'completada';
+  const isCan  = c.estado === 'cancelada';
+  const chipBg     = isComp ? '#e5e7eb' : isCan ? '#fee2e2' : col.light;
+  const chipColor  = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
+  const chipBorder = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
   return (
     <button
       onClick={e => { e.stopPropagation(); onClick(); }}
       className="w-full text-left text-[10px] font-black truncate px-1.5 py-0.5 rounded-md mb-0.5 leading-tight transition-opacity hover:opacity-80"
-      style={{ background: col.light, color: col.bg, borderLeft: `3px solid ${col.bg}` }}
+      style={{ background: chipBg, color: chipColor, borderLeft: `3px solid ${chipBorder}`, textDecoration: (isComp || isCan) ? 'line-through' : 'none' }}
       title={`${c.horaInicio} ${c._titulo} — ${c._clienteName}`}
     >
       {c.horaInicio} {c._titulo}
@@ -432,12 +437,13 @@ interface CitaDetailModalProps {
   onDelete: () => void;
   onMarkComplete: () => void;
   onMarkCancelled: () => void;
+  onSendReminder?: () => void;
   onNavigateToRepair?: (r: RepairItem) => void;
   onCreateRepair?: () => void;
   onClose: () => void;
 }
 
-function CitaDetailModal({ cita, repair, settings, onEdit, onDelete, onMarkComplete, onMarkCancelled, onNavigateToRepair, onCreateRepair, onClose }: CitaDetailModalProps) {
+function CitaDetailModal({ cita, repair, settings, onEdit, onDelete, onMarkComplete, onMarkCancelled, onSendReminder, onNavigateToRepair, onCreateRepair, onClose }: CitaDetailModalProps) {
   const col = TIPO_COLOR[cita.tipo] || TIPO_COLOR.taller;
   const est = ESTADO_STYLE[cita.estado] || ESTADO_STYLE.pendiente;
 
@@ -536,9 +542,9 @@ function CitaDetailModal({ cita, repair, settings, onEdit, onDelete, onMarkCompl
         {/* Actions */}
         <div className="px-7 pb-7 space-y-2">
           {/* WhatsApp */}
-          {cita._phone && (
+          {cita._phone && onSendReminder && (
             <button
-              onClick={() => sendWhatsApp(reminderMsg, cita._phone)}
+              onClick={onSendReminder}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all"
               style={{ background: '#25d366' }}
             >
@@ -600,6 +606,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [listTipo, setListTipo] = useState('');
   const [listEstado, setListEstado] = useState('');
   const [reminderDismissed, setReminderDismissed] = useState(false);
+  const [waConfirmModal, setWaConfirmModal] = useState<{ cita: Cita; msg: string } | null>(null);
+  const [reminderConfirm, setReminderConfirm] = useState<ReturnType<typeof norm> | null>(null);
 
   const normalized = useMemo(() => citas.map(norm), [citas]);
 
@@ -646,10 +654,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setEditingCita(null);
     onNotify?.('success', `Cita "${c.titulo}" guardada.`);
 
-    // Offer WhatsApp confirmation for taller/domicilio
     if ((c.tipo === 'taller' || c.tipo === 'domicilio') && c.clientePhone) {
       const msg = `Hola ${c.clienteName || ''}, su cita ${c.tipo === 'domicilio' ? 'a domicilio' : `en ${settings.appName}`} está confirmada para el ${fmtDate(c.fecha)} a las ${c.horaInicio}. ${settings.appName} 📞${settings.phone}`;
-      window.open(`https://wa.me/${c.clientePhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+      setWaConfirmModal({ cita: c, msg });
     }
   };
 
@@ -680,11 +687,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const handleSendReminder = (c: ReturnType<typeof norm>) => {
     if (!c._phone) return;
+    setReminderConfirm(c);
+  };
+
+  const doSendReminder = (c: ReturnType<typeof norm>) => {
     const msg = `Hola ${c._clienteName}, le recordamos su cita ${c.tipo === 'domicilio' ? 'a domicilio' : `en ${settings.appName}`} mañana ${fmtDate(tomorrowStr)} a las ${c.horaInicio}. Por favor confírmenos su asistencia. Gracias. ${settings.appName} 📞${settings.phone}`;
     window.open(`https://wa.me/${c._phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
     const now = new Date().toISOString();
     onSaveCita({ ...c, recordatorioEnviado: true, updatedAt: now } as Cita);
     onNotify?.('success', `Recordatorio enviado a ${c._clienteName}.`);
+    setReminderConfirm(null);
   };
 
   const openNew = (fecha?: string) => {
@@ -722,7 +734,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             const ds = toDateStr(day);
             const isToday = ds === todayStr;
             const isOtherMonth = day.getMonth() !== currentDate.getMonth();
-            const dayCitas = normalized.filter(c => c.fecha === ds && c.estado !== 'cancelada');
+            const dayCitas = normalized.filter(c => c.fecha === ds);
             return (
               <div
                 key={di}
@@ -777,22 +789,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="grid grid-cols-7 min-h-[400px]">
           {weekDays.map((day, i) => {
             const ds = toDateStr(day);
-            const dayCitas = normalized.filter(c => c.fecha === ds && c.estado !== 'cancelada').sort((a,b) => a.horaInicio.localeCompare(b.horaInicio));
+            const dayCitas = normalized.filter(c => c.fecha === ds).sort((a,b) => a.horaInicio.localeCompare(b.horaInicio));
             return (
               <div key={i} className="p-2 border-r border-slate-50 last:border-0 space-y-1"
                 onClick={() => openNew(ds)}>
                 {dayCitas.map(c => {
                   const col = TIPO_COLOR[c.tipo] || TIPO_COLOR.taller;
+                  const isComp = c.estado === 'completada';
+                  const isCan  = c.estado === 'cancelada';
+                  const wBg     = isComp ? '#e5e7eb' : isCan ? '#fee2e2' : col.light;
+                  const wBorder = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
+                  const wText   = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
                   return (
                     <button
                       key={c.id}
                       onClick={e => { e.stopPropagation(); openDetail(c); }}
                       className="w-full text-left rounded-xl px-2 py-1.5 transition-opacity hover:opacity-80"
-                      style={{ background: col.light, borderLeft: `3px solid ${col.bg}` }}
+                      style={{ background: wBg, borderLeft: `3px solid ${wBorder}` }}
                     >
-                      <p className="text-[10px] font-black text-slate-700 truncate">{c.horaInicio}</p>
-                      <p className="text-[11px] font-black truncate" style={{ color: col.bg }}>{c._titulo}</p>
-                      {c._clienteName && <p className="text-[9px] text-slate-400 truncate">{c._clienteName}</p>}
+                      <p className="text-[10px] font-black truncate" style={{ color: wText, textDecoration: (isComp || isCan) ? 'line-through' : 'none' }}>{c.horaInicio}</p>
+                      <p className="text-[11px] font-black truncate" style={{ color: wText, textDecoration: (isComp || isCan) ? 'line-through' : 'none' }}>{c._titulo}</p>
+                      {c._clienteName && <p className="text-[9px] truncate" style={{ color: isComp || isCan ? wText : '#9ca3af' }}>{c._clienteName}</p>}
                     </button>
                   );
                 })}
@@ -813,7 +830,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const DayView = () => {
     const ds = toDateStr(currentDate);
     const dayCitas = normalized
-      .filter(c => c.fecha === ds && c.estado !== 'cancelada')
+      .filter(c => c.fecha === ds)
       .sort((a,b) => a.horaInicio.localeCompare(b.horaInicio));
     const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8-20
 
@@ -836,20 +853,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {dayCitas.map(c => {
               const col = TIPO_COLOR[c.tipo] || TIPO_COLOR.taller;
               const est = ESTADO_STYLE[c.estado] || ESTADO_STYLE.pendiente;
+              const isComp = c.estado === 'completada';
+              const isCan  = c.estado === 'cancelada';
+              const lineColor = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
               return (
                 <button key={c.id} onClick={() => openDetail(c)}
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left">
+                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                  style={isComp ? { background: '#f9fafb' } : isCan ? { background: '#fff5f5' } : {}}>
                   <div className="text-center shrink-0 w-14">
-                    <p className="text-sm font-black" style={{ color: col.bg }}>{c.horaInicio}</p>
+                    <p className="text-sm font-black" style={{ color: lineColor }}>{c.horaInicio}</p>
                     <p className="text-[10px] text-slate-400">{c.horaFin}</p>
                   </div>
-                  <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: col.bg }} />
+                  <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: lineColor }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="text-sm font-black text-slate-900 truncate">{c._titulo}</p>
+                      <p className="text-sm font-black truncate" style={{ color: isComp || isCan ? lineColor : '#0f172a', textDecoration: (isComp || isCan) ? 'line-through' : 'none' }}>{c._titulo}</p>
                       <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0" style={{ background: est.bg, color: est.text }}>{est.label}</span>
                     </div>
-                    {c._clienteName && <p className="text-xs text-slate-500">{c._clienteName}{c._phone ? ` · ${c._phone}` : ''}</p>}
+                    {c._clienteName && <p className="text-xs" style={{ color: isComp || isCan ? lineColor : '#64748b' }}>{c._clienteName}{c._phone ? ` · ${c._phone}` : ''}</p>}
                     {c.direccion && <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><MapPin size={10} />{c.direccion}</p>}
                   </div>
                   <ChevronRight size={16} className="text-slate-300 shrink-0" />
@@ -931,14 +952,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 {dCitas.map(c => {
                   const col = TIPO_COLOR[c.tipo] || TIPO_COLOR.taller;
                   const est = ESTADO_STYLE[c.estado] || ESTADO_STYLE.pendiente;
+                  const isComp = c.estado === 'completada';
+                  const isCan  = c.estado === 'cancelada';
+                  const lColor = isComp ? '#9ca3af' : isCan ? '#ef4444' : col.bg;
                   return (
-                    <button key={c.id} onClick={() => openDetail(c)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left">
-                      <span className="text-[10px] font-black px-2 py-1 rounded-full shrink-0 text-white" style={{ background: col.bg }}>{c.tipo}</span>
+                    <button key={c.id} onClick={() => openDetail(c)}
+                      className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+                      style={isComp ? { background: '#f9fafb' } : isCan ? { background: '#fff5f5' } : {}}>
+                      <span className="text-[10px] font-black px-2 py-1 rounded-full shrink-0 text-white" style={{ background: lColor }}>{c.tipo}</span>
                       <Clock size={12} className="text-slate-300 shrink-0" />
-                      <span className="text-xs font-black text-slate-600 shrink-0 w-10">{c.horaInicio}</span>
+                      <span className="text-xs font-black shrink-0 w-10" style={{ color: lColor }}>{c.horaInicio}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-slate-900 truncate">{c._titulo}</p>
-                        {c._clienteName && <p className="text-[10px] text-slate-400 truncate">{c._clienteName}{c._phone ? ` · ${c._phone}` : ''}</p>}
+                        <p className="text-sm font-black truncate" style={{ color: isComp || isCan ? lColor : '#0f172a', textDecoration: (isComp || isCan) ? 'line-through' : 'none' }}>{c._titulo}</p>
+                        {c._clienteName && <p className="text-[10px] truncate" style={{ color: isComp || isCan ? lColor : '#94a3b8' }}>{c._clienteName}{c._phone ? ` · ${c._phone}` : ''}</p>}
                       </div>
                       <span className="text-[9px] font-black px-2 py-1 rounded-full shrink-0" style={{ background: est.bg, color: est.text }}>{est.label}</span>
                     </button>
@@ -1069,10 +1095,85 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onDelete={() => setConfirmDelete(detailCita)}
           onMarkComplete={() => updateEstado(detailCita, 'completada')}
           onMarkCancelled={() => updateEstado(detailCita, 'cancelada')}
+          onSendReminder={detailCita._phone ? () => { setDetailCita(null); setReminderConfirm(detailCita); } : undefined}
           onNavigateToRepair={onNavigateToRepair}
           onCreateRepair={onCreateRepairFromCita ? () => handleCreateRepairFromCita(detailCita) : undefined}
           onClose={() => setDetailCita(null)}
         />
+      )}
+
+      {/* WA confirm after save */}
+      {waConfirmModal && (
+        <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-4 bg-green-50 rounded-2xl">
+                <MessageCircle size={28} className="text-green-500" />
+              </div>
+              <h2 className="text-base font-black text-slate-900 uppercase">¿Confirmar la cita?</h2>
+              <p className="text-xs text-slate-600">
+                ¿Deseas enviar un mensaje de confirmación a <strong>{(waConfirmModal.cita as any).clienteName || ''}</strong> por WhatsApp?
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  const phone = ((waConfirmModal.cita as any).clientePhone || '').replace(/\D/g, '');
+                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(waConfirmModal.msg)}`, '_blank');
+                  setWaConfirmModal(null);
+                }}
+                className="w-full py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white transition-all flex items-center justify-center gap-2"
+                style={{ background: '#25d366' }}
+              >
+                <MessageCircle size={14} /> Confirmar y enviar WhatsApp
+              </button>
+              <button
+                onClick={() => setWaConfirmModal(null)}
+                className="w-full py-3.5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Confirmar sin WhatsApp
+              </button>
+              <button
+                onClick={() => setWaConfirmModal(null)}
+                className="w-full py-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest hover:text-slate-600 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder confirm modal */}
+      {reminderConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 space-y-5">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-4 bg-amber-50 rounded-2xl">
+                <Bell size={28} className="text-amber-500" />
+              </div>
+              <h2 className="text-base font-black text-slate-900 uppercase">¿Enviar recordatorio?</h2>
+              <p className="text-xs text-slate-600">
+                ¿Enviar recordatorio a <strong>{reminderConfirm._clienteName}</strong> por WhatsApp?
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => doSendReminder(reminderConfirm)}
+                className="w-full py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white transition-all flex items-center justify-center gap-2"
+                style={{ background: '#25d366' }}
+              >
+                <MessageCircle size={14} /> Sí, enviar
+              </button>
+              <button
+                onClick={() => setReminderConfirm(null)}
+                className="w-full py-3.5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Omitir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirm delete */}

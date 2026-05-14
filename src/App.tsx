@@ -505,15 +505,23 @@ const App: React.FC = () => {
                   await sendWhatsApp(repair.customerPhone, msg);
                   notify('success', `Presupuesto enviado a ${repair.customerName}`);
                 }}
-                onConvertToInvoice={async (budget, repair) => {
-                  const effectiveTaxRate = budget.taxEnabled === false ? 0 : (budget.taxRate || 21);
+                onUpdateBudgetStatus={async (budget, status, motivo) => {
+                  await storage.save('budgets', budget.id, {
+                    ...budget,
+                    status,
+                    ...(motivo !== undefined ? { motivoRechazo: motivo } : {}),
+                  });
+                  notify('success', status === 'accepted' ? 'Presupuesto aceptado' : status === 'rejected' ? 'Presupuesto rechazado' : 'Presupuesto reactivado');
+                }}
+                onConvertToInvoice={async (budget, repair, tipo) => {
+                  const effectiveTaxRate = tipo === 'REC' ? 0 : tipo === 'FAC' ? (settings.taxRate || 21) : (budget.taxEnabled === false ? 0 : (budget.taxRate || 21));
                   const budgetSubtotal = [
                     ...budget.items.map(i => i.quantity * i.unitPrice),
                     ...budget.laborItems.map(i => i.hours * i.hourlyRate),
                   ].reduce((s, v) => s + v, 0);
                   const budgetTaxAmount = Math.round(budgetSubtotal * (effectiveTaxRate / 100) * 100) / 100;
                   const budgetTotal = Math.round((budgetSubtotal + budgetTaxAmount) * 100) / 100;
-                  const invoiceNumber = storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC');
+                  const invoiceNumber = storage.nextInvoiceNumber(tipo ?? (effectiveTaxRate === 0 ? 'REC' : 'FAC'));
                   const now = new Date().toISOString();
                   const rmaRef = `RMA-${String(repair.rmaNumber).padStart(5, '0')}`;
 
