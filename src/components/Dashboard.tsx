@@ -144,9 +144,9 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
   return (
     <div className="min-h-screen" style={{ background: '#f5f5f5' }}>
 
-      {/* ── Header ── */}
+      {/* ── Header (hidden on mobile — mobile header in App.tsx) ── */}
       <div
-        className="flex items-center gap-4 px-6 py-5"
+        className="hidden md:flex items-center gap-4 px-6 py-5"
         style={{ background: 'linear-gradient(135deg, #1b5e20, #2e7d32, #388e3c)' }}
       >
         <div
@@ -166,7 +166,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       </div>
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-4 gap-4 px-6 pt-6 pb-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 px-4 md:px-6 pt-4 md:pt-6 pb-2">
         {stats.map(s => {
           const StatIcon = s.icon;
           return (
@@ -203,7 +203,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       </div>
 
       {/* ── Module grid ── */}
-      <div className="grid grid-cols-3" style={{ gap: 16, padding: 24 }}>
+      <div className="grid grid-cols-2 md:grid-cols-3" style={{ gap: 12, padding: 16 }}>
         {modules.map(mod => {
           const Icon = mod.icon;
           return (
@@ -212,7 +212,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
               onClick={mod.action}
               className="module-card relative flex flex-col items-center text-center active:scale-95"
               style={{
-                padding: 20,
+                padding: '16px 12px',
+                minHeight: 88,
                 borderRadius: 16,
                 background: mod.gradient,
                 border: 'none',

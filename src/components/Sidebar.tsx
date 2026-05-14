@@ -24,6 +24,8 @@ interface SidebarProps {
   notificaciones?: Notificacion[];
   onMarcarLeida?: (id: string) => void;
   onMarcarTodasLeidas?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 type NavItem = { id: ViewType | 'new-repair'; label: string; icon: React.ElementType; badge?: number };
@@ -54,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentView, setView, onNewRepair, onEditRepair,
   appName, repairs, budgets, citas, warranties = [],
   notificaciones = [], onMarcarLeida, onMarcarTodasLeidas,
+  isOpen = false, onClose,
 }) => {
   const [online, setOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -134,24 +137,40 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? { background: '#b71c1c', color: '#fff' }
       : { background: GREEN, color: '#fff' };
 
+  const handleNav = (id: string) => {
+    if (id === 'new-repair') { onNewRepair(); } else { setView(id as ViewType); }
+    onClose?.();
+  };
+
   return (
-    <aside
-      className="h-screen flex flex-col fixed left-0 top-0 z-40 no-print"
-      style={{ width: 220, background: '#0a0a0a', borderRight: '1px solid #1e1e1e', fontFamily: "'Barlow Condensed', sans-serif" }}
-    >
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[39] md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={`sidebar-responsive h-screen flex flex-col fixed left-0 top-0 z-40 no-print transition-transform duration-300
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0`}
+        style={{ width: 220, background: '#0a0a0a', borderRight: '1px solid #1e1e1e', fontFamily: "'Barlow Condensed', sans-serif" }}
+      >
       {/* ── Logo ── */}
-      <div className="px-4 py-5" style={{ borderBottom: '1px solid #1a1a1a' }}>
+      <div className="px-4 py-5 flex items-center" style={{ borderBottom: '1px solid #1a1a1a', minHeight: 64 }}>
         <button
-          onClick={() => setView('dashboard')}
+          onClick={() => handleNav('dashboard')}
           className="flex items-center gap-3 w-full text-left group"
         >
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-xl leading-none text-white shadow-lg"
+            className="sidebar-logo-icon w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-xl leading-none text-white shadow-lg"
             style={{ background: `linear-gradient(135deg, ${GREEN}, #4caf50)` }}
           >
             {appName.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="sidebar-logo-text min-w-0 flex-1">
             <div className="text-[12px] font-black tracking-widest uppercase text-white leading-tight break-words line-clamp-2 group-hover:opacity-90 transition-opacity">
               {appName}
             </div>
@@ -163,10 +182,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* ── Search ── */}
-      <div className="px-3 pt-3 pb-1">
+      <div className="sidebar-search-wrap px-3 pt-3 pb-1">
         <GlobalSearch
           repairs={repairs} budgets={budgets} citas={citas}
-          onNavigate={setView} onEditRepair={onEditRepair}
+          onNavigate={(v) => { setView(v); onClose?.(); }} onEditRepair={onEditRepair}
         />
       </div>
 
@@ -175,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {groups.map((group, gi) => (
           <div key={group.label}>
             {gi > 0 && (
-              <div className="mx-3 my-2 flex items-center gap-2">
+              <div className="sidebar-section-header mx-3 my-2 flex items-center gap-2">
                 <div className="flex-1 h-px" style={{ background: '#1e1e1e' }} />
                 <span className="text-[7px] font-black uppercase tracking-[0.25em]" style={{ color: '#2a2a2a' }}>
                   {group.label}
@@ -184,7 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
             {gi === 0 && (
-              <p className="px-3 pt-0 pb-1 text-[8px] font-black uppercase tracking-[0.22em]" style={{ color: '#333' }}>
+              <p className="sidebar-section-header px-3 pt-0 pb-1 text-[8px] font-black uppercase tracking-[0.22em]" style={{ color: '#333' }}>
                 {group.label}
               </p>
             )}
@@ -195,7 +214,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => isNew ? onNewRepair() : setView(item.id as ViewType)}
+                  title={item.label}
+                  onClick={() => handleNav(item.id)}
                   className={`sidebar-nav-btn w-full flex items-center gap-2.5 px-3 py-[7px] text-[11px] font-black uppercase tracking-wide mb-px group${isActive ? ' is-active' : ''}`}
                   style={isActive ? { color: '#4caf50' } : { color: '#777' }}
                 >
@@ -204,10 +224,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     style={{ color: isActive ? '#4caf50' : '#444', flexShrink: 0 }}
                     className={isActive ? '' : 'group-hover:!text-[#4caf50]'}
                   />
-                  <span className="flex-1 text-left truncate">{item.label}</span>
+                  <span className="sidebar-label flex-1 text-left truncate">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className="text-[9px] font-black px-1.5 py-px leading-none rounded-full"
+                      className="sidebar-label text-[9px] font-black px-1.5 py-px leading-none rounded-full"
                       style={getBadgeStyle(item.id as string)}
                     >
                       {item.badge}
@@ -229,7 +249,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ background: notifOpen ? '#1e1e1e' : 'transparent', color: altaCount > 0 ? '#ff5252' : '#666' }}
         >
           <Bell size={14} style={{ flexShrink: 0 }} />
-          <span className="flex-1 text-left text-[10px] font-black uppercase tracking-widest">Notificaciones</span>
+          <span className="sidebar-label flex-1 text-left text-[10px] font-black uppercase tracking-widest">Notificaciones</span>
           {unreadNotifs.length > 0 && (
             <span className="text-[9px] font-black px-1.5 py-px rounded-full"
               style={{ background: altaCount > 0 ? '#c62828' : '#555', color: '#fff' }}>
@@ -244,8 +264,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         <>
           <div className="fixed inset-0 z-[490]" onClick={() => setNotifOpen(false)} />
           <div
-            className="fixed top-0 bottom-0 z-[491] flex flex-col"
-            style={{ left: 220, width: 320, background: '#fff', boxShadow: '6px 0 24px rgba(0,0,0,0.18)' }}
+            className="fixed top-0 bottom-0 z-[491] flex flex-col left-0 right-0 md:left-[220px] md:right-auto md:w-[320px] lg:left-[220px]"
+            style={{ background: '#fff', boxShadow: '6px 0 24px rgba(0,0,0,0.18)' }}
           >
             {/* Panel header */}
             <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100">
@@ -351,12 +371,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#444' }} />
           )}
-          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: online ? GREEN : '#555' }}>
+          <span className="sidebar-sync-label sidebar-label text-[10px] font-black uppercase tracking-widest" style={{ color: online ? GREEN : '#555' }}>
             {syncing ? 'Sincronizando...' : online ? 'Conectado' : 'Local'}
           </span>
         </button>
       </div>
     </aside>
+    </>
   );
 };
 

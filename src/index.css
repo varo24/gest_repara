@@ -284,3 +284,69 @@ tbody tr:last-child td { border-bottom: none !important; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ── Responsive / Mobile ────────────────────────────────────────────────────── */
+
+/* Touch targets ≥ 44px on non-desktop */
+@media (max-width: 1023px) {
+  button, [role="button"] { min-height: 44px; }
+}
+
+/* Prevent iOS auto-zoom on input focus */
+@media (max-width: 767px) {
+  input[type="text"], input[type="number"], input[type="email"],
+  input[type="tel"], input[type="password"], input[type="date"],
+  input[type="search"], textarea, select { font-size: 16px !important; }
+}
+
+/* Scrollable table wrapper for mobile */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+}
+
+/* ── Tablet sidebar: icon-only (768–1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar-responsive { width: 56px !important; }
+  .sidebar-label, .sidebar-section-header,
+  .sidebar-logo-text, .sidebar-search-wrap,
+  .sidebar-sync-label { display: none !important; }
+  .sidebar-logo-icon { margin: 0 auto; }
+}
+/* Desktop sidebar: full */
+@media (min-width: 1024px) {
+  .sidebar-responsive { width: 220px !important; }
+}
+
+/* ── Mobile table → cards pattern ── */
+@media (max-width: 639px) {
+  .mobile-table-cards thead { display: none !important; }
+  .mobile-table-cards tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+  .mobile-table-cards tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border) !important;
+    font-size: var(--font-size-sm);
+  }
+  .mobile-table-cards tbody td:last-child { border-bottom: none !important; }
+  .mobile-table-cards tbody td::before {
+    content: attr(data-label);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+}

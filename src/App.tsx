@@ -28,7 +28,7 @@ import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } 
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
-import { Loader2, FileText, Ticket } from 'lucide-react';
+import { Loader2, FileText, Ticket, Menu, Bell } from 'lucide-react';
 
 const APP_VERSION = '6.6.0 UNIFIED';
 
@@ -87,6 +87,7 @@ const App: React.FC = () => {
   const [informes, setInformes] = useState<InformeRecord[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
 
@@ -183,6 +184,7 @@ const App: React.FC = () => {
 
   const navigateTo = (view: ViewType) => {
     setCurrentView(view);
+    setSidebarOpen(false);
     if (view !== 'new-repair') { setEditingRepair(null); setPrefillCustomer(null); }
     setEditingBudget(null);
     setActiveBudgetRepair(null);
@@ -264,13 +266,47 @@ const App: React.FC = () => {
     />
   );
 
+  const unreadCount = notificaciones.filter(n => !n.leida).length;
+  const hasAlta = notificaciones.some(n => !n.leida && n.prioridad === 'alta');
+
   return (
     <div className="flex min-h-screen no-print" style={{ backgroundColor: '#f5f5f5', color: '#1a1a1a' }}>
+
+      {/* ── Mobile header (hidden on md+) ── */}
+      <header
+        className="md:hidden fixed top-0 left-0 right-0 z-[35] flex items-center gap-3 px-3 no-print"
+        style={{ height: 56, background: '#0a0a0a', borderBottom: '1px solid #1e1e1e' }}
+      >
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex items-center justify-center w-11 h-11 rounded-xl text-white"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+        >
+          <Menu size={20} />
+        </button>
+        <span className="flex-1 text-white font-black text-sm uppercase tracking-widest truncate">
+          {settings.appName}
+        </span>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="relative flex items-center justify-center w-11 h-11 rounded-xl text-white"
+          style={{ background: 'rgba(255,255,255,0.06)', color: hasAlta ? '#ff5252' : '#aaa' }}
+        >
+          <Bell size={18} />
+          {unreadCount > 0 && (
+            <span
+              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+              style={{ background: hasAlta ? '#c62828' : '#555' }}
+            />
+          )}
+        </button>
+      </header>
+
       <Sidebar
         currentView={currentView}
         setView={navigateTo}
-        onNewRepair={() => navigateTo('new-repair')}
-        onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+        onNewRepair={() => { navigateTo('new-repair'); setSidebarOpen(false); }}
+        onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); setSidebarOpen(false); }}
         appName={settings.appName}
         version={APP_VERSION}
         repairs={repairs}
@@ -280,9 +316,11 @@ const App: React.FC = () => {
         notificaciones={notificaciones}
         onMarcarLeida={marcarLeida}
         onMarcarTodasLeidas={marcarTodasLeidas}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
-      <main className="flex-1 p-4 md:p-6 ml-64 md:p-10 min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
+      <main className="flex-1 min-h-screen p-4 lg:p-8 pt-[72px] md:pt-4 ml-0 md:ml-14 lg:ml-[220px]" style={{ backgroundColor: '#f5f5f5' }}>
 
         {/* Notificaciones */}
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">
