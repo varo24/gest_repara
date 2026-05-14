@@ -173,10 +173,10 @@ export interface MovimientoCaja {
 }
 
 export interface DetalleBilletes {
-  b500: number; b200: number; b100: number; b50: number;
+  b200: number; b100: number; b50: number;
   b20: number;  b10: number;  b5: number;
   m200: number; m100: number; m050: number;
-  m020: number; m010: number; m005: number;
+  m020: number; m010: number;
 }
 
 export interface CierreCaja {

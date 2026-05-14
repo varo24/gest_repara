@@ -32,7 +32,6 @@ interface CajaProps {
 // ── Denominaciones ────────────────────────────────────────────────────────────
 
 const DENOMINACIONES = [
-  { key: 'b500', label: '500 €',   valor: 500,  emoji: '💶', esBillete: true },
   { key: 'b200', label: '200 €',   valor: 200,  emoji: '💶', esBillete: true },
   { key: 'b100', label: '100 €',   valor: 100,  emoji: '💶', esBillete: true },
   { key: 'b50',  label: '50 €',    valor: 50,   emoji: '💶', esBillete: true },
@@ -44,14 +43,13 @@ const DENOMINACIONES = [
   { key: 'm050', label: '0,50 €',  valor: 0.5,  emoji: '🪙', esBillete: false },
   { key: 'm020', label: '0,20 €',  valor: 0.2,  emoji: '🪙', esBillete: false },
   { key: 'm010', label: '0,10 €',  valor: 0.1,  emoji: '🪙', esBillete: false },
-  { key: 'm005', label: '0,05 €',  valor: 0.05, emoji: '🪙', esBillete: false },
 ] as const;
 
 type DenomKey = typeof DENOMINACIONES[number]['key'];
 
 const INIT_BILLETES: Record<DenomKey, number> = {
-  b500: 0, b200: 0, b100: 0, b50: 0, b20: 0, b10: 0, b5: 0,
-  m200: 0, m100: 0, m050: 0, m020: 0, m010: 0, m005: 0,
+  b200: 0, b100: 0, b50: 0, b20: 0, b10: 0, b5: 0,
+  m200: 0, m100: 0, m050: 0, m020: 0, m010: 0,
 };
 
 // Work in integer cents to avoid floating-point issues
@@ -233,12 +231,12 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     const now = new Date().toISOString();
     const id = `CIERRE-${today}`;
     const detalleBilletes: DetalleBilletes = {
-      b500: billetes.b500 || 0, b200: billetes.b200 || 0,
+      b200: billetes.b200 || 0,
       b100: billetes.b100 || 0, b50: billetes.b50 || 0,
       b20: billetes.b20 || 0,  b10: billetes.b10 || 0, b5: billetes.b5 || 0,
       m200: billetes.m200 || 0, m100: billetes.m100 || 0,
       m050: billetes.m050 || 0, m020: billetes.m020 || 0,
-      m010: billetes.m010 || 0, m005: billetes.m005 || 0,
+      m010: billetes.m010 || 0,
     };
     const cierre: CierreCajaType = {
       id, fecha: today,
