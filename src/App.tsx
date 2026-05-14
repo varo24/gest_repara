@@ -624,6 +624,12 @@ const App: React.FC = () => {
               <CustomerList
                 repairs={repairs}
                 customers={customersDB}
+                invoices={invoices}
+                budgets={budgets}
+                warranties={warranties}
+                citas={citas}
+                settings={settings}
+                setView={navigateTo}
                 onBack={() => navigateTo('dashboard')}
                 onSelectCustomer={() => {}}
                 onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
@@ -646,6 +652,15 @@ const App: React.FC = () => {
                   setPrefillCustomer(customer);
                   setEditingRepair(null);
                   navigateTo('new-repair');
+                }}
+                onNewBudgetForCustomer={(customer) => {
+                  setPrefillCustomer(customer);
+                  setEditingBudget(null);
+                  setFreeBudgetMode(true);
+                  navigateTo('budgets');
+                }}
+                onNewCitaForCustomer={(_customer) => {
+                  navigateTo('calendar');
                 }}
               />
             )}
