@@ -175,17 +175,31 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
     [allMovements, today]
   );
 
-  const aperturaHoy = todayMovements.find(m => m.tipo === 'apertura');
+  // Derivados reactivos — useMemo hace las dependencias explícitas aunque el comportamiento
+  // sería idéntico como expresiones simples (se reevalúan en cada render al cambiar props)
+  const aperturaHoy = useMemo(
+    () => todayMovements.find(m => m.tipo === 'apertura'),
+    [todayMovements]
+  );
   const saldoApertura = aperturaHoy?.importe ?? 0;
-  const cierreHoy = cierresCaja.find(c => c.fecha === today);
+  const cierreHoy = useMemo(
+    () => cierresCaja.find(c => c.fecha === today),
+    [cierresCaja, today]
+  );
   const cajaAbierta = !!aperturaHoy && !cierreHoy;
 
   // Alert: yesterday not closed
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
-  const cierreAyer = cierresCaja.find(c => c.fecha === yesterdayStr);
-  const aperturaAyer = allMovements.find(m => m.fecha === yesterdayStr && m.tipo === 'apertura');
+  const cierreAyer = useMemo(
+    () => cierresCaja.find(c => c.fecha === yesterdayStr),
+    [cierresCaja, yesterdayStr]
+  );
+  const aperturaAyer = useMemo(
+    () => allMovements.find(m => m.fecha === yesterdayStr && m.tipo === 'apertura'),
+    [allMovements, yesterdayStr]
+  );
   const cajaAyerSinCerrar = !!aperturaAyer && !cierreAyer;
 
   // Today summary
