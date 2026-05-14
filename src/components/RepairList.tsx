@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import {
   Search, Trash2, Filter, Pencil, ChevronDown, ChevronLeft, ChevronRight,
   User, Smartphone, FilePlus, FileEdit, FileText, Ticket, MessageCircle,
-  Archive, Zap
+  Archive, Zap, ClipboardList
 } from 'lucide-react';
+import { printWorkOrder } from '../lib/printWorkOrder';
 import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
 import WhatsAppPanel from './WhatsAppPanel';
 
@@ -20,6 +21,7 @@ interface RepairListProps {
   onDelete: (id: string) => void;
   onPrintReceipt?: (repair: RepairItem) => void;
   onPrintTicket?: (repair: RepairItem) => void;
+  onPrintWorkOrder?: (repair: RepairItem) => void;
   settings?: AppSettings;
   initialSearch?: string;
   onBack?: () => void;
@@ -38,7 +40,7 @@ const getMonthLabel = (key: string) => {
 
 const RepairList: React.FC<RepairListProps> = ({
   repairs, budgets, onStatusChange, onEdit, onCreateBudget, onEditBudget, onDelete,
-  onPrintReceipt, onPrintTicket, settings, onBack,
+  onPrintReceipt, onPrintTicket, onPrintWorkOrder, settings, onBack,
   initialSearch = ''
 }) => {
   const [searchTerm, setSearchTerm]   = useState(initialSearch);
@@ -230,6 +232,17 @@ ${s.appName}
             {onPrintTicket && (
               <button onClick={() => onPrintTicket(repair)} title="Ticket Térmico" className="p-3 bg-white text-purple-400 rounded-xl hover:bg-purple-600 hover:text-white border border-slate-100 transition-all"><Ticket size={16} /></button>
             )}
+            <button
+              onClick={() => {
+                const bud = budgets.find(b => b.repairId === repair.id);
+                if (onPrintWorkOrder) { onPrintWorkOrder(repair); }
+                else { printWorkOrder(repair, bud, settings); }
+              }}
+              title="Orden de Trabajo"
+              className="p-3 bg-white text-orange-400 rounded-xl hover:bg-orange-500 hover:text-white border border-slate-100 transition-all"
+            >
+              <ClipboardList size={16} />
+            </button>
             <button onClick={() => onEdit(repair)} title="Ficha Técnica" className="p-3 bg-white text-slate-400 rounded-xl hover:bg-slate-100 border border-slate-100 transition-all"><Pencil size={16} /></button>
             <button onClick={() => onDelete(repair.id)} title="Eliminar" className="p-3 bg-white text-red-200 rounded-xl hover:bg-red-600 hover:text-white border border-slate-100 transition-all"><Trash2 size={16} /></button>
           </div>

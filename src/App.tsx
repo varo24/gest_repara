@@ -28,7 +28,8 @@ import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } 
 import { storage } from './lib/dataService';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
-import { Loader2, FileText, Ticket, Menu, Bell } from 'lucide-react';
+import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList } from 'lucide-react';
+import { printWorkOrder } from './lib/printWorkOrder';
 
 const APP_VERSION = '6.6.0 UNIFIED';
 
@@ -348,26 +349,41 @@ const App: React.FC = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => { setShowReceiptFor(pendingDocRepair); setPendingDocRepair(null); }}
-                  className="flex flex-col items-center gap-3 p-6 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-2xl transition-all group"
+                  className="flex flex-col items-center gap-3 p-5 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-2xl transition-all group"
                 >
-                  <FileText size={28} className="text-blue-600 group-hover:scale-110 transition-transform" />
+                  <FileText size={26} className="text-blue-600 group-hover:scale-110 transition-transform" />
                   <div className="text-center">
-                    <div className="text-[11px] font-black text-blue-700 uppercase tracking-widest">Resguardo</div>
-                    <div className="text-[9px] text-blue-500 mt-1">Para el cliente · A4</div>
+                    <div className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Resguardo</div>
+                    <div className="text-[8px] text-blue-500 mt-1">Cliente · A4</div>
                   </div>
                 </button>
 
                 <button
                   onClick={() => { setShowTicketFor(pendingDocRepair); setPendingDocRepair(null); }}
-                  className="flex flex-col items-center gap-3 p-6 bg-slate-50 hover:bg-slate-100 border-2 border-slate-200 rounded-2xl transition-all group"
+                  className="flex flex-col items-center gap-3 p-5 bg-slate-50 hover:bg-slate-100 border-2 border-slate-200 rounded-2xl transition-all group"
                 >
-                  <Ticket size={28} className="text-slate-600 group-hover:scale-110 transition-transform" />
+                  <Ticket size={26} className="text-slate-600 group-hover:scale-110 transition-transform" />
                   <div className="text-center">
-                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Ticket</div>
-                    <div className="text-[9px] text-slate-500 mt-1">Interno · 80mm</div>
+                    <div className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ticket</div>
+                    <div className="text-[8px] text-slate-500 mt-1">Interno · 80mm</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const bud = budgets.find(b => b.repairId === pendingDocRepair.id);
+                    printWorkOrder(pendingDocRepair, bud, settings, repairs);
+                    setPendingDocRepair(null);
+                  }}
+                  className="flex flex-col items-center gap-3 p-5 bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 rounded-2xl transition-all group"
+                >
+                  <ClipboardList size={26} className="text-orange-600 group-hover:scale-110 transition-transform" />
+                  <div className="text-center">
+                    <div className="text-[10px] font-black text-orange-700 uppercase tracking-widest">Orden trabajo</div>
+                    <div className="text-[8px] text-orange-500 mt-1">Técnico · A4</div>
                   </div>
                 </button>
               </div>
@@ -496,6 +512,10 @@ const App: React.FC = () => {
                 }}
                 onPrintReceipt={r => setShowReceiptFor(r)}
                 onPrintTicket={r => setShowTicketFor(r)}
+                onPrintWorkOrder={r => {
+                  const bud = budgets.find(b => b.repairId === r.id);
+                  printWorkOrder(r, bud, settings, repairs);
+                }}
                 settings={settings}
               />
             )}

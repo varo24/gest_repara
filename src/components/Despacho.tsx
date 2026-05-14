@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-react';
+import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText, ClipboardList } from 'lucide-react';
+import { printWorkOrder } from '../lib/printWorkOrder';
 import { RepairItem, RepairStatus, Budget, AppSettings, FullInvoice } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock } from '../lib/inventoryService';
@@ -303,6 +304,12 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
                 </button>
                 <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-4 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all">
                   <Printer size={14} /> Ticket
+                </button>
+                <button
+                  onClick={() => printWorkOrder(repair, budget ?? undefined, settings)}
+                  className="flex items-center gap-2 px-5 py-4 bg-orange-50 text-orange-600 rounded-xl font-black uppercase text-xs hover:bg-orange-100 transition-all border border-orange-100"
+                >
+                  <ClipboardList size={14} /> Orden
                 </button>
                 <button onClick={() => {
                   const msg = `Hola ${repair.customerName}, su ${repair.brand} ${repair.model} está listo. Total: ${fmtMoney(total)}. ${settings.appName}`;
