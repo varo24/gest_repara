@@ -6,7 +6,7 @@ const PAY_LABELS: Record<string, string> = {
   efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', transferencia: 'Transferencia',
 };
 
-export const printInvoice = (inv: any, settings: AppSettings, warranty?: any) => {
+export const printInvoice = (inv: any, settings: AppSettings, warranty?: any, repair?: any) => {
   const isSimplificada = !inv.customerTaxId;
   const isRecibo = (inv.invoiceNumber || '').startsWith('REC-');
   const hasWarranty = !!warranty;
@@ -296,6 +296,18 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
     </div>
   </div>
 </div>
+
+${repair?.firmaClienteUrl ? `
+<div style="border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:6mm">
+  <div style="background:#111;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">Firmado por el cliente</div>
+  <div style="padding:8px;display:flex;align-items:center;gap:10px">
+    <img src="${repair.firmaClienteUrl}" style="height:50px;max-width:120px;object-fit:contain;border:1px solid #e0e0e0;border-radius:3px" alt="Firma"/>
+    <div>
+      <div style="font-size:9px;font-weight:700;color:#111">${inv.customerName}</div>
+      <div style="font-size:8px;color:#666">Firmado digitalmente el ${new Date(repair.firmaClienteDate || Date.now()).toLocaleDateString('es-ES')}</div>
+    </div>
+  </div>
+</div>` : ''}
 
 <!-- FOOTER -->
 <div class="footer" ${hasWarranty ? 'style="position:relative;bottom:auto;left:auto;right:auto;margin-top:8mm;"' : ''}>

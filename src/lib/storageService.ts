@@ -94,6 +94,27 @@ export async function uploadInformeHTML(html: string, periodo: string, fecha: st
   return getDownloadURL(storageRef)
 }
 
+export async function uploadRepairPhoto(
+  repairId: string,
+  imageBase64: string,
+  tipo: 'entrada' | 'salida' | 'diagnostico',
+  mimeType: string = 'image/jpeg',
+): Promise<string> {
+  const path = `reparaciones/${repairId}/${tipo}/${Date.now()}.jpg`
+  const storageRef = ref(fbStorage, path)
+  const bytes = base64ToBytes(imageBase64)
+  await uploadBytes(storageRef, bytes, { contentType: mimeType })
+  return getDownloadURL(storageRef)
+}
+
+export async function uploadSignature(repairId: string, signatureBase64: string): Promise<string> {
+  const path = `reparaciones/${repairId}/firma/firma.png`
+  const storageRef = ref(fbStorage, path)
+  const bytes = base64ToBytes(signatureBase64)
+  await uploadBytes(storageRef, bytes, { contentType: 'image/png' })
+  return getDownloadURL(storageRef)
+}
+
 // Upload a File object directly (for manual upload from disk)
 export async function uploadFacturaFile(
   file: File,

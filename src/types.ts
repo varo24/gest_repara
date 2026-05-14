@@ -41,6 +41,30 @@ export interface RepairItem {
   city?: string;
   // Notas de campo del técnico
   fieldNotes?: FieldNote[];
+  // Fotos Firebase Storage
+  photos?: { url: string; tipo: 'entrada' | 'salida' | 'diagnostico'; caption?: string; uploadedAt: string }[];
+  // Informe técnico
+  diagnostico?: {
+    problema: string;
+    causaRaiz?: string;
+    solucionAplicada?: string;
+    piezasSustituidas?: string;
+    observaciones?: string;
+    nivelDificultad?: 'facil' | 'medio' | 'dificil' | 'no-reparable';
+    tiempoEstimado?: number;
+    tecnico?: string;
+  };
+  // Firma digital del cliente
+  firmaClienteUrl?: string;
+  firmaClienteDate?: string;
+  // Estado estético al ingreso
+  estadoEstetico?: {
+    pantalla: 'perfecto' | 'rayado' | 'roto' | 'na';
+    carcasa: 'perfecto' | 'rayado' | 'golpes' | 'roto';
+    botones: 'perfecto' | 'fallo-parcial' | 'no-funciona';
+    puertos: 'perfecto' | 'dano-visible' | 'no-funciona';
+    observaciones?: string;
+  };
 }
 
 export interface FieldNote {

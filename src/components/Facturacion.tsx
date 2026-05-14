@@ -4,12 +4,12 @@ import {
   XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil,
   ChevronDown, ChevronRight, Layers
 } from 'lucide-react';
-import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborItem } from '../types';
+import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborItem, RepairItem } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock, devolverStock } from '../lib/inventoryService';
 import { printInvoice } from '../lib/printInvoice';
 
-interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; onBack?: () => void; }
+interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; repairs?: RepairItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; onBack?: () => void; }
 
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const getMonthKey   = (d: string) => d?.slice(0, 7) || 'sin-fecha';
@@ -279,7 +279,7 @@ body{font-family:'Inter',sans-serif;background:white}
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inventoryItems = [], onNotify, onSaveCustomer, onBack }) => {
+const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inventoryItems = [], repairs = [], onNotify, onSaveCustomer, onBack }) => {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatus]       = useState('todas');
   const [selected, setSelected]         = useState<FullInvoice | null>(null);
@@ -400,7 +400,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
       <div className="flex items-center justify-between">
         <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">← Volver</button>
         <div className="flex gap-2">
-          <button onClick={() => printInvoice(selected, settings)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all"><Printer size={13}/> Imprimir</button>
+          <button onClick={() => printInvoice(selected, settings, undefined, repairs.find(r => r.id === selected.repairId))} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all"><Printer size={13}/> Imprimir</button>
           {selected.status !== 'anulada' && <button onClick={() => { setEditingInvoice(selected); setSelected(null); }} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-black uppercase hover:bg-amber-100 transition-all"><Pencil size={13}/> Editar</button>}
           {selected.status === 'pendiente' && <button onClick={() => { setPayModal(selected); setPayMethod('efectivo'); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all"><CheckCircle2 size={13}/> Cobrar</button>}
           {selected.status !== 'anulada' && <button onClick={() => anular(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-black uppercase hover:bg-red-100 transition-all"><XCircle size={13}/> Anular</button>}
@@ -596,7 +596,7 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex gap-1 justify-end">
                               <button onClick={() => setSelected(inv)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Ver"><Eye size={13}/></button>
-                              <button onClick={() => printInvoice(inv, settings)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
+                              <button onClick={() => printInvoice(inv, settings, undefined, repairs.find(r => r.id === inv.repairId))} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="Imprimir"><Printer size={13}/></button>
                               {inv.status !== 'anulada' && <button onClick={() => setEditingInvoice(inv)} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-all" title="Editar"><Pencil size={13}/></button>}
                               {inv.status === 'pendiente' && <button onClick={() => { setPayModal(inv); setPayMethod('efectivo'); }} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="Cobrar"><CheckCircle2 size={13}/></button>}
                               <button onClick={() => deleteInvoice(inv)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all" title="Eliminar"><Trash2 size={13}/></button>

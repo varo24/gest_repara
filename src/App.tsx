@@ -372,6 +372,12 @@ const App: React.FC = () => {
                 setShowReceiptFor(prev => prev ? { ...prev, customerSignature: sig } : null);
               }
             }}
+            onFirmaUploaded={async (url, date) => {
+              if (showReceiptFor) {
+                await storage.save('repairs', showReceiptFor.id, { ...showReceiptFor, firmaClienteUrl: url, firmaClienteDate: date });
+                setShowReceiptFor(prev => prev ? { ...prev, firmaClienteUrl: url, firmaClienteDate: date } : null);
+              }
+            }}
           />
         )}
 
@@ -670,6 +676,7 @@ const App: React.FC = () => {
                   customers={customersDB}
                   invoices={invoices}
                   inventoryItems={inventoryItems}
+                  repairs={repairs}
                   onBack={() => navigateTo('dashboard')}
                   onNotify={notify}
                   onSaveCustomer={async (customer) => {

@@ -171,6 +171,13 @@ ${s.appName}
             )}
           </div>
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(repair.entryDate).toLocaleDateString()}</p>
+          {((repair.photos?.length || 0) > 0 || repair.diagnostico?.problema || repair.firmaClienteUrl) && (
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+              {(repair.photos?.length || 0) > 0 && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">📷 {repair.photos!.length}</span>}
+              {repair.diagnostico?.problema && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">🔬</span>}
+              {repair.firmaClienteUrl && <span className="text-[7px] font-black px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600">✍️</span>}
+            </div>
+          )}
         </td>
         <td className="px-4 py-7">
           <div className="flex items-center gap-3">
