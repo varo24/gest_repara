@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Wrench, Settings2, Shield, Package, Truck, Calendar, BarChart2,
   Users, Receipt, ClipboardCheck, Puzzle, SlidersHorizontal,
-  CheckCircle, Mail, Zap, FileBarChart
+  CheckCircle, Mail, Zap, FileBarChart, Wallet
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, AppSettings, Notificacion } from '../types';
 
@@ -77,6 +77,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       id: 'customers', label: 'Clientes', desc: 'Agenda y ficha de cliente',
       icon: Users, gradient: 'linear-gradient(135deg, #00695c, #00897b)', accentColor: '#00695c',
       action: () => setView('customers'),
+    },
+    {
+      id: 'caja', label: 'Caja Diaria', desc: 'Apertura, movimientos y cierre',
+      icon: Wallet, gradient: 'linear-gradient(135deg, #1b5e20, #2e7d32)', accentColor: '#1b5e20',
+      action: () => setView('caja'),
     },
     {
       id: 'inventory', label: 'Inventario', desc: 'Stock de piezas',

@@ -15,7 +15,7 @@ const ALL_STORES = [
   'warranties', 'customers', 'settings', 'stock_movements',
   'citas', 'apps_externas',
   'correos_procesados', 'facturas_importadas', 'correos_analizados', 'facturas_descartadas',
-  'suppliers', 'informes',
+  'suppliers', 'informes', 'cierres_caja',
 ];
 
 class LocalStore {
@@ -471,7 +471,7 @@ export const storage = {
       'inventory', 'stock_movements', 'warranties', 'customers',
       'appointments', 'reminders', 'surveys', 'settings',
       'citas', 'apps_externas', 'inventory_entries', 'purchase_orders',
-      'facturas_importadas', 'facturas_descartadas', 'suppliers', 'informes',
+      'facturas_importadas', 'facturas_descartadas', 'suppliers', 'informes', 'cierres_caja',
     ];
     const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v2-full' };
     for (const col of BACKUP_COLS) result[col] = localStore.getAll(col);

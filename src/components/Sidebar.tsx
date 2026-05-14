@@ -4,7 +4,7 @@ import {
   Settings, TrendingUp, Users,
   Calendar, AppWindow, RefreshCw,
   Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart,
-  Bell, X, ArrowRight, ShieldAlert, AlertTriangle
+  Bell, X, ArrowRight, ShieldAlert, AlertTriangle, Wallet
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion } from '../types';
 import { storage } from '../lib/dataService';
@@ -26,6 +26,8 @@ interface SidebarProps {
   onMarcarTodasLeidas?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
+  cashMovements?: any[];
+  cierresCaja?: any[];
 }
 
 type NavItem = { id: ViewType | 'new-repair'; label: string; icon: React.ElementType; badge?: number };
@@ -56,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentView, setView, onNewRepair, onEditRepair,
   appName, repairs, budgets, citas, warranties = [],
   notificaciones = [], onMarcarLeida, onMarcarTodasLeidas,
-  isOpen = false, onClose,
+  isOpen = false, onClose, cashMovements = [], cierresCaja = [],
 }) => {
   const [online, setOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -91,6 +93,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     }).length;
   })();
 
+  const cajaBadge = (() => {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const ayerStr = ayer.toISOString().slice(0, 10);
+    const cierreAyer = cierresCaja.find((c: any) => c.fecha === ayerStr);
+    const aperturaAyer = cashMovements.some((m: any) =>
+      (m.fecha || m.date || '').slice(0, 10) === ayerStr && (m.tipo || m.type) === 'apertura'
+    );
+    return (aperturaAyer && !cierreAyer) ? 1 : 0;
+  })();
+
   const groups: NavGroup[] = [
     {
       label: 'Principal',
@@ -106,6 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'budgets',           label: 'Presupuestos',     icon: FileText },
         { id: 'invoices',          label: 'Facturas',         icon: Receipt },
+        { id: 'caja',              label: 'Caja Diaria',      icon: Wallet,      badge: cajaBadge || undefined },
         { id: 'customers',         label: 'Clientes',         icon: Users },
         { id: 'correos',           label: 'Facturas Recibidas', icon: Inbox },
         { id: 'archivo-facturas',  label: 'Archivo Facturas', icon: FolderOpen },

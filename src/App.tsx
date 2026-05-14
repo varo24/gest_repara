@@ -23,6 +23,7 @@ const Correos        = lazy(() => import('./components/Correos'));
 const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
 const Proveedores    = lazy(() => import('./components/Proveedores'));
 const Informes       = lazy(() => import('./components/Informes'));
+const Caja           = lazy(() => import('./components/Caja'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
@@ -48,7 +49,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hourlyRate: 45,
   taxRate: 21,
   letterhead: 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.',
-  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','customers','inventory','inventory-entrada','garantias','correos','archivo-facturas','suppliers','calendar','informes','stats','external-apps','settings'],
+  dashboardModules: ['new-repair','repairs','despacho','budgets','invoices','caja','customers','inventory','inventory-entrada','garantias','correos','archivo-facturas','suppliers','calendar','informes','stats','external-apps','settings'],
   legalTerms: 'LOS PRESUPUESTOS QUE NO SUPEREN LOS 40€ NO REQUIEREN FIRMA DEL CLIENTE. EL TALLER NO SE HACE RESPONSABLE DE LA PÉRDIDA DE DATOS. SE RECOMIENDA REALIZAR UNA COPIA DE SEGURIDAD ANTES DE ENTREGAR EL EQUIPO. LOS EQUIPOS NO RETIRADOS EN UN PLAZO DE 6 MESES DESDE LA NOTIFICACIÓN AL CLIENTE PODRÁN SER OBJETO DE TRATAMIENTO CONFORME A LA NORMATIVA VIGENTE. EL PRESUPUESTO TIENE UNA VALIDEZ DE 15 DÍAS DESDE SU EMISIÓN. SE APLICARÁ EL IVA VIGENTE EN EL MOMENTO DE LA FACTURACIÓN.',
   geminiApiKey: '',
   warrantyMonths: 3,
@@ -89,6 +90,8 @@ const App: React.FC = () => {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [cashMovements, setCashMovements] = useState<any[]>([]);
+  const [cierresCaja, setCierresCaja] = useState<any[]>([]);
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
 
@@ -146,6 +149,8 @@ const App: React.FC = () => {
         storage.subscribe('suppliers', setSuppliers);
         storage.subscribe('facturas_importadas', setFacturasImportadas);
         storage.subscribe('informes', setInformes);
+        storage.subscribe('cash_movements', setCashMovements);
+        storage.subscribe('cierres_caja', setCierresCaja);
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
@@ -319,6 +324,8 @@ const App: React.FC = () => {
         onMarcarTodasLeidas={marcarTodasLeidas}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        cashMovements={cashMovements}
+        cierresCaja={cierresCaja}
       />
 
       <main className="flex-1 min-h-screen p-4 lg:p-8 pt-[72px] md:pt-4 ml-0 md:ml-14 lg:ml-[220px]" style={{ backgroundColor: '#f5f5f5' }}>
@@ -851,6 +858,17 @@ const App: React.FC = () => {
                   onBack={() => navigateTo('dashboard')}
                   onNotify={notify}
                   onViewRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
+                />
+              </Suspense>
+            )}
+            {currentView === 'caja' && (
+              <Suspense fallback={<LazyFallback />}>
+                <Caja
+                  cashMovements={cashMovements}
+                  cierresCaja={cierresCaja}
+                  settings={settings}
+                  onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
                 />
               </Suspense>
             )}

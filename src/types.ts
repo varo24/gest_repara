@@ -154,7 +154,42 @@ export interface AppNotification {
   message: string;
 }
 
-export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers' | 'informes';
+export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers' | 'informes' | 'caja';
+
+export interface MovimientoCaja {
+  id: string;
+  tipo: 'ingreso' | 'gasto' | 'apertura' | 'cierre' | 'retirada';
+  concepto: string;
+  importe: number;
+  payMethod?: 'efectivo' | 'tarjeta' | 'bizum' | 'transferencia';
+  categoria?: 'reparacion' | 'venta' | 'proveedor' | 'gasto-fijo' | 'gasto-variable' | 'otros';
+  facturaId?: string;
+  rmaNumber?: number;
+  fecha: string;
+  hora: string;
+  tecnico?: string;
+  notas?: string;
+  createdAt: string;
+}
+
+export interface CierreCaja {
+  id: string;
+  fecha: string;
+  apertura: number;
+  totalIngresos: number;
+  totalGastos: number;
+  totalEfectivo: number;
+  totalTarjeta: number;
+  totalBizum: number;
+  totalTransferencia: number;
+  saldoFinal: number;
+  saldoEsperado: number;
+  diferencia: number;
+  movimientos: string[];
+  notas?: string;
+  cerradoPor?: string;
+  createdAt: string;
+}
 
 // ─── Módulos Integrados (de gestion-repara) ─────────────────────────────
 
