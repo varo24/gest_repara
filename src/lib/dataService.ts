@@ -469,8 +469,8 @@ export const storage = {
     const BACKUP_COLS = [
       'repairs', 'budgets', 'invoices', 'cash_movements',
       'inventory', 'stock_movements', 'warranties', 'customers',
-      'appointments', 'reminders', 'surveys', 'settings',
-      'citas', 'apps_externas', 'inventory_entries', 'purchase_orders',
+      'settings', 'citas', 'apps_externas',
+      'correos_analizados', 'correos_procesados',
       'facturas_importadas', 'facturas_descartadas', 'suppliers', 'informes', 'cierres_caja',
     ];
     const result: Record<string, any> = { exportDate: new Date().toISOString(), version: 'v2-full' };
