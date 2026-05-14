@@ -3,7 +3,7 @@ import {
   Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
   Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
-  Package, Brain, Plus, LayoutDashboard
+  Package, Brain, Plus, LayoutDashboard, QrCode
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -419,6 +419,82 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
             Período que se analiza automáticamente al abrir Correos (1-90 días)
           </p>
+        </div>
+      </div>
+
+      {/* VERIFACTU */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="bg-blue-700 p-3 rounded-2xl text-white shadow-lg">
+            <QrCode size={24} />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">VeriFactu — Sistema de Facturación</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Obligatorio para autónomos a partir de julio 2027 (AEAT)</p>
+          </div>
+          <span className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+            formData.verifactuEnabled
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            {formData.verifactuEnabled ? '✓ Preparado' : 'No activado'}
+          </span>
+        </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-200">
+            <div>
+              <p className="text-sm font-black text-slate-800">Activar VeriFactu</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Genera huella SHA-256 y QR de verificación en cada factura</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, verifactuEnabled: !formData.verifactuEnabled })}
+              className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                formData.verifactuEnabled ? 'bg-blue-600' : 'bg-slate-300'
+              }`}
+            >
+              <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                formData.verifactuEnabled ? 'translate-x-7' : 'translate-x-0'
+              }`} />
+            </button>
+          </div>
+
+          {formData.verifactuEnabled && (
+            <div className="space-y-5 p-5 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">NIF Emisor (para huella y QR)</label>
+                <input
+                  type="text"
+                  className="w-full px-6 py-4 bg-white border border-blue-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none font-mono text-sm uppercase"
+                  placeholder="12345678A"
+                  value={formData.verifactuNIF || ''}
+                  onChange={e => setFormData({ ...formData, verifactuNIF: e.target.value.toUpperCase() })}
+                />
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">Si está vacío se usará el NIF de Identidad del Taller</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Serie de factura (opcional)</label>
+                <input
+                  type="text"
+                  className="w-32 px-6 py-4 bg-white border border-blue-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none font-mono text-sm uppercase"
+                  placeholder="FAC"
+                  value={formData.verifactuSerie || ''}
+                  onChange={e => setFormData({ ...formData, verifactuSerie: e.target.value.toUpperCase() })}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-start gap-4 p-5 bg-amber-50 rounded-2xl border border-amber-100">
+            <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-black text-amber-800">Obligatorio a partir de julio 2027</p>
+              <p className="text-[10px] text-amber-700 leading-relaxed">
+                La normativa VeriFactu (Real Decreto 1007/2023) exige sistemas de facturación verificables con huella encadenada. El envío automático a la AEAT se activará en la app antes de esa fecha. Los QR de verificación ya se imprimen en las facturas cuando VeriFactu está activado.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

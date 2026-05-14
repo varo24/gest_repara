@@ -297,6 +297,19 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
   </div>
 </div>
 
+${(inv as any).verifactu?.enabled ? `
+<div style="border:1px solid #bfdbfe;border-radius:4px;overflow:hidden;margin-bottom:6mm">
+  <div style="background:#1e40af;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">VeriFactu — Factura verificable en la AEAT</div>
+  <div style="padding:8px;display:flex;align-items:center;gap:12px">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((inv as any).verifactu.qrUrl || '')}&color=000000&bgcolor=ffffff" style="width:60px;height:60px;border:1px solid #e0e0e0;border-radius:3px;flex-shrink:0" alt="QR Verificación AEAT"/>
+    <div style="font-size:8px;color:#333">
+      <div style="font-weight:700;color:#1e40af;margin-bottom:3px">Factura verificable en sede.agenciatributaria.gob.es</div>
+      <div style="color:#666">Sistema de Información de Facturación (SIF) · Huella SHA-256</div>
+      <div style="font-family:monospace;font-size:6.5px;color:#888;margin-top:3px;word-break:break-all">${(inv as any).verifactu.huella}</div>
+    </div>
+  </div>
+</div>` : ''}
+
 ${repair?.firmaClienteUrl ? `
 <div style="border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:6mm">
   <div style="background:#111;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">Firmado por el cliente</div>

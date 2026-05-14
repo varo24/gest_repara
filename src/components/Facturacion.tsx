@@ -8,6 +8,7 @@ import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborIte
 import { storage } from '../lib/dataService';
 import { descontarStock, devolverStock } from '../lib/inventoryService';
 import { printInvoice } from '../lib/printInvoice';
+import { prepararFacturaVeriFactu } from '../lib/verifactuService';
 
 interface Props { settings: AppSettings; customers?: Customer[]; invoices: any[]; inventoryItems?: InventoryItem[]; repairs?: RepairItem[]; onNotify: (t: 'success'|'error'|'info', m: string) => void; onSaveCustomer?: (c: Customer) => void; onBack?: () => void; }
 
@@ -830,11 +831,15 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       // Marcar el descuento de stock: true si es nueva factura, conservar valor si edición
       stockDescontado: isEditing ? (initialInvoice?.stockDescontado ?? false) : true,
     };
-    onSave(inv, !isEditing && saveAsCustomer);
+    const finalInv = (!isEditing && settings.verifactuEnabled)
+      ? prepararFacturaVeriFactu(inv, settings)
+      : inv;
+
+    onSave(finalInv, !isEditing && saveAsCustomer);
 
     // Descontar stock al CREAR (no al editar). Usa inventoryItemId o búsqueda por descripción.
     if (!isEditing) {
-      descontarStock(filteredItems, 'factura', inv.invoiceNumber);
+      descontarStock(filteredItems, 'factura', finalInv.invoiceNumber);
     }
   };
 

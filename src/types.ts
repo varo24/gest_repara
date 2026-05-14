@@ -130,6 +130,9 @@ export interface AppSettings {
   imapServerUrl?: string;
   imapApiKey?: string;
   imapDays?: number;
+  verifactuEnabled?: boolean;
+  verifactuNIF?: string;
+  verifactuSerie?: string;
 }
 
 export interface Customer {
@@ -316,4 +319,16 @@ export interface FullInvoice {
   isRectificativa?: boolean;
   stockDescontado?: boolean;
   createdAt: string;
+  verifactu?: {
+    enabled: boolean;
+    huella: string;
+    fechaHuella: string;
+    tipoHuella: 'SHA-256';
+    numSerieFactura: string;
+    fechaExpedicion: string;
+    enviado: boolean;
+    fechaEnvio?: string;
+    respuestaAEAT?: string;
+    qrUrl?: string;
+  };
 }

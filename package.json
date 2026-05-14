@@ -15,6 +15,7 @@
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "crypto-js": "^4.2.0",
     "firebase": "^10.14.1",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.546.0",
@@ -23,6 +24,7 @@
     "recharts": "^2.13.3"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
     "@types/node": "^22.14.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

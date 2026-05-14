@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText } from 'lucide-react';
-import { RepairItem, RepairStatus, Budget, AppSettings } from '../types';
+import { RepairItem, RepairStatus, Budget, AppSettings, FullInvoice } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock } from '../lib/inventoryService';
 import { printInvoice } from '../lib/printInvoice';
+import { prepararFacturaVeriFactu } from '../lib/verifactuService';
 
 interface DespachoProps {
   repairs: RepairItem[];
@@ -119,12 +120,15 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       stockDescontado: true,
     };
 
-    storage.save('invoices', invoice.id, invoice);
+    const finalInvoice: FullInvoice = settings.verifactuEnabled
+      ? prepararFacturaVeriFactu(invoice as FullInvoice, settings)
+      : (invoice as FullInvoice);
+    storage.save('invoices', finalInvoice.id, finalInvoice);
     const cashId = `CASH-${Date.now()}`;
     storage.save('cash_movements', cashId, {
       id: cashId,
       type: 'ingreso',
-      invoiceId: invoice.id,
+      invoiceId: finalInvoice.id,
       description: `${invoiceNumber} — ${repair.customerName}`,
       amount: total,
       payMethod: pay,
@@ -154,7 +158,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     storage.save('repairs', repair.id, { ...repair, status: RepairStatus.DELIVERED, updatedAt: now });
     onStatusChange(repair.id, RepairStatus.DELIVERED);
     onNotify('success', `${invoiceNumber} — ${repair.customerName} despachado`);
-    setLastInvoice(invoice);
+    setLastInvoice(finalInvoice);
     setLastWarranty(warrantyData);
     setPhase('done');
     setIsCobrar(false);

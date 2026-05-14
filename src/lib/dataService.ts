@@ -369,6 +369,13 @@ export const storage = {
   },
 
   save: async (col: string, id: string, data: any): Promise<void> => {
+    if (col === 'invoices') {
+      const existing = localStore.getAll(col).find((x: any) => x.id === id);
+      if (existing?.verifactu?.enviado === true && data.status !== 'anulada') {
+        console.warn(`[VeriFactu] Factura ${id} ya enviada a AEAT — solo se permite anulación`);
+        return;
+      }
+    }
     const existing = localStore.getAll(col).find((x: any) => x.id === id);
     const full = { ...(existing || {}), ...data, id, updatedAt: new Date().toISOString() };
     localStore.put(col, full);
