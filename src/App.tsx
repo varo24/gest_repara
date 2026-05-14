@@ -866,8 +866,10 @@ const App: React.FC = () => {
                 <Caja
                   cashMovements={cashMovements}
                   cierresCaja={cierresCaja}
+                  facturasImportadas={facturasImportadas}
                   settings={settings}
                   onBack={() => navigateTo('dashboard')}
+                  onViewArchivo={() => navigateTo('archivo-facturas')}
                   onNotify={notify}
                 />
               </Suspense>

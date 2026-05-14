@@ -24,8 +24,10 @@ interface NormMov {
 interface CajaProps {
   cashMovements: any[];
   cierresCaja: CierreCajaType[];
+  facturasImportadas?: any[];
   settings: AppSettings;
   onBack: () => void;
+  onViewArchivo?: () => void;
   onNotify: (type: 'success' | 'error' | 'info', msg: string) => void;
 }
 
@@ -102,7 +104,7 @@ const CAT_LABELS: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBack, onNotify }) => {
+const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImportadas = [], settings, onBack, onViewArchivo, onNotify }) => {
   const today = new Date().toISOString().slice(0, 10);
   const todayLabel = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -143,6 +145,28 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
 
   const allMovements = useMemo(() => cashMovements.map(normalizeMov), [cashMovements]);
 
+  // Facturas de proveedor cuya fecha (de la factura) coincide con el día
+  const facturaProveedores = useMemo(() =>
+    facturasImportadas.filter((f: any) => (f.fecha || '').slice(0, 10) === today),
+    [facturasImportadas, today]
+  );
+
+  const facturaMovs: NormMov[] = useMemo(() =>
+    facturaProveedores.map((f: any) => ({
+      id: f.id,
+      tipo: 'gasto' as const,
+      concepto: `Factura proveedor: ${f.proveedor || ''} - ${f.numeroFactura || ''}`,
+      importe: f.total || 0,
+      payMethod: f.cajaPay || 'transferencia',
+      categoria: 'proveedor',
+      facturaId: f.id,
+      fecha: (f.fecha || '').slice(0, 10),
+      hora: f.importadoEn ? f.importadoEn.slice(11, 16) : '00:00',
+      createdAt: f.importadoEn || '',
+    })),
+    [facturaProveedores]
+  );
+
   const todayMovements = useMemo(() =>
     allMovements
       .filter(m => m.fecha === today)
@@ -169,15 +193,18 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
   const todayRetiros  = todayMovements.filter(m => m.tipo === 'retirada');
 
   const totalIngresos      = todayIngresos.reduce((s, m) => s + m.importe, 0);
-  const totalGastos        = todayGastos.reduce((s, m) => s + m.importe, 0) + todayRetiros.reduce((s, m) => s + m.importe, 0);
+  const totalGastosMov     = todayGastos.reduce((s, m) => s + m.importe, 0) + todayRetiros.reduce((s, m) => s + m.importe, 0);
+  const totalFacturasGasto = facturaMovs.reduce((s, m) => s + m.importe, 0);
+  const totalGastos        = totalGastosMov + totalFacturasGasto;
   const totalEfectivo      = todayIngresos.filter(m => m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
   const totalTarjeta       = todayIngresos.filter(m => m.payMethod === 'tarjeta').reduce((s, m) => s + m.importe, 0);
   const totalBizum         = todayIngresos.filter(m => m.payMethod === 'bizum').reduce((s, m) => s + m.importe, 0);
   const totalTransferencia = todayIngresos.filter(m => m.payMethod === 'transferencia').reduce((s, m) => s + m.importe, 0);
 
-  const gastoEfectivo  = todayGastos.filter(m => !m.payMethod || m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
-  const retiroEfectivo = todayRetiros.reduce((s, m) => s + m.importe, 0);
-  const saldoEfectivoEsperado = saldoApertura + totalEfectivo - gastoEfectivo - retiroEfectivo;
+  const gastoEfectivo      = todayGastos.filter(m => !m.payMethod || m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+  const retiroEfectivo     = todayRetiros.reduce((s, m) => s + m.importe, 0);
+  const gastoEfectivoFact  = facturaMovs.filter(m => m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
+  const saldoEfectivoEsperado = saldoApertura + totalEfectivo - gastoEfectivo - retiroEfectivo - gastoEfectivoFact;
   const saldoFinalEsperado    = saldoApertura + totalIngresos - totalGastos;
 
   // Bill counter derived values
@@ -274,6 +301,11 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     closeCierreModal();
   };
 
+  const handleCajaPay = async (facturaId: string, pay: string) => {
+    const f = facturasImportadas.find((x: any) => x.id === facturaId);
+    if (f) await storage.save('facturas_importadas', facturaId, { ...f, cajaPay: pay });
+  };
+
   // ── Edit / Delete cierre ─────────────────────────────────────────────────
 
   const openEditModal = (c: CierreCajaType) => {
@@ -314,7 +346,11 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     const totalGsts = dayGsts.reduce((s, m) => s + m.importe, 0) + dayRets.reduce((s, m) => s + m.importe, 0);
     const gstEf = dayGsts.filter(m => !m.payMethod || m.payMethod === 'efectivo').reduce((s, m) => s + m.importe, 0);
     const retEf = dayRets.reduce((s, m) => s + m.importe, 0);
-    const saldoEsp = apertura + ef - gstEf - retEf;
+    const dayFacts = facturasImportadas.filter((f: any) => (f.fecha || '').slice(0, 10) === editingCierre.fecha);
+    const totalFactsGasto = dayFacts.reduce((s: number, f: any) => s + (f.total || 0), 0);
+    const gstEfFact = dayFacts.filter((f: any) => (f.cajaPay || 'transferencia') === 'efectivo').reduce((s: number, f: any) => s + (f.total || 0), 0);
+    const saldoEsp  = apertura + ef - gstEf - retEf - gstEfFact;
+    const totalGstsAll = totalGsts + totalFactsGasto;
     const contado  = computeTotal(editBilletes);
     const diff     = Math.round((contado - saldoEsp) * 100) / 100;
     const detalleBilletes: DetalleBilletes = {
@@ -327,7 +363,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     };
     await storage.save('cierres_caja', editingCierre.id, {
       ...editingCierre,
-      apertura, totalIngresos: totalIngs, totalGastos: totalGsts,
+      apertura, totalIngresos: totalIngs, totalGastos: totalGstsAll,
       totalEfectivo: ef, totalTarjeta: tar, totalBizum: biz, totalTransferencia: tra,
       saldoFinal: contado, saldoEsperado: saldoEsp, diferencia: diff,
       detalleBilletes, notas: editNotas || undefined, cerradoPor: editCerradoPor || undefined,
@@ -345,7 +381,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
 
   // ── Print ─────────────────────────────────────────────────────────────────
 
-  const printCierre = (cierre: CierreCajaType, movs: NormMov[]) => {
+  const printCierre = (cierre: CierreCajaType, movs: NormMov[], facts?: any[]) => {
     const esc = (s?: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const db = cierre.detalleBilletes;
@@ -408,13 +444,26 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, settings, onBac
     <tr><td>Ingresos tarjeta</td><td style="text-align:right;color:#1565c0">+${fmt(cierre.totalTarjeta)}</td></tr>
     <tr><td>Ingresos Bizum</td><td style="text-align:right;color:#6a1b9a">+${fmt(cierre.totalBizum)}</td></tr>
     <tr><td>Ingresos transferencia</td><td style="text-align:right;color:#00695c">+${fmt(cierre.totalTransferencia)}</td></tr>
-    <tr><td>Total gastos/salidas</td><td style="text-align:right;color:#b71c1c">-${fmt(cierre.totalGastos)}</td></tr>
+    <tr><td>Gastos / salidas</td><td style="text-align:right;color:#b71c1c">-${fmt(cierre.totalGastos)}</td></tr>
+    ${facts && facts.length > 0 ? `<tr><td>  └ Facturas proveedores incluidas</td><td style="text-align:right;color:#b71c1c">-${fmt(facts.reduce((s: number, f: any) => s + (f.total || 0), 0))}</td></tr>` : ''}
     <tr class="sum"><td>SALDO ESPERADO EN CAJA</td><td style="text-align:right">${fmt(cierre.saldoEsperado)}</td></tr>
     <tr class="sum"><td>SALDO CONTADO FÍSICAMENTE</td><td style="text-align:right">${fmt(cierre.saldoFinal)}</td></tr>
     <tr class="diff"><td>DIFERENCIA</td><td style="text-align:right" class="${cierre.diferencia >= 0 ? 'pos' : 'neg'}">${cierre.diferencia >= 0 ? '+' : ''}${fmt(cierre.diferencia)}</td></tr>
   </table>
 </div>
 ${billeteSection}
+${facts && facts.length > 0 ? `<div class="section">
+  <div class="section-title">Facturas de proveedores (${facts.length})</div>
+  <table>
+    <thead><tr><th>Proveedor</th><th>Nº Factura</th><th>Fecha</th><th>Pago</th><th style="text-align:right">Importe</th></tr></thead>
+    <tbody>${facts.map((f: any) => `<tr>
+      <td>${esc(f.proveedor)}</td><td>${esc(f.numeroFactura)}</td><td>${esc((f.fecha||'').slice(0,10))}</td>
+      <td>${esc(f.cajaPay||'transferencia')}</td>
+      <td style="text-align:right;color:#b71c1c">-${fmt(f.total||0)}</td>
+    </tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="4" style="font-weight:bold">Total facturas</td><td style="text-align:right;font-weight:bold;color:#b71c1c">-${fmt(facts.reduce((s: number, f: any) => s + (f.total||0), 0))}</td></tr></tfoot>
+  </table>
+</div>` : ''}
 <div class="section">
   <div class="section-title">Movimientos del día (${movs.length})</div>
   <table>
@@ -566,7 +615,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                 Cerrada el {cierreHoy.fecha} · Diferencia: <span className={cierreHoy.diferencia >= 0 ? 'text-emerald-600' : 'text-red-600'}>{fmt(cierreHoy.diferencia)}</span>
               </p>
               <button
-                onClick={() => printCierre(cierreHoy, todayMovements)}
+                onClick={() => printCierre(cierreHoy, todayMovements, facturaProveedores)}
                 className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:opacity-90"
                 style={{ background: '#263238', color: '#fff' }}
               >
@@ -610,7 +659,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                   <h2 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">
-                    Movimientos de hoy ({todayMovements.length})
+                    Movimientos de hoy ({todayMovements.length + facturaMovs.length})
                   </h2>
                   {cajaAbierta && (
                     <button
@@ -622,9 +671,10 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                     </button>
                   )}
                 </div>
-                {todayMovements.length === 0 ? (
+                {todayMovements.length === 0 && facturaMovs.length === 0 && (
                   <div className="px-5 py-10 text-center text-sm text-slate-400">Sin movimientos registrados hoy</div>
-                ) : (
+                )}
+                {todayMovements.length > 0 && (
                   <div className="divide-y divide-slate-50">
                     {todayMovements.map(m => {
                       const badge = TIPO_BADGE[m.tipo] || TIPO_BADGE.ingreso;
@@ -647,6 +697,56 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                       );
                     })}
                   </div>
+                )}
+                {/* Facturas de proveedores del día */}
+                {facturaMovs.length > 0 && (
+                  <>
+                    <div className="px-5 py-2 border-t border-red-100" style={{ background: '#fff5f5' }}>
+                      <p className="text-[10px] font-black text-red-700 uppercase tracking-widest">
+                        📦 Facturas proveedores ({facturaMovs.length})
+                      </p>
+                    </div>
+                    <div className="divide-y divide-red-50">
+                      {facturaMovs.map(m => {
+                        const f = facturasImportadas.find((x: any) => x.id === m.id);
+                        return (
+                          <div key={m.id} className="flex items-center gap-3 px-5 py-3" style={{ background: '#fff8f8' }}>
+                            <span className="text-[10px] font-bold text-slate-400 tabular-nums w-10 shrink-0">{m.hora}</span>
+                            <span className="text-[10px] font-black px-2 py-1 rounded-lg shrink-0 bg-red-100 text-red-700">
+                              📦 Proveedor
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate">
+                                {f?.proveedor || ''}{f?.numeroFactura ? ` · ${f.numeroFactura}` : ''}
+                              </p>
+                              <select
+                                value={m.payMethod}
+                                onChange={e => handleCajaPay(m.id, e.target.value)}
+                                className="mt-0.5 text-[10px] border border-slate-200 rounded-lg px-1.5 py-0.5 bg-white text-slate-500 font-bold focus:outline-none"
+                              >
+                                {(['efectivo', 'tarjeta', 'bizum', 'transferencia'] as const).map(p => (
+                                  <option key={p} value={p}>{PAY_LABELS[p]}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {onViewArchivo && (
+                                <button
+                                  onClick={onViewArchivo}
+                                  className="text-[10px] font-black px-2 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors"
+                                >
+                                  Ver factura
+                                </button>
+                              )}
+                              <span className="text-sm font-black tabular-nums text-red-600">
+                                −{fmt(m.importe)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </>
@@ -691,7 +791,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                           <Eye size={15} />
                         </button>
                         <button
-                          onClick={() => { const movs = allMovements.filter(m => (c.movimientos || []).includes(m.id)); printCierre(c, movs); }}
+                          onClick={() => { const movs = allMovements.filter(m => (c.movimientos || []).includes(m.id)); const facts = facturasImportadas.filter((f: any) => (f.fecha || '').slice(0, 10) === c.fecha); printCierre(c, movs, facts); }}
                           className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors" title="Reimprimir"
                         >
                           <Printer size={15} />
@@ -996,7 +1096,8 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                         ['Ingresos tarjeta', `+${fmt(totalTarjeta)}`],
                         ['Ingresos Bizum', `+${fmt(totalBizum)}`],
                         ['Ingresos transf.', `+${fmt(totalTransferencia)}`],
-                        ['Gastos / salidas', `−${fmt(totalGastos)}`],
+                        ['Gastos varios', `−${fmt(totalGastosMov)}`],
+                        ...(totalFacturasGasto > 0 ? [['Facturas proveedores', `−${fmt(totalFacturasGasto)}`] as [string, string]] : []),
                       ] as [string, string][]).map(([label, val]) => (
                         <tr key={label}>
                           <td className="px-4 py-2.5 text-slate-600 text-xs font-bold">{label}</td>
@@ -1328,7 +1429,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
               <p className="text-[10px] text-slate-400 text-center">Cerrado por: {selectedCierre.cerradoPor}</p>
             )}
             <button
-              onClick={() => { const movs = allMovements.filter(m => (selectedCierre.movimientos || []).includes(m.id)); printCierre(selectedCierre, movs); }}
+              onClick={() => { const movs = allMovements.filter(m => (selectedCierre.movimientos || []).includes(m.id)); const facts = facturasImportadas.filter((f: any) => (f.fecha || '').slice(0, 10) === selectedCierre.fecha); printCierre(selectedCierre, movs, facts); }}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black uppercase tracking-widest text-white transition-all hover:opacity-90 text-[11px]"
               style={{ background: '#263238' }}
             >
