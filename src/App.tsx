@@ -27,6 +27,8 @@ const Estadisticas   = lazy(() => import('./components/Estadisticas'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
+import { SyncStatusProvider } from './lib/syncStatusContext';
+import SyncIndicator from './components/SyncIndicator';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList } from 'lucide-react';
@@ -276,6 +278,7 @@ const App: React.FC = () => {
   const hasAlta = notificaciones.some(n => !n.leida && n.prioridad === 'alta');
 
   return (
+    <SyncStatusProvider>
     <div className="flex min-h-screen no-print" style={{ backgroundColor: '#f5f5f5', color: '#1a1a1a' }}>
 
       {/* ── Mobile header (hidden on md+) ── */}
@@ -293,6 +296,7 @@ const App: React.FC = () => {
         <span className="flex-1 text-white font-black text-sm uppercase tracking-widest truncate">
           {settings.appName}
         </span>
+        <SyncIndicator variant="dot" />
         <button
           onClick={() => setSidebarOpen(true)}
           className="relative flex items-center justify-center w-11 h-11 rounded-xl text-white"
@@ -920,6 +924,7 @@ const App: React.FC = () => {
         )}
       </main>
     </div>
+    </SyncStatusProvider>
   );
 };
 

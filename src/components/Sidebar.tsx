@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   LayoutDashboard, Wrench, PlusCircle, FileText,
   Settings, TrendingUp, Users,
-  Calendar, AppWindow, RefreshCw,
+  Calendar, AppWindow,
   Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart,
-  Bell, X, ArrowRight, ShieldAlert, AlertTriangle, Wallet
+  Bell, X, ArrowRight, ShieldAlert, Wallet
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion } from '../types';
 import { storage } from '../lib/dataService';
+import SyncIndicator from './SyncIndicator';
 import GlobalSearch from './GlobalSearch';
 
 interface SidebarProps {
@@ -60,17 +61,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   notificaciones = [], onMarcarLeida, onMarcarTodasLeidas,
   isOpen = false, onClose, cashMovements = [], cierresCaja = [],
 }) => {
-  const [online, setOnline] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const check = () => setOnline(storage.isOnline());
-    check();
-    const t = setInterval(check, 3000);
-    return () => clearInterval(t);
-  }, []);
 
   const unreadNotifs = notificaciones.filter(n => !n.leida);
   const altaCount = unreadNotifs.filter(n => n.prioridad === 'alta').length;
@@ -368,27 +360,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* ── Sync ── */}
       <div className="p-3" style={{ borderTop: '1px solid #1e1e1e' }}>
-        <button
-          onClick={async () => {
-            setSyncing(true);
-            try { await storage.syncNow(); } catch {}
-            finally { setSyncing(false); setOnline(storage.isOnline()); }
-          }}
-          disabled={syncing}
-          className="sync-btn w-full flex items-center gap-2.5 px-3 py-2 transition-colors"
-          style={{ background: '#161616', border: '1px solid #2a2a2a' }}
-        >
-          {syncing ? (
-            <RefreshCw size={11} style={{ color: GREEN, flexShrink: 0 }} className="animate-spin" />
-          ) : online ? (
-            <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: GREEN }} />
-          ) : (
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#444' }} />
-          )}
-          <span className="sidebar-sync-label sidebar-label text-[10px] font-black uppercase tracking-widest" style={{ color: online ? GREEN : '#555' }}>
-            {syncing ? 'Sincronizando...' : online ? 'Conectado' : 'Local'}
-          </span>
-        </button>
+        <SyncIndicator
+          variant="full"
+          onClick={async () => { try { await storage.syncNow(); } catch {} }}
+        />
       </div>
     </aside>
     </>

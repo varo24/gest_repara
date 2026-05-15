@@ -4,6 +4,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
+export type SyncStatus = 'synced' | 'syncing' | 'offline';
+
 type CB = (data: any[]) => void;
 
 // ── IndexedDB local cache ────────────────────────────────────────────────────
@@ -232,6 +234,18 @@ const flushPending = async () => {
 let firestoreAvailable = false;
 let initialized = false;
 
+// ── Sync-status pub/sub ───────────────────────────────────────────────────────
+
+let currentSyncStatus: SyncStatus = 'syncing';
+let lastSyncTs: number | null = null;
+const statusCbs: ((s: SyncStatus) => void)[] = [];
+
+const broadcastSyncStatus = (s: SyncStatus) => {
+  currentSyncStatus = s;
+  if (s === 'synced') lastSyncTs = Date.now();
+  statusCbs.forEach(cb => { try { cb(s); } catch {} });
+};
+
 const testFirestore = async (): Promise<boolean> => {
   try {
     await getDocs(collection(db, 'settings'));
@@ -295,6 +309,7 @@ export const storage = {
     await localStore.init();
     loadPending();
 
+    broadcastSyncStatus('syncing');
     try {
       firestoreAvailable = await testFirestore();
       if (firestoreAvailable) {
@@ -306,22 +321,32 @@ export const storage = {
           ALL_STORES.forEach(col => broadcast(col));
         }
         restartActiveListeners();
+        broadcastSyncStatus('synced');
         console.log('[DS] Sincronización inicial completa ✅');
       } else {
+        broadcastSyncStatus('offline');
         console.warn('[DS] Sin conexión — modo local');
       }
-    } catch (e) { console.warn('[DS] Error de conexión:', e); }
+    } catch (e) {
+      broadcastSyncStatus('offline');
+      console.warn('[DS] Error de conexión:', e);
+    }
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', async () => {
+        broadcastSyncStatus('syncing');
         firestoreAvailable = await testFirestore();
         if (firestoreAvailable) {
           await flushPending();
           restartActiveListeners();
+          broadcastSyncStatus('synced');
+        } else {
+          broadcastSyncStatus('offline');
         }
       });
       window.addEventListener('offline', () => {
         firestoreAvailable = false;
+        broadcastSyncStatus('offline');
         Object.values(activeListeners).forEach(u => { try { u(); } catch {} });
         Object.keys(activeListeners).forEach(k => delete activeListeners[k]);
       });
@@ -329,12 +354,15 @@ export const storage = {
       // Restart dead listeners when the tab/app regains focus (e.g., tablet waking up)
       document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState !== 'visible') return;
-        if (!firestoreAvailable) firestoreAvailable = await testFirestore();
+        if (!firestoreAvailable) {
+          firestoreAvailable = await testFirestore();
+          broadcastSyncStatus(firestoreAvailable ? 'synced' : 'offline');
+        }
         if (firestoreAvailable) restartActiveListeners();
       });
 
       // Heartbeat every 30 s:
-      // - If offline: try to reconnect, flush pending, restart listeners
+      // - If offline: try to reconnect silently, flush pending, restart listeners
       // - If online: restart any dead listeners
       setInterval(async () => {
         if (!firestoreAvailable) {
@@ -342,6 +370,9 @@ export const storage = {
           if (firestoreAvailable) {
             await flushPending();
             restartActiveListeners();
+            broadcastSyncStatus('synced');
+          } else {
+            broadcastSyncStatus('offline');
           }
           return;
         }
@@ -420,11 +451,14 @@ export const storage = {
   },
 
   syncNow: async (): Promise<{ pulled: number; pushed: number }> => {
+    broadcastSyncStatus('syncing');
     firestoreAvailable = await testFirestore();
-    if (!firestoreAvailable) return { pulled: 0, pushed: 0 };
+    if (!firestoreAvailable) {
+      broadcastSyncStatus('offline');
+      return { pulled: 0, pushed: 0 };
+    }
 
     let pulled = 0, pushed = 0;
-    console.log('[DS] syncNow() started —', navigator.userAgent.slice(0, 80));
     await flushPending();
 
     for (const col of ALL_STORES) {
@@ -439,15 +473,14 @@ export const storage = {
         if (changed) { broadcast(col); pulled++; }
 
         const localItems = localStore.getAll(col);
-        console.log(`[DS] syncNow() — ${col}: pulling ${snap.size} remote, pushing ${localItems.length} local`);
         for (const item of localItems) {
           try { await setDoc(doc(db, col, item.id), item, { merge: true }); pushed++; } catch {}
         }
       } catch (e) { console.warn(`[DS] syncNow() error on ${col}:`, e); }
     }
 
-    console.log(`[DS] syncNow() complete — pulled: ${pulled} cols, pushed: ${pushed} docs`);
     restartActiveListeners();
+    broadcastSyncStatus('synced');
     return { pulled, pushed };
   },
 
@@ -464,6 +497,18 @@ export const storage = {
     const next = nums.length ? Math.max(...nums) + 1 : 1;
     return `${prefix}${String(next).padStart(5, '0')}`;
   },
+
+  onStatusChange: (cb: (s: SyncStatus) => void): (() => void) => {
+    statusCbs.push(cb);
+    cb(currentSyncStatus);
+    return () => {
+      const i = statusCbs.indexOf(cb);
+      if (i >= 0) statusCbs.splice(i, 1);
+    };
+  },
+
+  getSyncStatus: (): SyncStatus => currentSyncStatus,
+  getLastSyncTs: (): number | null => lastSyncTs,
 
   // Pull a single collection from Firestore and broadcast, bypassing the sync-TTL cache.
   // Use this when the component needs guaranteed-fresh data (e.g., historial de cierres).
