@@ -498,6 +498,33 @@ const App: React.FC = () => {
     }
   }, [invoices, repairs]);
 
+  // ── Migration: restaurar citas de los últimos 60 días con 'completada' incorrecto ─
+  const citasResetRef = useRef(false);
+  useEffect(() => {
+    const MIGRATION_KEY = 'gestrepara_migration_citas_reset_completadas_v1';
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+    if (citasResetRef.current) return;
+    if (!citas.length) return;
+
+    citasResetRef.current = true;
+    localStorage.setItem(MIGRATION_KEY, '1');
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 60);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+    let count = 0;
+    for (const c of citas) {
+      const fecha = ((c as any).fecha || '').slice(0, 10);
+      const estado = (c as any).estado;
+      if (fecha >= cutoffStr && (estado === 'completada' || estado === 'Completada')) {
+        storage.save('citas', c.id, { estado: 'confirmada' });
+        count++;
+      }
+    }
+    if (count) console.log(`[Migration citas] Restauradas ${count} citas — estado 'completada' → 'confirmada'`);
+  }, [citas]);
+
   const handleReminderSent = useCallback((citaId: string) => {
     const cita = citas.find(c => c.id === citaId);
     if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });

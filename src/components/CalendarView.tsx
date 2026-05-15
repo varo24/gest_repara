@@ -618,13 +618,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [normalized, tomorrowStr]
   );
 
-  // Stats
-  const todayCitas  = useMemo(() => normalized.filter(c => c.fecha === todayStr && c.estado !== 'cancelada').length, [normalized, todayStr]);
+  // Stats — solo citas activas (excluye cancelada y completada)
+  const isActive = (c: ReturnType<typeof norm>) => c.estado !== 'cancelada' && c.estado !== 'completada';
+  const todayCitas  = useMemo(() => normalized.filter(c => c.fecha === todayStr && isActive(c)).length, [normalized, todayStr]);
   const weekStart   = getWeekStart(today);
   const weekEnd     = addDays(weekStart, 6);
   const weekEndStr  = toDateStr(weekEnd);
   const weekStartStr = toDateStr(weekStart);
-  const weekCitas   = useMemo(() => normalized.filter(c => c.fecha >= weekStartStr && c.fecha <= weekEndStr && c.estado !== 'cancelada').length, [normalized, weekStartStr, weekEndStr]);
+  const weekCitas   = useMemo(() => normalized.filter(c => c.fecha >= weekStartStr && c.fecha <= weekEndStr && isActive(c)).length, [normalized, weekStartStr, weekEndStr]);
 
   // ── Navigation helpers ──────────────────────────────────────────────────────
   const navigate = (dir: 1 | -1) => {
