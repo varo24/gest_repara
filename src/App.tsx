@@ -33,6 +33,7 @@ import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
 import CitaReminderModal from './components/CitaReminderModal';
 import { shouldShowReminders, getCitasPendingReminder, setReminderDate } from './lib/citaReminders';
+import { isPinEnabled, clearSession } from './lib/pinAuth';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
 import { printWorkOrder } from './lib/printWorkOrder';
 
@@ -106,6 +107,46 @@ const App: React.FC = () => {
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
   const [showTicketFor, setShowTicketFor] = useState<RepairItem | null>(null);
   const [pendingDocRepair, setPendingDocRepair] = useState<RepairItem | null>(null);
+
+  // ── Inactivity auto-lock ───────────────────────────────────────────────────
+  const lastActivityRef   = useRef(Date.now());
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const INACTIVITY_MS = 10 * 60 * 1000;
+
+  const lock = useCallback(() => {
+    if (!isPinEnabled()) return;
+    clearSession();
+    setUnlocked(false);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = setTimeout(lock, INACTIVITY_MS);
+  }, [lock]);
+
+  // Start timer once unlocked; clear on lock
+  useEffect(() => {
+    if (!unlocked) { clearTimeout(inactivityTimerRef.current); return; }
+    const events = ['click', 'keydown', 'scroll', 'touchstart', 'pointermove'] as const;
+    events.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+    return () => {
+      clearTimeout(inactivityTimerRef.current);
+      events.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+    };
+  }, [unlocked, resetInactivityTimer]);
+
+  // Lock when tab becomes visible after long absence
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && unlocked && isPinEnabled()) {
+        if (Date.now() - lastActivityRef.current > INACTIVITY_MS) lock();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [unlocked, lock]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -305,8 +346,8 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Pantalla de PIN
-  if (!unlocked) return (
+  // Pantalla de PIN — solo si hay PIN configurado y la sesión no está activa
+  if (!unlocked && isPinEnabled()) return (
     <PinScreen
       onUnlock={() => setUnlocked(true)}
       settings={settings}

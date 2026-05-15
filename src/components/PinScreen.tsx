@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, Delete, ShieldCheck, Eye, EyeOff, Navigation } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Delete, Fingerprint } from 'lucide-react';
 import { AppSettings } from '../types';
+import {
+  verifyPin, setPin, saveSession,
+  isBiometricAvailable, hasBiometricRegistered,
+  registerBiometric, authenticateBiometric,
+} from '../lib/pinAuth';
 
-const PIN_KEY = 'reparapro_pin_hash';
-const SESSION_KEY = 'reparapro_session';
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 horas
-
-// Hash simple para no guardar el PIN en texto plano
-const hashPin = async (pin: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(pin + 'reparapro_salt_2025');
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-};
+const MAX_ATTEMPTS  = 3;
+const LOCKOUT_SECS  = 30;
 
 interface PinScreenProps {
   onUnlock: () => void;
@@ -20,230 +16,281 @@ interface PinScreenProps {
   settings?: Pick<AppSettings, 'appName' | 'logoUrl'>;
 }
 
-type PinMode = 'unlock' | 'setup' | 'confirm';
+type Mode = 'unlock' | 'setup' | 'confirm';
+
+const Dot: React.FC<{ filled: boolean }> = ({ filled }) => (
+  <div
+    style={{
+      width: 18, height: 18, borderRadius: '50%',
+      background: filled ? '#fff' : 'rgba(255,255,255,0.2)',
+      transform: filled ? 'scale(1.15)' : 'scale(1)',
+      transition: 'all 0.15s',
+      boxShadow: filled ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
+    }}
+  />
+);
+
+const Key: React.FC<{ label: React.ReactNode; onPress: () => void; disabled?: boolean; variant?: 'default' | 'delete' | 'bio' }> = ({
+  label, onPress, disabled, variant = 'default',
+}) => {
+  const bg = variant === 'delete' ? 'rgba(255,255,255,0.08)'
+           : variant === 'bio'    ? 'rgba(255,255,255,0.08)'
+           : 'rgba(255,255,255,0.12)';
+  return (
+    <button
+      onClick={onPress}
+      disabled={disabled}
+      style={{
+        height: 68, borderRadius: 20, border: 'none',
+        background: bg, color: '#fff',
+        fontSize: 26, fontWeight: 900,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.3 : 1,
+        transition: 'all 0.12s',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none',
+      }}
+      onPointerDown={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.25)'; }}
+      onPointerUp={e => { (e.currentTarget as HTMLElement).style.background = bg; }}
+      onPointerLeave={e => { (e.currentTarget as HTMLElement).style.background = bg; }}
+    >
+      {label}
+    </button>
+  );
+};
 
 const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }) => {
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [mode, setMode] = useState<PinMode>('unlock');
-  const [error, setError] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [pin, setCurrentPin]   = useState('');
+  const [confirm, setConfirm]  = useState('');
+  const [mode, setMode]        = useState<Mode>('unlock');
+  const [error, setError]      = useState('');
   const [attempts, setAttempts] = useState(0);
-  const [blocked, setBlocked] = useState(false);
+  const [countdown, setCountdown] = useState(0);   // seconds remaining
+  const [bioAvail, setBioAvail]   = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedHash = localStorage.getItem(PIN_KEY);
-    if (!storedHash) {
-      setMode('setup');
-      return;
-    }
-    // Verificar si hay sesión activa
-    const sessionData = sessionStorage.getItem(SESSION_KEY);
-    if (sessionData) {
-      try {
-        const session = JSON.parse(sessionData);
-        if (Date.now() - session.time < SESSION_DURATION) {
-          onUnlock();
-          return;
-        }
-      } catch {}
-    }
-    setMode('unlock');
+    const hash = localStorage.getItem('reparapro_pin_hash');
+    setMode(hash ? 'unlock' : 'setup');
+    isBiometricAvailable().then(ok => setBioAvail(ok));
+    return () => clearInterval(timerRef.current);
   }, []);
 
-  const handleDigit = useCallback((digit: string) => {
-    if (blocked) return;
-    if (mode === 'confirm') {
-      if (confirmPin.length < 4) setConfirmPin(prev => prev + digit);
-    } else {
-      if (pin.length < 4) setPin(prev => prev + digit);
-    }
-  }, [pin, confirmPin, mode, blocked]);
+  // ── Lockout countdown ─────────────────────────────────────────────────────
+  const startLockout = useCallback(() => {
+    setCountdown(LOCKOUT_SECS);
+    timerRef.current = setInterval(() => {
+      setCountdown(s => {
+        if (s <= 1) {
+          clearInterval(timerRef.current);
+          setAttempts(0);
+          setError('');
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  }, []);
 
-  const handleDelete = useCallback(() => {
-    if (mode === 'confirm') {
-      setConfirmPin(prev => prev.slice(0, -1));
-    } else {
-      setPin(prev => prev.slice(0, -1));
-    }
+  const locked = countdown > 0;
+
+  // ── Input logic ───────────────────────────────────────────────────────────
+  const activePin   = mode === 'confirm' ? confirm : pin;
+  const setActive   = mode === 'confirm' ? setConfirm : setCurrentPin;
+
+  const pushDigit = useCallback((d: string) => {
+    if (locked) return;
+    setActive(prev => prev.length < 4 ? prev + d : prev);
     setError('');
-  }, [mode]);
+  }, [locked, setActive]);
 
-  // Auto-submit al completar 4 dígitos
+  const popDigit = useCallback(() => {
+    setActive(prev => prev.slice(0, -1));
+    setError('');
+  }, [setActive]);
+
+  // ── Auto-submit ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode === 'unlock' && pin.length === 4) handleUnlock();
-    if (mode === 'setup' && pin.length === 4) { setMode('confirm'); }
-    if (mode === 'confirm' && confirmPin.length === 4) handleConfirmPin();
-  }, [pin, confirmPin, mode]);
-
-  const handleUnlock = async () => {
-    const storedHash = localStorage.getItem(PIN_KEY);
-    if (!storedHash) return;
-    const inputHash = await hashPin(pin);
-    if (inputHash === storedHash) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ time: Date.now() }));
-      onUnlock();
-    } else {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      if (newAttempts >= 5) {
-        setBlocked(true);
-        setError('Demasiados intentos. Espera 30 segundos.');
-        setTimeout(() => { setBlocked(false); setAttempts(0); setError(''); }, 30000);
-      } else {
-        setError(`PIN incorrecto. Intento ${newAttempts} de 5.`);
+    if (activePin.length !== 4) return;
+    const timeout = setTimeout(async () => {
+      if (mode === 'setup') {
+        setMode('confirm');
+        return;
       }
-      setPin('');
-    }
-  };
+      if (mode === 'confirm') {
+        if (confirm === pin) {
+          await setPin(pin);
+          saveSession();
+          onUnlock();
+        } else {
+          setError('Los PINs no coinciden. Inténtalo de nuevo.');
+          setCurrentPin('');
+          setConfirm('');
+          setMode('setup');
+        }
+        return;
+      }
+      // unlock mode
+      const ok = await verifyPin(pin);
+      if (ok) {
+        saveSession();
+        onUnlock();
+      } else {
+        const next = attempts + 1;
+        setAttempts(next);
+        setCurrentPin('');
+        if (next >= MAX_ATTEMPTS) {
+          setError(`Demasiados intentos fallidos.`);
+          startLockout();
+        } else {
+          setError(`PIN incorrecto. ${MAX_ATTEMPTS - next} intento${MAX_ATTEMPTS - next !== 1 ? 's' : ''} restante${MAX_ATTEMPTS - next !== 1 ? 's' : ''}.`);
+        }
+      }
+    }, 80);
+    return () => clearTimeout(timeout);
+  }, [activePin]);
 
-  const handleConfirmPin = async () => {
-    if (pin === confirmPin) {
-      const hash = await hashPin(pin);
-      localStorage.setItem(PIN_KEY, hash);
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ time: Date.now() }));
-      onUnlock();
-    } else {
-      setError('Los PINs no coinciden. Inténtalo de nuevo.');
-      setPin('');
-      setConfirmPin('');
-      setMode('setup');
-    }
-  };
-
-  // Teclado físico
+  // ── Teclado físico ────────────────────────────────────────────────────────
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
-      if (e.key === 'Backspace') handleDelete();
+    const h = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') pushDigit(e.key);
+      if (e.key === 'Backspace') popDigit();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleDigit, handleDelete]);
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [pushDigit, popDigit]);
 
-  const currentPin = mode === 'confirm' ? confirmPin : pin;
-
-  const titles = {
-    unlock: { title: 'Acceso Seguro', sub: 'Introduce tu PIN para continuar' },
-    setup: { title: 'Crear PIN', sub: 'Elige un PIN de 4 dígitos para proteger el acceso' },
-    confirm: { title: 'Confirmar PIN', sub: 'Repite el PIN para verificar' }
+  // ── Biometric ─────────────────────────────────────────────────────────────
+  const handleBiometric = async () => {
+    setBioLoading(true);
+    try {
+      if (!hasBiometricRegistered()) {
+        // First time: verify PIN first, then register
+        setError('Primero desbloquea con PIN para activar la biometría.');
+        setBioLoading(false);
+        return;
+      }
+      await authenticateBiometric();
+      saveSession();
+      onUnlock();
+    } catch {
+      setError('Autenticación biométrica cancelada o no disponible.');
+    } finally {
+      setBioLoading(false);
+    }
   };
+
+  // ── Titles ────────────────────────────────────────────────────────────────
+  const title = mode === 'unlock'  ? 'Introduce tu PIN'
+              : mode === 'setup'   ? 'Crea un PIN de acceso'
+              : 'Confirma el PIN';
+  const sub   = mode === 'unlock'  ? 'Necesitas el PIN para acceder'
+              : mode === 'setup'   ? '4 dígitos para proteger la app'
+              : 'Repite el PIN elegido';
+
+  const appInitial = (settings?.appName || 'G').charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#111111' }}>
-      <div className="w-full max-w-sm space-y-8">
+    <div
+      style={{
+        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(160deg, #1b5e20 0%, #2d6a2d 50%, #1a472a 100%)',
+        padding: '24px 20px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 360 }}>
 
         {/* Logo */}
-        <div className="text-center space-y-3">
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
           {settings?.logoUrl ? (
             <img
               src={settings.logoUrl}
               alt="Logo"
-              className="mx-auto object-contain"
-              style={{ width: 80, height: 80, borderRadius: 12 }}
+              style={{ width: 80, height: 80, borderRadius: 16, margin: '0 auto 12px', objectFit: 'contain', display: 'block' }}
             />
           ) : (
-            <div
-              className="inline-flex items-center justify-center mx-auto shadow-2xl"
-              style={{ width: 80, height: 80, borderRadius: 12, background: '#2e7d32', fontSize: 30, fontWeight: 900, color: '#fff' }}
-            >
-              {(settings?.appName || 'R').charAt(0).toUpperCase()}
+            <div style={{
+              width: 80, height: 80, borderRadius: 16, margin: '0 auto 12px',
+              background: 'rgba(255,255,255,0.15)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: 36, fontWeight: 900, color: '#fff',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+            }}>
+              {appInitial}
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-black text-white uppercase tracking-tight">{settings?.appName || 'ReparaPro'}</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Consola Técnica</p>
-          </div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            {settings?.appName || 'Gestrepara'}
+          </h1>
         </div>
 
-        {/* Card PIN */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-8 border border-slate-800 space-y-8 shadow-2xl">
-          <div className="text-center">
-            <h2 className="text-lg font-black text-white uppercase tracking-tight">{titles[mode].title}</h2>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">{titles[mode].sub}</p>
+        {/* Card */}
+        <div style={{
+          background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(16px)',
+          borderRadius: 32, padding: '36px 28px',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}>
+
+          {/* Heading */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</p>
+            <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{sub}</p>
           </div>
 
-          {/* Indicadores de dígitos */}
-          <div className="flex items-center justify-center gap-5">
-            {[0,1,2,3].map(i => (
-              <div
-                key={i}
-                className={`w-5 h-5 rounded-full transition-all duration-200 ${
-                  i < currentPin.length
-                    ? 'bg-blue-500 scale-110 shadow-lg shadow-blue-500/40'
-                    : 'bg-slate-700'
-                }`}
-              />
-            ))}
-            {showPin && currentPin && (
-              <span className="text-white font-black text-xl ml-4 tracking-[0.5em]">{currentPin}</span>
-            )}
+          {/* Dots */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 28 }}>
+            {[0,1,2,3].map(i => <Dot key={i} filled={i < activePin.length} />)}
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="bg-red-900/30 border border-red-800/50 rounded-2xl p-4 text-center">
-              <p className="text-red-400 text-[11px] font-bold uppercase tracking-wide">{error}</p>
+          {/* Error / countdown */}
+          {(error || locked) && (
+            <div style={{
+              background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.3)',
+              borderRadius: 16, padding: '12px 16px', textAlign: 'center', marginBottom: 20,
+            }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {locked ? `Bloqueado — espera ${countdown}s` : error}
+              </p>
             </div>
           )}
 
-          {/* Teclado numérico */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Numpad */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {[1,2,3,4,5,6,7,8,9].map(n => (
-              <button
-                key={n}
-                onClick={() => handleDigit(n.toString())}
-                disabled={blocked}
-                className="h-16 bg-slate-800 hover:bg-slate-700 active:bg-blue-700 active:scale-95 text-white text-xl font-black rounded-2xl transition-all border border-slate-700 disabled:opacity-30"
-              >
-                {n}
-              </button>
+              <Key key={n} label={n} onPress={() => pushDigit(String(n))} disabled={locked} />
             ))}
-            {/* Mostrar/ocultar */}
-            <button
-              onClick={() => setShowPin(p => !p)}
-              className="h-16 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-2xl transition-all border border-slate-700 flex items-center justify-center"
-            >
-              {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-            <button
-              onClick={() => handleDigit('0')}
-              disabled={blocked}
-              className="h-16 bg-slate-800 hover:bg-slate-700 active:bg-blue-700 active:scale-95 text-white text-xl font-black rounded-2xl transition-all border border-slate-700 disabled:opacity-30"
-            >
-              0
-            </button>
-            <button
-              onClick={handleDelete}
-              className="h-16 bg-slate-800 hover:bg-red-900 text-slate-400 hover:text-red-400 rounded-2xl transition-all border border-slate-700 flex items-center justify-center"
-            >
-              <Delete size={20} />
-            </button>
+            {/* bottom row: bio | 0 | delete */}
+            <Key
+              variant="bio"
+              label={bioAvail && hasBiometricRegistered()
+                ? (bioLoading ? '…' : <Fingerprint size={24} />)
+                : <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bio</span>
+              }
+              onPress={bioAvail && hasBiometricRegistered() && !bioLoading ? handleBiometric : () => {}}
+              disabled={locked || !bioAvail || !hasBiometricRegistered()}
+            />
+            <Key label={0} onPress={() => pushDigit('0')} disabled={locked} />
+            <Key variant="delete" label={<Delete size={22} />} onPress={popDigit} disabled={locked} />
           </div>
         </div>
 
-        {/* Cambiar PIN si ya está configurado */}
+        {/* Reset link */}
         {mode === 'unlock' && (
           <button
-            onClick={() => {
-              setMode('setup');
-              setPin('');
-              setError('');
+            onClick={() => { setMode('setup'); setCurrentPin(''); setError(''); setAttempts(0); }}
+            style={{
+              width: '100%', marginTop: 20, background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer',
+              padding: '8px 0',
             }}
-            className="w-full text-center text-[10px] font-bold text-slate-600 hover:text-slate-400 uppercase tracking-widest transition-colors py-2"
           >
             ¿Olvidaste el PIN? Restablecer acceso
-          </button>
-        )}
-
-        {/* Modo Campo button */}
-        {onFieldMode && (
-          <button
-            onClick={onFieldMode}
-            className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all active:scale-95 shadow-xl shadow-amber-500/20 mt-2"
-          >
-            <Navigation size={18} />
-            Modo Campo — Técnico a Domicilio
           </button>
         )}
       </div>

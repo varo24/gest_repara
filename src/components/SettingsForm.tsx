@@ -3,10 +3,11 @@ import {
   Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
   Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
-  Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle
+  Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle, Lock, Unlock
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
+import { isPinEnabled, clearPin, setPin, verifyPin } from '../lib/pinAuth';
 
 interface SettingsFormProps {
   settings: AppSettings;
@@ -47,6 +48,55 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
   const [appNameError, setAppNameError] = useState(false);
   const [imapTesting, setImapTesting] = useState(false);
   const [imapTestResult, setImapTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // ── PIN state ──────────────────────────────────────────────────────────────
+  const [pinEnabled, setPinEnabled] = useState(isPinEnabled);
+  // 'idle' | 'verify-old' | 'enter-new' | 'confirm-new'
+  const [pinFlow, setPinFlow] = useState<'idle' | 'verify-old' | 'enter-new' | 'confirm-new'>('idle');
+  const [pinInput, setPinInput] = useState('');
+  const [pinNewA, setPinNewA]   = useState('');
+  const [pinError, setPinError] = useState('');
+
+  const handlePinToggle = async () => {
+    if (pinEnabled) {
+      clearPin();
+      setPinEnabled(false);
+      setPinFlow('idle');
+    } else {
+      setPinFlow('enter-new');
+      setPinInput('');
+      setPinError('');
+    }
+  };
+
+  const handlePinInput = (val: string) => {
+    if (!/^\d*$/.test(val) || val.length > 4) return;
+    setPinInput(val);
+    setPinError('');
+  };
+
+  const handlePinNext = async () => {
+    if (pinInput.length !== 4) { setPinError('El PIN debe tener 4 dígitos.'); return; }
+    if (pinFlow === 'verify-old') {
+      const ok = await verifyPin(pinInput);
+      if (!ok) { setPinError('PIN incorrecto.'); setPinInput(''); return; }
+      setPinFlow('enter-new');
+      setPinInput('');
+    } else if (pinFlow === 'enter-new') {
+      setPinNewA(pinInput);
+      setPinFlow('confirm-new');
+      setPinInput('');
+    } else if (pinFlow === 'confirm-new') {
+      if (pinInput !== pinNewA) { setPinError('Los PINs no coinciden.'); setPinInput(''); return; }
+      await setPin(pinInput);
+      setPinEnabled(true);
+      setPinFlow('idle');
+      setPinInput('');
+      setPinNewA('');
+    }
+  };
+
+  const cancelPinFlow = () => { setPinFlow('idle'); setPinInput(''); setPinNewA(''); setPinError(''); };
 
   const currentUrl = window.location.href;
 
@@ -783,6 +833,104 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
             }`}>
               {cloudResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
               {cloudResult.msg}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Seguridad — PIN de acceso ── */}
+      <div className="rounded-[2rem] overflow-hidden" style={{ background: '#0f172a' }}>
+        <div className="flex items-center gap-3 px-6 py-4" style={{ background: 'linear-gradient(135deg,#1e3a2f,#0f2d1e)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,0.1)' }}>
+            <Lock size={18} color="#86efac" />
+          </div>
+          <div>
+            <p className="text-[12px] font-black uppercase tracking-widest text-white">Seguridad — PIN de acceso</p>
+            <p className="text-[10px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>Protección local • bloqueo automático 10 min</p>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[12px] font-black text-white uppercase tracking-wide">
+                {pinEnabled ? 'PIN activo' : 'PIN desactivado'}
+              </p>
+              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {pinEnabled ? 'La app pide PIN al abrirse y tras 10 min de inactividad' : 'La app abre sin pedir PIN'}
+              </p>
+            </div>
+            <button
+              onClick={handlePinToggle}
+              style={{
+                width: 48, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
+                background: pinEnabled ? '#22c55e' : '#374151',
+                transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: 3,
+                left: pinEnabled ? 23 : 3,
+                transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
+
+          {/* Change PIN button (only when enabled and no flow active) */}
+          {pinEnabled && pinFlow === 'idle' && (
+            <button
+              onClick={() => { setPinFlow('verify-old'); setPinInput(''); setPinError(''); }}
+              className="flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-colors"
+              style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <Unlock size={13} />
+              Cambiar PIN
+            </button>
+          )}
+
+          {/* PIN flow inputs */}
+          {pinFlow !== 'idle' && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-white uppercase tracking-widest">
+                {pinFlow === 'verify-old' ? 'Introduce el PIN actual'
+                 : pinFlow === 'enter-new' ? 'Nuevo PIN (4 dígitos)'
+                 : 'Confirma el nuevo PIN'}
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={pinInput}
+                  onChange={e => handlePinInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handlePinNext()}
+                  autoFocus
+                  placeholder="••••"
+                  className="flex-1 px-4 py-3 rounded-2xl font-black text-center text-white text-xl tracking-[0.5em] focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', letterSpacing: '0.5em' }}
+                />
+                <button
+                  onClick={handlePinNext}
+                  disabled={pinInput.length !== 4}
+                  className="px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-40"
+                  style={{ background: '#22c55e', color: '#fff' }}
+                >
+                  {pinFlow === 'confirm-new' ? 'Guardar' : 'Siguiente'}
+                </button>
+                <button
+                  onClick={cancelPinFlow}
+                  className="px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest"
+                  style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)' }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {pinError && (
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#f87171' }}>{pinError}</p>
+              )}
             </div>
           )}
         </div>
