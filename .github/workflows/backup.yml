@@ -19,11 +19,11 @@ jobs:
         run: npm install
         working-directory: backup
 
-      - name: Debug environment
+      - name: Debug secret
         run: |
-          node --version
-          echo "Service account length: ${#FIREBASE_SERVICE_ACCOUNT}"
-        working-directory: backup
+          echo "Length: ${#FIREBASE_SERVICE_ACCOUNT}"
+          echo "First 20 chars: ${FIREBASE_SERVICE_ACCOUNT:0:20}"
+          echo "Last 20 chars: ${FIREBASE_SERVICE_ACCOUNT: -20}"
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
