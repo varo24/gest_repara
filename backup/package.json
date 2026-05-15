@@ -4,6 +4,7 @@
   "description": "Weekly Firestore backup to Firebase Storage",
   "main": "backup.js",
   "scripts": {
+    "start": "node backup.js",
     "backup": "node backup.js"
   },
   "dependencies": {
