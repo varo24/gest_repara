@@ -6,11 +6,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { logError } from './lib/errorLogger';
 
 // ── Captura de errores globales ───────────────────────────────────────────────
-// NOTA: los listeners se registran síncronamente ANTES del render.
-//
-// ⚠️  TRUCO DE PRUEBA: Promise.reject() ejecutado en DevTools Console NO dispara
-//   window.unhandledrejection — Chrome intercepta promesas de la consola antes
-//   de que lleguen al evento global. Usa window.__testError() desde consola.
 
 window.addEventListener('error', (e) => {
   console.log('[main] window.error disparado:', e.message);
@@ -34,18 +29,34 @@ window.addEventListener('unhandledrejection', (e) => {
   logError('promise', error);
 });
 
-// ── Helper de prueba (disponible en consola como window.__testError()) ────────
-// Inyecta la promesa rechazada desde el contexto de la APP (no de la consola),
-// lo que sí activa el evento unhandledrejection correctamente.
-(window as any).__testError = () => {
-  // Crea la promesa dentro de un setTimeout para que sea "código de la app"
-  setTimeout(() => { void Promise.reject(new Error('__testError manual')); }, 0);
+// ── Helpers de diagnóstico en producción ─────────────────────────────────────
+// TEMPORAL — eliminar tras confirmar que el logger escribe en Firestore.
+//
+// Uso desde DevTools Console (producción o dev):
+//   window.__testLogDirect()   → llama logError() directamente
+//   window.__testError()       → dispara window.unhandledrejection real
+//
+// Asignamos a una variable local primero para anclar el código al bundle
+// y evitar que Terser/Rollup los elimine como dead code.
+
+const _w = window as Window & {
+  __testLogDirect?: () => Promise<void>;
+  __testError?: () => void;
 };
 
-(window as any).__testLogDirect = async () => {
-  // Llama al logger directamente sin pasar por el listener
+_w.__testLogDirect = async () => {
   await logError('promise', new Error('__testLogDirect manual'));
 };
+
+_w.__testError = () => {
+  // setTimeout garantiza que la promesa se rechaza en el contexto de la página
+  // (no de DevTools Console), lo que sí dispara window.unhandledrejection.
+  setTimeout(() => { void Promise.reject(new Error('__testError manual')); }, 100);
+};
+
+// Este log confirma que main.tsx cargó y los helpers están registrados.
+// También ancla _w al bundle — Terser no eliminará código referenciado aquí.
+console.log('[main] listeners OK | helpers:', typeof _w.__testLogDirect, typeof _w.__testError);
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
