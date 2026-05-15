@@ -21,20 +21,35 @@ function shouldIgnore(message: string, stack: string): boolean {
 let sessionCount = 0;
 const MAX_PER_SESSION = 8;
 
+// ── DEBUG MODE ────────────────────────────────────────────────────────────────
+// Activo temporalmente para diagnosticar por qué no llegan docs a Firestore.
+// Eliminar tras confirmar que funciona.
+const DBG = true;
+const dbg = (...args: unknown[]) => { if (DBG) console.log('[errorLogger]', ...args); };
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function logError(
   type: ErrorType,
   error: Error | null,
   overrides: { stack?: string } = {},
 ): Promise<void> {
-  if (sessionCount >= MAX_PER_SESSION) return;
+  dbg('logError() llamado —', 'type:', type, '| message:', error?.message ?? '(null)');
+
+  if (sessionCount >= MAX_PER_SESSION) {
+    dbg('cap de sesión alcanzado (', sessionCount, '/ ', MAX_PER_SESSION, ') — ignorando');
+    return;
+  }
 
   const message = error?.message || 'Unknown error';
-  // overrides.stack permite al ErrorBoundary incluir el componentStack
   const stack = (overrides.stack ?? error?.stack ?? '').slice(0, 500);
 
-  if (shouldIgnore(message, stack)) return;
+  if (shouldIgnore(message, stack)) {
+    dbg('shouldIgnore=true — descartado. message:', message);
+    return;
+  }
 
   sessionCount++;
+  dbg('sessionCount ahora:', sessionCount);
 
   const entry = {
     timestamp:  new Date().toISOString(),
@@ -46,9 +61,17 @@ export async function logError(
     appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'unknown',
   };
 
+  dbg('entry a guardar:', entry);
+  dbg('db instance (debe ser "gestrepara"):', (db as any)?._databaseId?.database ?? db);
+
   try {
-    await addDoc(collection(db, 'error_logs'), entry);
-  } catch {
-    // Silencioso — nunca lanzamos desde un logger de errores
+    dbg('intentando addDoc en error_logs…');
+    const ref = await addDoc(collection(db, 'error_logs'), entry);
+    dbg('✅ escrito OK — doc id:', ref.id);
+  } catch (e: unknown) {
+    // NUNCA silencioso durante depuración — muestra el error real
+    console.error('[errorLogger] ❌ addDoc FALLÓ:', e);
+    console.error('[errorLogger] code:', (e as any)?.code);
+    console.error('[errorLogger] message:', (e as any)?.message);
   }
 }
