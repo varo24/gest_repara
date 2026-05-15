@@ -119,9 +119,9 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, budgets, citas, settings
       action: () => setView('calendar'),
     },
     {
-      id: 'stats', label: 'Rendimiento', desc: 'Estadísticas del taller',
+      id: 'stats', label: 'Estadísticas', desc: 'Informes y gráficos',
       icon: BarChart2, gradient: 'linear-gradient(135deg, #37474f, #455a64)', accentColor: '#37474f',
-      action: () => setView('stats'),
+      action: () => setView('estadisticas'),
     },
     {
       id: 'external-apps', label: 'Módulos Ext.', desc: 'Aplicaciones integradas',

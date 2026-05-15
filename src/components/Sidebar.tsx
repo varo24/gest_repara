@@ -139,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Sistema',
       items: [
         { id: 'informes',          label: 'Informes',         icon: FileBarChart },
-        { id: 'stats',             label: 'Rendimiento',      icon: TrendingUp },
+        { id: 'estadisticas',      label: 'Estadísticas',     icon: TrendingUp },
         { id: 'external-apps',     label: 'Módulos Ext.',     icon: AppWindow },
         { id: 'settings',          label: 'Ajustes',          icon: Settings },
       ]

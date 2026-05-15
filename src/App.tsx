@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import StatsView from './components/StatsView';
 import RepairList from './components/RepairList';
 import RepairForm from './components/RepairForm';
 import BudgetCreator from './components/BudgetCreator';
@@ -24,6 +23,7 @@ const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
 const Proveedores    = lazy(() => import('./components/Proveedores'));
 const Informes       = lazy(() => import('./components/Informes'));
 const Caja           = lazy(() => import('./components/Caja'));
+const Estadisticas   = lazy(() => import('./components/Estadisticas'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
@@ -671,7 +671,20 @@ const App: React.FC = () => {
                 }}
               />
             )}
-            {currentView === 'stats' && <StatsView repairs={repairs} budgets={budgets} onBack={() => navigateTo('dashboard')} />}
+            {(currentView === 'stats' || currentView === 'estadisticas') && (
+              <Suspense fallback={<LazyFallback />}>
+                <Estadisticas
+                  repairs={repairs}
+                  invoices={invoices}
+                  inventory={inventoryItems}
+                  stockMovements={stockMovements}
+                  cashMovements={cashMovements}
+                  cierresCaja={cierresCaja}
+                  settings={settings}
+                  onBack={() => navigateTo('dashboard')}
+                />
+              </Suspense>
+            )}
             {currentView === 'calendar' && (
               <CalendarView
                 citas={citas}
