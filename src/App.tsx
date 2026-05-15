@@ -702,6 +702,7 @@ const App: React.FC = () => {
                 }}
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
                 onMarkContacted={handleMarkBudgetContacted}
+                onViewInvoices={() => navigateTo('invoices')}
                 onSendWhatsApp={async (budget, repair) => {
                   const msg = buildBudgetMessage(repair, budget, settings);
                   await sendWhatsApp(repair.customerPhone, msg);
@@ -716,6 +717,15 @@ const App: React.FC = () => {
                   notify('success', status === 'accepted' ? 'Presupuesto aceptado' : status === 'rejected' ? 'Presupuesto rechazado' : 'Presupuesto reactivado');
                 }}
                 onConvertToInvoice={async (budget, repair, tipo) => {
+                  // Anti-duplicado: si ya tiene documento generado, navegar al existente
+                  if (budget.archivado && budget.documentoGenerado) {
+                    const { numero, tipo: docTipo } = budget.documentoGenerado;
+                    confirm2(
+                      `Este presupuesto ya tiene ${docTipo === 'factura' ? 'una factura' : 'un recibo'} generado (${numero}). ¿Ver el documento?`,
+                      () => navigateTo('invoices'),
+                    );
+                    return;
+                  }
                   const effectiveTaxRate = tipo === 'REC' ? 0 : tipo === 'FAC' ? (settings.taxRate || 21) : (budget.taxEnabled === false ? 0 : (budget.taxRate || 21));
                   const budgetSubtotal = [
                     ...budget.items.map(i => i.quantity * i.unitPrice),
@@ -759,6 +769,15 @@ const App: React.FC = () => {
                     stockDescontado: true,
                   };
                   storage.save('invoices', invoice.id, invoice);
+
+                  // Archivar el presupuesto y enlazarlo al documento generado
+                  const tipoDoc = effectiveTaxRate === 0 ? 'recibo' : 'factura';
+                  storage.save('budgets', budget.id, {
+                    ...budget,
+                    archivado: true,
+                    documentoGenerado: { tipo: tipoDoc, numero: invoiceNumber, id: invoice.id },
+                  });
+
                   notify('success', `${invoiceNumber} creada desde presupuesto ${rmaRef}`);
                   navigateTo('invoices');
                 }}

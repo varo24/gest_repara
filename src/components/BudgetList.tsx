@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone } from 'lucide-react';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone, Archive } from 'lucide-react';
 import { Budget, RepairItem, AppSettings, Customer } from '../types';
 import { getBudgetAlertLevel, workingDaysSince } from '../lib/budgetAlerts';
 
@@ -16,6 +16,7 @@ interface BudgetListProps {
   onConvertToInvoice?: (budget: Budget, repair: RepairItem, tipo?: 'FAC' | 'REC') => void;
   onUpdateBudgetStatus?: (budget: Budget, status: 'accepted' | 'rejected' | 'pending', motivo?: string) => void;
   onMarkContacted?: (budgetId: string) => void;
+  onViewInvoices?: () => void;
   onBack?: () => void;
 }
 
@@ -42,10 +43,12 @@ function getBadgeInfo(budget: Budget): { label: string; bg: string; color: strin
 
 const BudgetList: React.FC<BudgetListProps> = ({
   budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget,
-  onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onMarkContacted, onBack,
+  onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onMarkContacted,
+  onViewInvoices, onBack,
 }) => {
   const followUpThreshold = settings?.budgetFollowUpDays ?? 3;
   const [searchTerm, setSearchTerm] = useState('');
+  const [showArchivados, setShowArchivados] = useState(false);
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
 
@@ -67,8 +70,11 @@ const BudgetList: React.FC<BudgetListProps> = ({
 
   const isSearching = searchTerm.trim().length > 0;
 
+  const archivedCount = budgets.filter(b => b.archivado).length;
+
   const filteredBudgets = budgets
     .filter(budget => {
+      if (!showArchivados && budget.archivado) return false;
       const repair = getRepairInfo(budget.repairId);
       const customerName = repair?.customerName || budget.customerName || '';
       const searchStr = `${budget.id} ${repair ? formatRMA(repair.rmaNumber) : ''} ${customerName}`.toLowerCase();
@@ -127,11 +133,24 @@ const BudgetList: React.FC<BudgetListProps> = ({
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Archivo de Presupuestos</h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Histórico de valoraciones técnicas</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative w-full md:w-64">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input type="text" placeholder="Buscar presupuesto o cliente..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
+          {archivedCount > 0 && (
+            <button
+              onClick={() => setShowArchivados(v => !v)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
+                showArchivados
+                  ? 'bg-slate-700 text-white border-slate-700'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Archive size={13} />
+              {showArchivados ? 'Ocultar archivados' : `Archivados (${archivedCount})`}
+            </button>
+          )}
           {onNewFreeBudget && (
             <button
               onClick={onNewFreeBudget}
@@ -206,8 +225,11 @@ const BudgetList: React.FC<BudgetListProps> = ({
                       const alertLevel = isPending ? getBudgetAlertLevel(budget, followUpThreshold) : 'none';
                       const alertDays  = alertLevel !== 'none' ? workingDaysSince(budget.lastContactedAt || budget.date) : 0;
 
+                      const isArchivado = !!budget.archivado;
+                      const docGenerado = budget.documentoGenerado;
+
                       return (
-                        <tr key={budget.id} className="hover:bg-slate-50 transition-all group border-b border-slate-50">
+                        <tr key={budget.id} className="hover:bg-slate-50 transition-all group border-b border-slate-50" style={{ opacity: isArchivado ? 0.5 : 1 }}>
                           <td className="px-8 py-6">
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isFreeBudget ? 'bg-violet-50 text-violet-500' : 'bg-blue-50 text-blue-500'}`}>
@@ -279,7 +301,16 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                   </button>
                                 </>
                               )}
-                              {isAccepted && repair && onConvertToInvoice && (
+                              {isArchivado && docGenerado ? (
+                                <button
+                                  onClick={() => onViewInvoices?.()}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all"
+                                  style={{ background: docGenerado.tipo === 'factura' ? '#eff6ff' : '#f8fafc', color: docGenerado.tipo === 'factura' ? '#1d4ed8' : '#475569', border: `1px solid ${docGenerado.tipo === 'factura' ? '#bfdbfe' : '#e2e8f0'}` }}
+                                  title={`Ver ${docGenerado.tipo} ${docGenerado.numero}`}
+                                >
+                                  {docGenerado.tipo === 'factura' ? '🧾' : '📄'} {docGenerado.numero}
+                                </button>
+                              ) : isAccepted && repair && onConvertToInvoice && (
                                 <>
                                   <button
                                     onClick={() => onConvertToInvoice(budget, repair, 'FAC')}
@@ -329,7 +360,7 @@ const BudgetList: React.FC<BudgetListProps> = ({
                               )}
                               <button onClick={() => onViewBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white border border-slate-100 transition-all" title="Ver / Editar"><Eye size={14} /></button>
                               <button onClick={() => onPrintBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all" title="Imprimir"><Printer size={14} /></button>
-                              {isAccepted && repair && onConvertToInvoice && (
+                              {isAccepted && repair && onConvertToInvoice && !isArchivado && (
                                 <button onClick={() => onConvertToInvoice(budget, repair)} className="p-2.5 bg-white text-violet-400 rounded-xl hover:bg-violet-600 hover:text-white border border-slate-100 transition-all" title="Convertir a factura"><Receipt size={14} /></button>
                               )}
                               <button onClick={() => onDeleteBudget(budget.id)} className="p-2.5 bg-white text-slate-200 rounded-xl hover:bg-red-600 hover:text-white border border-slate-100 transition-all" title="Eliminar"><Trash2 size={14} /></button>

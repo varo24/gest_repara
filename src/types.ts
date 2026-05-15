@@ -105,6 +105,8 @@ export interface Budget {
   motivoRechazo?: string;
   stockDescontado?: boolean;
   lastContactedAt?: string;
+  archivado?: boolean;
+  documentoGenerado?: { tipo: 'factura' | 'recibo'; numero: string; id: string };
   // Campos para presupuestos libres (sin reparación asociada)
   customerName?: string;
   customerPhone?: string;
