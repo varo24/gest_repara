@@ -40,7 +40,7 @@ export async function logError(
     stack,
     url:        typeof window    !== 'undefined' ? window.location.pathname : '/',
     userAgent:  typeof navigator !== 'undefined' ? navigator.userAgent       : '',
-    appVersion: (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'unknown',
+    appVersion: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown',
   };
 
   try {

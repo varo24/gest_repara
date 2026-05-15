@@ -42,7 +42,7 @@ import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lu
 import { logError } from './lib/errorLogger';
 import { printWorkOrder } from './lib/printWorkOrder';
 
-const APP_VERSION = '6.6.0 UNIFIED';
+const APP_VERSION = __APP_VERSION__;
 
 const LazyFallback = () => (
   <div className="flex items-center justify-center h-64">

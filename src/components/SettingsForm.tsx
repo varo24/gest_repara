@@ -1021,6 +1021,12 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
           <Save size={20} /> Guardar Identidad del Taller
         </button>
       </div>
+
+      {version && (
+        <p className="text-center text-[10px] text-slate-400 font-medium tracking-widest">
+          Versión {version}
+        </p>
+      )}
     </div>
   );
 };
