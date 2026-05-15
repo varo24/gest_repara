@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
   XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil,
-  ChevronDown, ChevronRight, Layers
+  ChevronDown, ChevronRight, Layers, AlertTriangle
 } from 'lucide-react';
+import { useDuplicados } from '../lib/useDuplicados';
 import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborItem, RepairItem } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock, devolverStock } from '../lib/inventoryService';
@@ -371,6 +372,20 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
     setPayModal(null);
   };
 
+  const duplicados = useDuplicados(invoices);
+
+  const limpiarDuplicados = () => {
+    const total = duplicados.reduce((s, g) => s + g.remove.length, 0);
+    if (!window.confirm(`¿Eliminar ${total} factura(s) duplicada(s)? Se mantiene el número más bajo de cada grupo. Esta acción no se puede deshacer.`)) return;
+    for (const { remove } of duplicados) {
+      for (const inv of remove) {
+        if (inv.stockDescontado) devolverStock(inv.items, 'eliminacion', inv.invoiceNumber);
+        storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, stockDescontado: false, deletedAt: new Date().toISOString() });
+      }
+    }
+    onNotify('success', `${total} factura${total !== 1 ? 's' : ''} duplicada${total !== 1 ? 's' : ''} eliminada${total !== 1 ? 's' : ''}`);
+  };
+
   const anular = (inv: FullInvoice) => {
     if (!window.confirm(`¿Anular ${inv.invoiceNumber}? No se puede deshacer.`)) return;
     if (inv.stockDescontado) {
@@ -498,6 +513,37 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
           </button>
         </div>
       </div>
+
+      {/* Banner de duplicados — solo visible cuando hay facturas con mismo repairId */}
+      {duplicados.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-4">
+            <AlertTriangle size={15} className="text-red-500 shrink-0" />
+            <p className="text-xs font-black text-red-700 uppercase tracking-widest flex-1">
+              {duplicados.length} grupo{duplicados.length !== 1 ? 's' : ''} de facturas duplicadas detectadas
+            </p>
+            <button
+              onClick={limpiarDuplicados}
+              className="px-4 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-red-700 transition-all"
+            >
+              Limpiar duplicados
+            </button>
+          </div>
+          <div className="px-5 pb-4 space-y-1.5">
+            {duplicados.map(({ keep, remove }) => (
+              <div key={keep.repairId} className="flex flex-wrap items-center gap-2 text-[10px] bg-white rounded-xl px-4 py-2 border border-red-100">
+                <span className="text-emerald-700 font-black">✓ Mantener: {keep.invoiceNumber}</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-red-600 font-black">✗ Eliminar: {remove.map((r: any) => r.invoiceNumber).join(', ')}</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-600 font-bold">{keep.customerName}</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-600 font-bold">{(keep.total ?? 0).toFixed(2)}€</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

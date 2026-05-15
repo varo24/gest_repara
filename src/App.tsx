@@ -796,6 +796,14 @@ const App: React.FC = () => {
                     );
                     return;
                   }
+                  // Anti-duplicado por repairId: bloquear si ya existe FAC/REC activa para esta reparación
+                  if (repair?.id) {
+                    const existingInv = (invoices as any[]).find(inv => inv.repairId === repair.id && inv.status !== 'anulada');
+                    if (existingInv) {
+                      notify('error', `Ya existe ${existingInv.invoiceNumber} para esta reparación (${repair.customerName})`);
+                      return;
+                    }
+                  }
                   const effectiveTaxRate = tipo === 'REC' ? 0 : tipo === 'FAC' ? (settings.taxRate || 21) : (budget.taxEnabled === false ? 0 : (budget.taxRate || 21));
                   const budgetSubtotal = [
                     ...budget.items.map(i => i.quantity * i.unitPrice),
