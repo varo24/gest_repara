@@ -9,15 +9,23 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install
         working-directory: backup
+
+      - name: Debug environment
+        run: |
+          node --version
+          echo "Service account length: ${#FIREBASE_SERVICE_ACCOUNT}"
+        working-directory: backup
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Run backup
         run: node backup.js
