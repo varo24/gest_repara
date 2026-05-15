@@ -830,7 +830,8 @@ const App: React.FC = () => {
                   if (status === RepairStatus.READY) {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que su equipo está listo?`, () => {
                       notifyReady({ ...repair, status }, settings);
-                    })
+                    });
+                    checkRepairsReady([{ ...repair, status }]);
                   }
                   if (status === RepairStatus.CANCELLED) {
                     confirm2(`¿Avisar a ${repair.customerName} por WhatsApp de que la reparación no se realizó?`, () => {

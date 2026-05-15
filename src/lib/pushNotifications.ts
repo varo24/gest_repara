@@ -84,14 +84,14 @@ export async function checkRepairsReady(repairs: RepairItem[]): Promise<void> {
   if (pending.length === 1) {
     const r = pending[0];
     await showNotif(
-      'Reparación lista para recoger',
-      `${r.customerName} — ${r.brand} ${r.model} (RMA ${r.rmaNumber})`,
+      'Reparación lista 🔧',
+      `La reparación de ${r.customerName} — ${r.brand} ${r.model} está lista`,
       { view: 'repairs', repairId: r.id },
       `ready-${r.id}`,
     );
   } else {
     await showNotif(
-      `${pending.length} reparaciones listas`,
+      `${pending.length} reparaciones listas 🔧`,
       pending.map(r => `${r.customerName} (RMA ${r.rmaNumber})`).join(' · '),
       { view: 'repairs' },
       'ready-batch',
@@ -111,19 +111,19 @@ export async function checkCitasReminder(citas: Cita[]): Promise<void> {
   const storedSet = new Set(stored);
 
   const now  = new Date();
-  const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+  const in2h = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
   const pending = citas.filter(c => {
     if (storedSet.has(c.id)) return false;
     if (c.estado === 'cancelada' || c.estado === 'completada') return false;
     const citaStart = new Date(`${c.fecha}T${c.horaInicio}`);
-    return citaStart > now && citaStart <= in1h;
+    return citaStart > now && citaStart <= in2h;
   });
 
   for (const cita of pending) {
     await showNotif(
-      'Cita en menos de 1 hora',
-      `${cita.horaInicio} — ${cita.clienteName ?? 'Cliente'}: ${cita.titulo}`,
+      'Cita próxima 📅',
+      `Cita con ${cita.clienteName ?? 'cliente'} a las ${cita.horaInicio}`,
       { view: 'calendar', citaId: cita.id },
       `cita-${cita.id}`,
     );
@@ -147,13 +147,14 @@ export async function checkStockLow(items: InventoryItem[]): Promise<void> {
   const low = items.filter(i => i.stock <= i.minStock && i.minStock > 0);
   if (low.length === 0) return;
 
-  await showNotif(
-    low.length === 1 ? 'Stock bajo' : `${low.length} artículos con stock bajo`,
-    low.slice(0, 3).map(i => `${i.description} (${i.stock}/${i.minStock})`).join(' · ')
-      + (low.length > 3 ? ` y ${low.length - 3} más` : ''),
-    { view: 'inventory' },
-    'stock-low',
-  );
+  for (const item of low.slice(0, 3)) {
+    await showNotif(
+      'Stock bajo ⚠️',
+      `${item.description} tiene solo ${item.stock} unidades (mínimo: ${item.minStock})`,
+      { view: 'inventory' },
+      `stock-low-${item.id}`,
+    );
+  }
 
   localStorage.setItem(KEY_STOCK_DATE, today);
 }
