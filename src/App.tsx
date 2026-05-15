@@ -444,6 +444,59 @@ const App: React.FC = () => {
     if (count) console.log(`[Migration v3] Restauradas ${count} facturas incorrectamente anuladas`);
   }, [invoices]);
 
+  // ── Migration v4: fix/create FAC-00008 y FAC-00009 como anuladas ──────────
+  const fixDupFacRef = useRef(false);
+  useEffect(() => {
+    const MIGRATION_KEY = 'gestrepara_migration_fix_fac_duplicados_v4';
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+    if (fixDupFacRef.current) return;
+    if (!invoices.length || !repairs.length) return;
+
+    fixDupFacRef.current = true;
+    localStorage.setItem(MIGRATION_KEY, '1');
+
+    const targets = [
+      { invoiceNumber: 'FAC-00008', rmaNumber: 59, customerName: 'SONIA BERNABEU', customerPhone: '665 31 49 29', total: 111.93, motivoAnulacion: 'duplicado de FAC-00002', payMethod: 'efectivo' as const },
+      { invoiceNumber: 'FAC-00009', rmaNumber: 58, customerName: 'JUAN BLANCO',    customerPhone: '697770846',   total: 84.70,  motivoAnulacion: 'duplicado de FAC-00003', payMethod: 'bizum'    as const },
+    ];
+
+    for (const t of targets) {
+      const existing = (invoices as any[]).find(inv => inv.invoiceNumber === t.invoiceNumber);
+      if (existing) {
+        storage.save('invoices', existing.id, {
+          status: 'anulada',
+          _deleted: false,
+          motivoAnulacion: t.motivoAnulacion,
+        });
+        console.log(`[Migration v4] Fijada ${t.invoiceNumber} como anulada`);
+      } else {
+        const repair = repairs.find(r => r.rmaNumber === t.rmaNumber);
+        const now = new Date().toISOString();
+        const newId = `fix-v4-${t.invoiceNumber.toLowerCase()}`;
+        storage.save('invoices', newId, {
+          id: newId,
+          invoiceNumber: t.invoiceNumber,
+          repairId: repair?.id ?? '',
+          rmaNumber: t.rmaNumber,
+          customerName: t.customerName,
+          customerPhone: t.customerPhone,
+          date: now.slice(0, 10),
+          items: [],
+          laborItems: [],
+          subtotal: t.total,
+          taxRate: 21,
+          taxAmount: 0,
+          total: t.total,
+          status: 'anulada',
+          payMethod: t.payMethod,
+          motivoAnulacion: t.motivoAnulacion,
+          createdAt: now,
+        });
+        console.log(`[Migration v4] Creada ${t.invoiceNumber} como anulada (nueva)`);
+      }
+    }
+  }, [invoices, repairs]);
+
   const handleReminderSent = useCallback((citaId: string) => {
     const cita = citas.find(c => c.id === citaId);
     if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });
