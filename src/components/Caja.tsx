@@ -120,7 +120,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   const [cierreNotas, setCierreNotas] = useState('');
   const [cierrePor, setCierrePor] = useState('');
   const [selectedCierre, setSelectedCierre] = useState<CierreCajaType | null>(null);
-  const [historialMes, setHistorialMes] = useState(() => new Date().toISOString().slice(0, 7));
+  const [historialMes, setHistorialMes] = useState('');
   const [deletingMov, setDeletingMov] = useState<NormMov | null>(null);
 
   // Edit cierre state
@@ -183,7 +183,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   );
   const saldoApertura = aperturaHoy?.importe ?? 0;
   const cierreHoy = useMemo(
-    () => cierresCaja.find(c => c.fecha === today),
+    () => cierresCaja.find(c => (c.fecha || '').slice(0, 10) === today),
     [cierresCaja, today]
   );
   const cajaAbierta = !!aperturaHoy && !cierreHoy;
@@ -193,12 +193,15 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
   const cierreAyer = useMemo(
-    () => cierresCaja.find(c => c.fecha === yesterdayStr),
+    () => cierresCaja.find(c => (c.fecha || '').slice(0, 10) === yesterdayStr),
     [cierresCaja, yesterdayStr]
   );
   const aperturaAyer = useMemo(
-    () => allMovements.find(m => m.fecha === yesterdayStr && m.tipo === 'apertura'),
-    [allMovements, yesterdayStr]
+    () => cashMovements.find(m =>
+      ((m.fecha || m.date || (m.createdAt ? m.createdAt.slice(0, 10) : ''))).slice(0, 10) === yesterdayStr &&
+      (m.tipo || m.type) === 'apertura'
+    ),
+    [cashMovements, yesterdayStr]
   );
   const cajaAyerSinCerrar = !!aperturaAyer && !cierreAyer;
 
@@ -524,10 +527,13 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
   const editSaldoEsp = editApertParsed + editEfIng - editGstEf - editRetEf;
   const editDiff     = Math.round((editEfectivoNum - editSaldoEsp) * 100) / 100;
 
-  const historialFiltered = useMemo(() =>
-    cierresCaja.filter(c => c.fecha.startsWith(historialMes)).sort((a, b) => b.fecha.localeCompare(a.fecha)),
-    [cierresCaja, historialMes]
-  );
+  const historialFiltered = useMemo(() => {
+    const sorted = [...cierresCaja]
+      .filter(c => c.fecha)
+      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    if (!historialMes) return sorted;
+    return sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
+  }, [cierresCaja, historialMes]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -790,15 +796,25 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
       {/* ── TAB HISTORIAL ── */}
       {activeTab === 'historial' && (
         <div className="p-4 space-y-4">
-          <div className="flex items-center gap-3">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">Mes:</label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">Filtrar:</label>
             <input
               type="month" value={historialMes} onChange={e => setHistorialMes(e.target.value)}
               className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none"
             />
+            {historialMes && (
+              <button
+                onClick={() => setHistorialMes('')}
+                className="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Ver todos
+              </button>
+            )}
           </div>
           {historialFiltered.length === 0 ? (
-            <div className="text-center py-16 text-slate-400 text-sm">Sin cierres en este período</div>
+            <div className="text-center py-16 text-slate-400 text-sm">
+              {historialMes ? 'Sin cierres en este mes' : 'No hay cierres registrados aún'}
+            </div>
           ) : (
             <div className="space-y-3">
               {historialFiltered.map(c => {
