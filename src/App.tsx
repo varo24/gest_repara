@@ -771,7 +771,7 @@ const App: React.FC = () => {
                   const budgetTotal = Math.round((budgetSubtotal + budgetTaxAmount) * 100) / 100;
                   const invoiceNumber = storage.nextInvoiceNumber(tipo ?? (effectiveTaxRate === 0 ? 'REC' : 'FAC'));
                   const now = new Date().toISOString();
-                  const rmaRef = `RMA-${String(repair.rmaNumber).padStart(5, '0')}`;
+                  const rmaRef = repair ? `RMA-${String(repair.rmaNumber).padStart(5, '0')}` : 'LIBRE';
 
                   // Descontar stock (usa inventoryItemId si disponible, sino busca por descripción)
                   // Solo si el presupuesto no había descontado ya (budget.stockDescontado)
@@ -787,10 +787,11 @@ const App: React.FC = () => {
                   const invoice = {
                     id: `INV-${Date.now()}`,
                     invoiceNumber,
-                    repairId: repair.id,
-                    rmaNumber: repair.rmaNumber,
-                    customerName: repair.customerName,
-                    customerPhone: repair.customerPhone,
+                    repairId: repair?.id,
+                    rmaNumber: repair?.rmaNumber,
+                    customerName: repair?.customerName ?? budget.customerName ?? '',
+                    customerPhone: repair?.customerPhone ?? budget.customerPhone ?? '',
+                    customerTaxId: budget.customerTaxId,
                     date: now.slice(0, 10),
                     items: budget.items,
                     laborItems: budget.laborItems,

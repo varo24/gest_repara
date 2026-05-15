@@ -13,7 +13,7 @@ interface BudgetListProps {
   onDeleteBudget: (budgetId: string) => void;
   onNewFreeBudget?: () => void;
   onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
-  onConvertToInvoice?: (budget: Budget, repair: RepairItem, tipo?: 'FAC' | 'REC') => void;
+  onConvertToInvoice?: (budget: Budget, repair: RepairItem | null, tipo?: 'FAC' | 'REC') => void;
   onUpdateBudgetStatus?: (budget: Budget, status: 'accepted' | 'rejected' | 'pending', motivo?: string) => void;
   onMarkContacted?: (budgetId: string) => void;
   onViewInvoices?: () => void;
@@ -310,17 +310,17 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                 >
                                   {docGenerado.tipo === 'factura' ? '🧾' : '📄'} {docGenerado.numero}
                                 </button>
-                              ) : isAccepted && repair && onConvertToInvoice && (
+                              ) : isAccepted && onConvertToInvoice && (
                                 <>
                                   <button
-                                    onClick={() => onConvertToInvoice(budget, repair, 'FAC')}
+                                    onClick={() => onConvertToInvoice(budget, repair ?? null, 'FAC')}
                                     className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase hover:bg-blue-700 transition-all"
                                     title="Crear factura con IVA"
                                   >
                                     🧾 FAC-
                                   </button>
                                   <button
-                                    onClick={() => onConvertToInvoice(budget, repair, 'REC')}
+                                    onClick={() => onConvertToInvoice(budget, repair ?? null, 'REC')}
                                     className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-500 text-white rounded-xl text-[9px] font-black uppercase hover:bg-slate-600 transition-all"
                                     title="Crear recibo sin IVA"
                                   >
@@ -360,8 +360,8 @@ const BudgetList: React.FC<BudgetListProps> = ({
                               )}
                               <button onClick={() => onViewBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white border border-slate-100 transition-all" title="Ver / Editar"><Eye size={14} /></button>
                               <button onClick={() => onPrintBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all" title="Imprimir"><Printer size={14} /></button>
-                              {isAccepted && repair && onConvertToInvoice && !isArchivado && (
-                                <button onClick={() => onConvertToInvoice(budget, repair)} className="p-2.5 bg-white text-violet-400 rounded-xl hover:bg-violet-600 hover:text-white border border-slate-100 transition-all" title="Convertir a factura"><Receipt size={14} /></button>
+                              {isAccepted && onConvertToInvoice && !isArchivado && (
+                                <button onClick={() => onConvertToInvoice(budget, repair ?? null)} className="p-2.5 bg-white text-violet-400 rounded-xl hover:bg-violet-600 hover:text-white border border-slate-100 transition-all" title="Convertir a factura"><Receipt size={14} /></button>
                               )}
                               <button onClick={() => onDeleteBudget(budget.id)} className="p-2.5 bg-white text-slate-200 rounded-xl hover:bg-red-600 hover:text-white border border-slate-100 transition-all" title="Eliminar"><Trash2 size={14} /></button>
                             </div>
