@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import RepairList from './components/RepairList';
@@ -86,6 +86,7 @@ const App: React.FC = () => {
 
   // New module states
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoiceDuplicates, setInvoiceDuplicates] = useState<Array<{keep: any; remove: any[]}>>([]);
   const [citas, setCitas] = useState<Cita[]>([]);
   const [externalApps, setExternalApps] = useState<ExternalApp[]>([]);
   const [activeExternalApp, setActiveExternalApp] = useState<ExternalApp | null>(null);
@@ -452,19 +453,20 @@ const App: React.FC = () => {
   const hasAlta = notificaciones.some(n => !n.leida && n.prioridad === 'alta');
 
   // Detectar facturas/recibos duplicados (mismo repairId, no anuladas)
-  const invoiceDuplicates = useMemo(() => {
+  useEffect(() => {
     const byRepairId = new Map<string, any[]>();
     for (const inv of invoices) {
       if (!inv.repairId || inv.status === 'anulada') continue;
       if (!byRepairId.has(inv.repairId)) byRepairId.set(inv.repairId, []);
       byRepairId.get(inv.repairId)!.push(inv);
     }
-    return [...byRepairId.values()]
+    const found = [...byRepairId.values()]
       .filter(group => group.length > 1)
       .map(group => {
         const sorted = [...group].sort((a: any, b: any) => a.invoiceNumber.localeCompare(b.invoiceNumber));
         return { keep: sorted[0], remove: sorted.slice(1) };
       });
+    setInvoiceDuplicates(found);
   }, [invoices]);
 
   return (
