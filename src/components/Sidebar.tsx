@@ -46,6 +46,7 @@ const NOTIF_ICONS: Record<string, React.ElementType> = {
   cita: Calendar,
   reparacion: Wrench,
   factura: Receipt,
+  presupuesto: FileText,
 };
 const NOTIF_COLORS: Record<string, string> = {
   garantia: '#c62828',
@@ -53,10 +54,11 @@ const NOTIF_COLORS: Record<string, string> = {
   cita: '#1565c0',
   reparacion: '#e65100',
   factura: '#6a1b9a',
+  presupuesto: '#b45309',
 };
 const PRIO_DOT: Record<string, string> = { alta: '#c62828', media: '#f57f17', baja: '#388e3c' };
 const TIPO_LABEL: Record<string, string> = {
-  garantia: 'Garantías', stock: 'Stock', cita: 'Citas', reparacion: 'Reparaciones', factura: 'Facturas',
+  garantia: 'Garantías', stock: 'Stock', cita: 'Citas', reparacion: 'Reparaciones', factura: 'Facturas', presupuesto: 'Presupuestos',
 };
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -310,7 +312,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               ) : (
                 <div className="py-2">
-                  {(['cita', 'garantia', 'reparacion', 'stock', 'factura'] as const).map(tipo => {
+                  {(['cita', 'garantia', 'reparacion', 'stock', 'presupuesto', 'factura'] as const).map(tipo => {
                     const group = unreadNotifs.filter(n => n.tipo === tipo);
                     if (!group.length) return null;
                     const Icon = NOTIF_ICONS[tipo];

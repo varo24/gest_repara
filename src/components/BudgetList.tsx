@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon } from 'lucide-react';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone } from 'lucide-react';
 import { Budget, RepairItem, AppSettings, Customer } from '../types';
+import { getBudgetAlertLevel, workingDaysSince } from '../lib/budgetAlerts';
 
 interface BudgetListProps {
   budgets: Budget[];
@@ -14,6 +15,7 @@ interface BudgetListProps {
   onSendWhatsApp?: (budget: Budget, repair: RepairItem) => void;
   onConvertToInvoice?: (budget: Budget, repair: RepairItem, tipo?: 'FAC' | 'REC') => void;
   onUpdateBudgetStatus?: (budget: Budget, status: 'accepted' | 'rejected' | 'pending', motivo?: string) => void;
+  onMarkContacted?: (budgetId: string) => void;
   onBack?: () => void;
 }
 
@@ -40,8 +42,9 @@ function getBadgeInfo(budget: Budget): { label: string; bg: string; color: strin
 
 const BudgetList: React.FC<BudgetListProps> = ({
   budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget,
-  onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onBack,
+  onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onMarkContacted, onBack,
 }) => {
+  const followUpThreshold = settings?.budgetFollowUpDays ?? 3;
   const [searchTerm, setSearchTerm] = useState('');
   const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonthKey]));
@@ -200,6 +203,9 @@ const BudgetList: React.FC<BudgetListProps> = ({
                       const isAccepted  = budget.status === 'accepted';
                       const isRejected  = budget.status === 'rejected';
 
+                      const alertLevel = isPending ? getBudgetAlertLevel(budget, followUpThreshold) : 'none';
+                      const alertDays  = alertLevel !== 'none' ? workingDaysSince(budget.lastContactedAt || budget.date) : 0;
+
                       return (
                         <tr key={budget.id} className="hover:bg-slate-50 transition-all group border-b border-slate-50">
                           <td className="px-8 py-6">
@@ -224,13 +230,27 @@ const BudgetList: React.FC<BudgetListProps> = ({
                           </td>
                           <td className="px-4 py-6">
                             <p className="text-sm font-black text-blue-600">{(budget.total || 0).toFixed(2)}€</p>
-                            <span
-                              className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full mt-1"
-                              style={{ background: badge.bg, color: badge.color }}
-                              title={isRejected && budget.motivoRechazo ? `Motivo: ${budget.motivoRechazo}` : undefined}
-                            >
-                              {badge.label}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                              <span
+                                className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full"
+                                style={{ background: badge.bg, color: badge.color }}
+                                title={isRejected && budget.motivoRechazo ? `Motivo: ${budget.motivoRechazo}` : undefined}
+                              >
+                                {badge.label}
+                              </span>
+                              {alertLevel !== 'none' && (
+                                <span
+                                  className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full"
+                                  style={{
+                                    background: alertLevel === 'red' ? '#fee2e2' : '#fef3c7',
+                                    color:      alertLevel === 'red' ? '#991b1b' : '#92400e',
+                                  }}
+                                  title={`${alertDays} días laborables sin respuesta`}
+                                >
+                                  {alertDays}d
+                                </span>
+                              )}
+                            </div>
                             {isRejected && budget.motivoRechazo && (
                               <p className="text-[8px] text-red-400 mt-0.5 max-w-[120px] truncate" title={budget.motivoRechazo}>
                                 {budget.motivoRechazo}
@@ -284,6 +304,22 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                   title="Reactivar como pendiente"
                                 >
                                   <RotateCcw size={11} /> Reactivar
+                                </button>
+                              )}
+
+                              {/* Contactado — resets follow-up counter */}
+                              {isPending && alertLevel !== 'none' && onMarkContacted && (
+                                <button
+                                  onClick={() => onMarkContacted(budget.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase border transition-all"
+                                  style={{
+                                    background: alertLevel === 'red' ? '#fff7ed' : '#fffbeb',
+                                    color:      alertLevel === 'red' ? '#c2410c' : '#b45309',
+                                    borderColor: alertLevel === 'red' ? '#fed7aa' : '#fde68a',
+                                  }}
+                                  title="Marcar como contactado (resetea el contador)"
+                                >
+                                  <Phone size={11} /> Contactado
                                 </button>
                               )}
 

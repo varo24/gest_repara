@@ -162,6 +162,13 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
+  const handleMarkBudgetContacted = useCallback((budgetId: string) => {
+    const budget = budgets.find(b => b.id === budgetId);
+    if (!budget) return;
+    storage.save('budgets', budgetId, { ...budget, lastContactedAt: new Date().toISOString().slice(0, 10) });
+    notify('success', 'Presupuesto marcado como contactado.');
+  }, [budgets]);
+
   // Regenerate notifications whenever source data changes
   useEffect(() => {
     const nuevas = generarNotificaciones({
@@ -170,6 +177,8 @@ const App: React.FC = () => {
       citas,
       repairs,
       invoices,
+      budgets,
+      budgetFollowUpDays: settings.budgetFollowUpDays ?? 3,
     });
     setNotificaciones(prev => {
       const leidasIds = new Set(prev.filter(n => n.leida).map(n => n.id));
@@ -581,6 +590,7 @@ const App: React.FC = () => {
                   }
                 }}
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
+                onMarkContacted={handleMarkBudgetContacted}
                 onSendWhatsApp={async (budget, repair) => {
                   const msg = buildBudgetMessage(repair, budget, settings);
                   await sendWhatsApp(repair.customerPhone, msg);

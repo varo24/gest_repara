@@ -1,4 +1,5 @@
-import { Notificacion, Warranty, InventoryItem, Cita, RepairItem } from '../types';
+import { Notificacion, Warranty, InventoryItem, Cita, RepairItem, Budget } from '../types';
+import { workingDaysSince } from './budgetAlerts';
 
 function stableId(tipo: string, titulo: string, mensaje: string): string {
   return `${tipo}:${titulo}:${mensaje}`.replace(/[^a-zA-Z0-9:]/g, '-').slice(0, 100);
@@ -10,8 +11,10 @@ export function generarNotificaciones(data: {
   citas: Cita[];
   repairs: RepairItem[];
   invoices: any[];
+  budgets?: Budget[];
+  budgetFollowUpDays?: number;
 }): Notificacion[] {
-  const { garantias, inventory, citas, repairs, invoices } = data;
+  const { garantias, inventory, citas, repairs, invoices, budgets = [], budgetFollowUpDays = 3 } = data;
   const raw: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>[] = [];
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -79,7 +82,26 @@ export function generarNotificaciones(data: {
     }
   });
 
-  // 5. Facturas pendientes ≥30 días
+  // 5. Presupuestos sin respuesta
+  budgets
+    .filter(b => !b.status || b.status === 'pending')
+    .forEach(b => {
+      const ref = b.lastContactedAt || b.date;
+      if (!ref) return;
+      const days = workingDaysSince(ref);
+      if (days < budgetFollowUpDays) return;
+      const isRed = days >= budgetFollowUpDays * 2 + 1;
+      const name = b.customerName || 'Cliente';
+      raw.push({
+        tipo: 'presupuesto',
+        prioridad: isRed ? 'alta' : 'media',
+        titulo: `${days}d sin respuesta`,
+        mensaje: `${name} — ${Number(b.total ?? 0).toFixed(2)}€`,
+        vistaDestino: 'budgets',
+      });
+    });
+
+  // 6. Facturas pendientes ≥30 días
   invoices.filter(i => i.status === 'pendiente').forEach(i => {
     const dias = Math.floor((Date.now() - new Date(i.createdAt).getTime()) / 86400000);
     if (dias >= 30) {

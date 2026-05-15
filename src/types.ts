@@ -104,6 +104,7 @@ export interface Budget {
   status?: 'pending' | 'accepted' | 'rejected';
   motivoRechazo?: string;
   stockDescontado?: boolean;
+  lastContactedAt?: string;
   // Campos para presupuestos libres (sin reparación asociada)
   customerName?: string;
   customerPhone?: string;
@@ -127,6 +128,7 @@ export interface AppSettings {
   legalTerms?: string;
   dashboardModules?: string[];
   warrantyMonths?: number;
+  budgetFollowUpDays?: number;
   imapServerUrl?: string;
   imapApiKey?: string;
   imapDays?: number;
@@ -314,7 +316,7 @@ export interface Supplier {
 
 export interface Notificacion {
   id: string;
-  tipo: 'garantia' | 'stock' | 'cita' | 'reparacion' | 'factura';
+  tipo: 'garantia' | 'stock' | 'cita' | 'reparacion' | 'factura' | 'presupuesto';
   prioridad: 'alta' | 'media' | 'baja';
   titulo: string;
   mensaje: string;

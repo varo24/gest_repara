@@ -250,6 +250,22 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               onChange={e => setFormData({...formData, warrantyMonths: Math.max(0, parseInt(e.target.value) || 0)})}
             />
           </div>
+          <div className="space-y-2 mt-6">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <FileText size={12} className="text-amber-500" /> Días laborables sin respuesta para avisar en presupuestos
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              className="w-40 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-amber-500/10 outline-none"
+              value={formData.budgetFollowUpDays ?? 3}
+              onChange={e => setFormData({...formData, budgetFollowUpDays: Math.min(30, Math.max(1, parseInt(e.target.value) || 3))})}
+            />
+            <p className="text-[10px] text-slate-400 ml-1">
+              🟡 Amarillo: {formData.budgetFollowUpDays ?? 3}–{(formData.budgetFollowUpDays ?? 3) * 2}d &nbsp;·&nbsp; 🔴 Rojo: {(formData.budgetFollowUpDays ?? 3) * 2 + 1}d+
+            </p>
+          </div>
         </div>
       </div>
 
