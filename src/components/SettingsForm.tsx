@@ -3,11 +3,12 @@ import {
   Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
   Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
-  Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle, Lock, Unlock
+  Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle, Lock, Unlock, Bell
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
 import { isPinEnabled, clearPin, setPin, verifyPin } from '../lib/pinAuth';
+import { isNotifEnabled, setNotifEnabled, requestPermissionIfNeeded } from '../lib/pushNotifications';
 
 interface SettingsFormProps {
   settings: AppSettings;
@@ -35,6 +36,70 @@ const ALL_MODULES = [
   { id: 'settings',          label: 'Ajustes' },
 ];
 const ALL_MODULE_IDS = ALL_MODULES.map(m => m.id);
+
+// ── Notification toggle (self-contained, reads/writes localStorage) ───────────
+const NotifToggle: React.FC = () => {
+  const [enabled, setEnabled] = useState(isNotifEnabled);
+  const [permission, setPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+
+  const handleToggle = async () => {
+    if (!enabled) {
+      if (permission !== 'granted') {
+        await requestPermissionIfNeeded();
+        const newPerm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+        setPermission(newPerm);
+        if (newPerm !== 'granted') return;
+      }
+      setNotifEnabled(true);
+      setEnabled(true);
+    } else {
+      setNotifEnabled(false);
+      setEnabled(false);
+    }
+  };
+
+  const denied = permission === 'denied';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-black text-slate-800 uppercase tracking-wide">
+            {enabled ? 'Notificaciones activas' : 'Notificaciones desactivadas'}
+          </p>
+          <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+            {denied
+              ? 'El navegador ha denegado el permiso — actívalo en Ajustes del navegador'
+              : enabled
+              ? 'Recibirás alertas de reparaciones listas, citas y stock bajo'
+              : 'Activa para recibir alertas del taller en este dispositivo'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={denied}
+          className={`relative w-14 h-7 rounded-full transition-colors shrink-0 disabled:opacity-40 ${
+            enabled ? 'bg-blue-500' : 'bg-slate-300'
+          }`}
+        >
+          <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+            enabled ? 'translate-x-7' : 'translate-x-0'
+          }`} />
+        </button>
+      </div>
+      {enabled && (
+        <ul className="text-[10px] text-slate-400 font-medium space-y-1 pl-1">
+          <li>✓ Reparación lista para recoger</li>
+          <li>✓ Recordatorio de cita 1 hora antes</li>
+          <li>✓ Artículo con stock bajo (1 vez al día)</li>
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onInstall, onSave, onBack, version }) => {
   const [formData, setFormData] = useState<AppSettings>(settings);
@@ -562,6 +627,20 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
             </div>
           </div>
         </div>
+      </div>
+
+      {/* NOTIFICACIONES PUSH */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#f0f9ff' }}>
+            <Bell size={24} className="text-blue-500" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Notificaciones Push</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Alertas del sistema en el dispositivo</p>
+          </div>
+        </div>
+        <NotifToggle />
       </div>
 
       {/* RECORDATORIOS WHATSAPP */}

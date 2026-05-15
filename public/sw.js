@@ -1,12 +1,8 @@
-// ReparaPro Master - Service Worker v4.0
+// ReparaPro Master - Service Worker v5.0
 const CACHE_NAME = 'reparapro-v5';
 const OFFLINE_FALLBACK = '/index.html';
 
-// Archivos a cachear en instalación
-const PRECACHE_URLS = [
-  '/',
-  '/index.html',
-];
+const PRECACHE_URLS = ['/', '/index.html'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -26,7 +22,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  // Estrategia: Network First, fallback a cache
   event.respondWith(
     fetch(event.request)
       .then(response => {
@@ -35,5 +30,30 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => caches.match(event.request).then(r => r || caches.match(OFFLINE_FALLBACK)))
+  );
+});
+
+// ── Notification click → focus app and send navigation intent ────────────────
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const data = event.notification.data || {};
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        const existing = clientList.find(c => c.url.includes(self.location.origin));
+        if (existing) {
+          existing.focus();
+          existing.postMessage({ type: 'NOTIF_CLICK', data });
+        } else {
+          self.clients.openWindow('/').then(client => {
+            if (client) {
+              // delay to let the app bootstrap before sending the message
+              setTimeout(() => client.postMessage({ type: 'NOTIF_CLICK', data }), 1500);
+            }
+          });
+        }
+      })
   );
 });

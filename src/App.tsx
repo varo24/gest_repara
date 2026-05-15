@@ -34,6 +34,10 @@ import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from '
 import CitaReminderModal from './components/CitaReminderModal';
 import { shouldShowReminders, getCitasPendingReminder, setReminderDate } from './lib/citaReminders';
 import { isPinEnabled, clearSession } from './lib/pinAuth';
+import {
+  requestPermissionIfNeeded, checkRepairsReady, checkCitasReminder,
+  checkStockLow, purgeOldNotifIds, setBadge,
+} from './lib/pushNotifications';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
 import { printWorkOrder } from './lib/printWorkOrder';
 
@@ -157,6 +161,43 @@ const App: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  // ── SW notification click → navigate to the right view ───────────────────
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== 'NOTIF_CLICK') return;
+      const { view } = event.data.data ?? {};
+      if (view) navigateTo(view as any);
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
+
+  // ── Ask notification permission once, then check conditions ──────────────
+  const notifCheckedRef = useRef(false);
+  useEffect(() => {
+    if (!unlocked || loading) return;
+    if (notifCheckedRef.current) return;
+    notifCheckedRef.current = true;
+
+    requestPermissionIfNeeded();
+
+    // Run checks after a short delay to let data settle
+    const t = setTimeout(async () => {
+      await checkRepairsReady(repairs);
+      await checkCitasReminder(citas);
+      await checkStockLow(inventoryItems);
+      purgeOldNotifIds(
+        new Set(repairs.map(r => r.id)),
+        new Set(citas.map(c => c.id)),
+      );
+      // Update PWA badge with count of "ready" repairs
+      const readyCount = repairs.filter(r => r.status === RepairStatus.READY).length;
+      setBadge(readyCount);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [unlocked, loading, repairs, citas, inventoryItems]);
 
   const handleInstallPWA = async () => {
     if (!deferredInstallPrompt) return;
