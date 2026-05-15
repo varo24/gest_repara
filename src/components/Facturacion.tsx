@@ -376,14 +376,17 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
 
   const limpiarDuplicados = () => {
     const total = duplicados.reduce((s, g) => s + g.remove.length, 0);
-    if (!window.confirm(`¿Eliminar ${total} factura(s) duplicada(s)? Se mantiene el número más bajo de cada grupo. Esta acción no se puede deshacer.`)) return;
-    for (const { remove } of duplicados) {
+    if (!window.confirm(`¿Anular ${total} factura(s) duplicada(s)? Se mantiene el número más bajo de cada grupo.\n\nLos números quedan como "Anulado - Duplicado" para mantener la correlación fiscal.`)) return;
+    for (const { keep, remove } of duplicados) {
       for (const inv of remove) {
-        if (inv.stockDescontado) devolverStock(inv.items, 'eliminacion', inv.invoiceNumber);
-        storage.save('invoices', inv.id, { ...inv, status: 'anulada', _deleted: true, stockDescontado: false, deletedAt: new Date().toISOString() });
+        storage.save('invoices', inv.id, {
+          ...inv,
+          status: 'anulada',
+          motivoAnulacion: `duplicado de ${keep.invoiceNumber}`,
+        });
       }
     }
-    onNotify('success', `${total} factura${total !== 1 ? 's' : ''} duplicada${total !== 1 ? 's' : ''} eliminada${total !== 1 ? 's' : ''}`);
+    onNotify('success', `${total} factura${total !== 1 ? 's' : ''} marcada${total !== 1 ? 's' : ''} como anulada${total !== 1 ? 's' : ''} (duplicado)`);
   };
 
   const anular = (inv: FullInvoice) => {
@@ -632,13 +635,18 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
                       </tr>
                       {/* Invoice rows */}
                       {isExpanded && monthInvoices.map(inv => (
-                        <tr key={inv.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
-                          <td className="px-5 py-3.5"><span className={`text-[11px] font-black px-2.5 py-1 rounded-full font-mono ${(inv.invoiceNumber||'').startsWith('REC-') ? 'text-slate-600 bg-slate-100' : 'text-blue-600 bg-blue-50'}`}>{inv.invoiceNumber}</span></td>
+                        <tr key={inv.id} className={`hover:bg-slate-50 transition-colors border-b border-slate-50 ${inv.status === 'anulada' ? 'opacity-60' : ''}`}>
+                          <td className="px-5 py-3.5"><span className={`text-[11px] font-black px-2.5 py-1 rounded-full font-mono ${inv.status === 'anulada' ? 'line-through text-slate-400 bg-slate-100' : (inv.invoiceNumber||'').startsWith('REC-') ? 'text-slate-600 bg-slate-100' : 'text-blue-600 bg-blue-50'}`}>{inv.invoiceNumber}</span></td>
                           <td className="px-4 py-3.5"><p className="text-sm font-bold text-slate-900">{inv.customerName}</p><p className="text-[10px] text-slate-400">{inv.customerPhone}</p></td>
                           <td className="px-4 py-3.5">{inv.rmaNumber ? <span className="text-[10px] font-mono text-slate-500">{fmtRMA(inv.rmaNumber)}</span> : <span className="text-slate-300">—</span>}</td>
                           <td className="px-4 py-3.5 text-sm text-slate-500">{fmtDate(inv.date)}</td>
                           <td className="px-4 py-3.5 text-right text-sm font-black text-slate-900">{fmtMoney(inv.total)}</td>
-                          <td className="px-4 py-3.5"><span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[inv.status]}`}>{inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span></td>
+                          <td className="px-4 py-3.5">
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[inv.status] ?? ''}`}>{inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span>
+                            {(inv as any).motivoAnulacion && (
+                              <p className="text-[8px] font-bold text-red-400 uppercase tracking-wide mt-0.5">{(inv as any).motivoAnulacion}</p>
+                            )}
+                          </td>
                           <td className="px-4 py-3.5 text-xs text-slate-500">{PAY_LABELS[inv.payMethod||'']||'—'}</td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex gap-1 justify-end">

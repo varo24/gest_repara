@@ -356,6 +356,44 @@ const App: React.FC = () => {
     if (count) console.log(`[Migration v1] Archivados ${count} presupuestos con factura/recibo`);
   }, [budgets, invoices]);
 
+  // ── Migración: restaurar facturas borradas como duplicados que quedaron con _deleted ──
+  const dupRestoreDoneRef = useRef(false);
+  useEffect(() => {
+    const MIGRATION_KEY = 'gestrepara_migration_restaurar_duplicados_v1';
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+    if (dupRestoreDoneRef.current) return;
+    if (!invoices.length) return;
+
+    dupRestoreDoneRef.current = true;
+    localStorage.setItem(MIGRATION_KEY, '1');
+
+    // Mapa repairId → factura activa (no borrada)
+    const activeByRepairId = new Map<string, any>();
+    for (const inv of invoices) {
+      if (!(inv as any)._deleted && inv.status !== 'anulada' && inv.repairId) {
+        // Guardar la de número más bajo
+        const existing = activeByRepairId.get(inv.repairId);
+        if (!existing || (inv.invoiceNumber ?? '').localeCompare(existing.invoiceNumber ?? '') < 0) {
+          activeByRepairId.set(inv.repairId, inv);
+        }
+      }
+    }
+
+    let count = 0;
+    for (const inv of invoices) {
+      if (!(inv as any)._deleted || !inv.repairId) continue;
+      const sibling = activeByRepairId.get(inv.repairId);
+      if (!sibling) continue;
+      storage.save('invoices', inv.id, {
+        ...inv,
+        _deleted: false,
+        motivoAnulacion: `duplicado de ${sibling.invoiceNumber}`,
+      });
+      count++;
+    }
+    if (count) console.log(`[Migration v2] Restaurados ${count} duplicados como anulados con motivo`);
+  }, [invoices]);
+
   const handleReminderSent = useCallback((citaId: string) => {
     const cita = citas.find(c => c.id === citaId);
     if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });
