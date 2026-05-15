@@ -21,11 +21,9 @@ type Mode = 'unlock' | 'setup' | 'confirm';
 const Dot: React.FC<{ filled: boolean }> = ({ filled }) => (
   <div
     style={{
-      width: 18, height: 18, borderRadius: '50%',
-      background: filled ? '#fff' : 'rgba(255,255,255,0.2)',
-      transform: filled ? 'scale(1.15)' : 'scale(1)',
-      transition: 'all 0.15s',
-      boxShadow: filled ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
+      width: 12, height: 12, borderRadius: '50%',
+      background: filled ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.18)',
+      transition: 'background 0.12s',
     }}
   />
 );
@@ -33,25 +31,24 @@ const Dot: React.FC<{ filled: boolean }> = ({ filled }) => (
 const Key: React.FC<{ label: React.ReactNode; onPress: () => void; disabled?: boolean; variant?: 'default' | 'delete' | 'bio' }> = ({
   label, onPress, disabled, variant = 'default',
 }) => {
-  const bg = variant === 'delete' ? 'rgba(255,255,255,0.08)'
-           : variant === 'bio'    ? 'rgba(255,255,255,0.08)'
-           : 'rgba(255,255,255,0.12)';
+  const bg      = variant === 'default' ? 'rgba(255,255,255,0.08)' : 'transparent';
+  const bgDown  = 'rgba(255,255,255,0.16)';
   return (
     <button
       onClick={onPress}
       disabled={disabled}
       style={{
-        height: 68, borderRadius: 20, border: 'none',
-        background: bg, color: '#fff',
-        fontSize: 26, fontWeight: 900,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.3 : 1,
-        transition: 'all 0.12s',
+        height: 64, borderRadius: 18, border: 'none',
+        background: bg, color: 'rgba(255,255,255,0.88)',
+        fontSize: 22, fontWeight: 400,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.25 : 1,
+        transition: 'background 0.1s, opacity 0.1s',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         WebkitTapHighlightColor: 'transparent',
         userSelect: 'none',
       }}
-      onPointerDown={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.25)'; }}
+      onPointerDown={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = bgDown; }}
       onPointerUp={e => { (e.currentTarget as HTMLElement).style.background = bg; }}
       onPointerLeave={e => { (e.currentTarget as HTMLElement).style.background = bg; }}
     >
@@ -198,85 +195,68 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }
       style={{
         minHeight: '100dvh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(160deg, #1b5e20 0%, #2d6a2d 50%, #1a472a 100%)',
-        padding: '24px 20px',
+        background: '#111218',
+        padding: '32px 20px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 360 }}>
+      <div style={{ width: '100%', maxWidth: 320 }}>
 
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        {/* App name / logo */}
+        <div style={{ textAlign: 'center', marginBottom: 44 }}>
           {settings?.logoUrl ? (
             <img
               src={settings.logoUrl}
               alt="Logo"
-              style={{ width: 80, height: 80, borderRadius: 16, margin: '0 auto 12px', objectFit: 'contain', display: 'block' }}
+              style={{ width: 52, height: 52, borderRadius: 12, margin: '0 auto 10px', objectFit: 'contain', display: 'block', opacity: 0.85 }}
             />
           ) : (
             <div style={{
-              width: 80, height: 80, borderRadius: 16, margin: '0 auto 12px',
-              background: 'rgba(255,255,255,0.15)', display: 'flex',
+              width: 52, height: 52, borderRadius: 12, margin: '0 auto 10px',
+              background: 'rgba(255,255,255,0.06)', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              fontSize: 36, fontWeight: 900, color: '#fff',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.2)',
+              fontSize: 22, fontWeight: 600, color: 'rgba(255,255,255,0.6)',
             }}>
               {appInitial}
             </div>
           )}
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 400, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.01em' }}>
             {settings?.appName || 'Gestrepara'}
-          </h1>
+          </p>
         </div>
 
-        {/* Card */}
-        <div style={{
-          background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(16px)',
-          borderRadius: 32, padding: '36px 28px',
-          border: '1px solid rgba(255,255,255,0.12)',
-        }}>
-
-          {/* Heading */}
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</p>
-            <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{sub}</p>
-          </div>
-
-          {/* Dots */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 28 }}>
-            {[0,1,2,3].map(i => <Dot key={i} filled={i < activePin.length} />)}
-          </div>
-
-          {/* Error / countdown */}
-          {(error || locked) && (
-            <div style={{
-              background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.3)',
-              borderRadius: 16, padding: '12px 16px', textAlign: 'center', marginBottom: 20,
-            }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                {locked ? `Bloqueado — espera ${countdown}s` : error}
-              </p>
-            </div>
+        {/* Heading */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <p style={{ margin: 0, fontSize: 17, fontWeight: 400, color: 'rgba(255,255,255,0.85)' }}>{title}</p>
+          {(error || locked) ? (
+            <p style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 400, color: locked ? 'rgba(255,255,255,0.4)' : '#f87171' }}>
+              {locked ? `Bloqueado · espera ${countdown}s` : error}
+            </p>
+          ) : (
+            <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}>{sub}</p>
           )}
+        </div>
 
-          {/* Numpad */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {[1,2,3,4,5,6,7,8,9].map(n => (
-              <Key key={n} label={n} onPress={() => pushDigit(String(n))} disabled={locked} />
-            ))}
-            {/* bottom row: bio | 0 | delete */}
-            <Key
-              variant="bio"
-              label={bioAvail && hasBiometricRegistered()
-                ? (bioLoading ? '…' : <Fingerprint size={24} />)
-                : <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bio</span>
-              }
-              onPress={bioAvail && hasBiometricRegistered() && !bioLoading ? handleBiometric : () => {}}
-              disabled={locked || !bioAvail || !hasBiometricRegistered()}
-            />
-            <Key label={0} onPress={() => pushDigit('0')} disabled={locked} />
-            <Key variant="delete" label={<Delete size={22} />} onPress={popDigit} disabled={locked} />
-          </div>
+        {/* Dots */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 40 }}>
+          {[0,1,2,3].map(i => <Dot key={i} filled={i < activePin.length} />)}
+        </div>
+
+        {/* Numpad */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {[1,2,3,4,5,6,7,8,9].map(n => (
+            <Key key={n} label={n} onPress={() => pushDigit(String(n))} disabled={locked} />
+          ))}
+          <Key
+            variant="bio"
+            label={bioAvail && hasBiometricRegistered()
+              ? (bioLoading ? '…' : <Fingerprint size={20} strokeWidth={1.5} />)
+              : null
+            }
+            onPress={bioAvail && hasBiometricRegistered() && !bioLoading ? handleBiometric : () => {}}
+            disabled={locked || !bioAvail || !hasBiometricRegistered()}
+          />
+          <Key label={0} onPress={() => pushDigit('0')} disabled={locked} />
+          <Key variant="delete" label={<Delete size={18} strokeWidth={1.5} />} onPress={popDigit} />
         </div>
 
         {/* Reset link */}
@@ -284,13 +264,13 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }
           <button
             onClick={() => { setMode('setup'); setCurrentPin(''); setError(''); setAttempts(0); }}
             style={{
-              width: '100%', marginTop: 20, background: 'none', border: 'none',
-              color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: '0.1em', cursor: 'pointer',
-              padding: '8px 0',
+              display: 'block', width: '100%', marginTop: 36,
+              background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.2)', fontSize: 11, fontWeight: 400,
+              cursor: 'pointer', padding: '8px 0', letterSpacing: '0.01em',
             }}
           >
-            ¿Olvidaste el PIN? Restablecer acceso
+            Olvidé el PIN
           </button>
         )}
       </div>
