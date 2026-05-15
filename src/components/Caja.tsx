@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Wallet, Plus, X, Printer, ArrowLeft,
   AlertTriangle, CheckCircle, Eye, RotateCcw, Pencil, Trash2
@@ -104,8 +104,13 @@ const CAT_LABELS: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// Local-date helpers — toISOString() uses UTC, which causes off-by-one at midnight
+// in timezones ahead of UTC (e.g., Spain UTC+1/+2). Use getFullYear/getMonth/getDate instead.
+const localDateStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImportadas = [], settings, onBack, onViewArchivo, onNotify }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr(new Date());
   const todayLabel = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const [activeTab, setActiveTab] = useState<'hoy' | 'historial'>('hoy');
@@ -143,6 +148,14 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   const [movPayMethod, setMovPayMethod] = useState('efectivo');
   const [movCategoria, setMovCategoria] = useState('otros');
   const [movNotas, setMovNotas] = useState('');
+
+  // Force a Firestore pull for cierres_caja when the historial tab opens.
+  // Needed because isSyncFresh() may skip pullAll on mount, leaving IDB stale.
+  useEffect(() => {
+    if (activeTab === 'historial') {
+      storage.refreshCollection('cierres_caja').catch(() => {});
+    }
+  }, [activeTab]);
 
   const allMovements = useMemo(() => cashMovements.map(normalizeMov), [cashMovements]);
 
@@ -188,19 +201,22 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   );
   const cajaAbierta = !!aperturaHoy && !cierreHoy;
 
-  // Alert: yesterday not closed
+  // Alert: yesterday not closed — use local date to avoid UTC midnight off-by-one
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+  const yesterdayStr = localDateStr(yesterdayDate);
+
   const cierreAyer = useMemo(
     () => cierresCaja.find(c => (c.fecha || '').slice(0, 10) === yesterdayStr),
     [cierresCaja, yesterdayStr]
   );
+  // Only match explicit fecha/date — never fall back to createdAt here.
+  // A movement without an explicit fecha was not opened via the Caja UI.
   const aperturaAyer = useMemo(
-    () => cashMovements.find(m =>
-      ((m.fecha || m.date || (m.createdAt ? m.createdAt.slice(0, 10) : ''))).slice(0, 10) === yesterdayStr &&
-      (m.tipo || m.type) === 'apertura'
-    ),
+    () => cashMovements.find(m => {
+      const fecha = (m.fecha || m.date || '').slice(0, 10);
+      return fecha === yesterdayStr && (m.tipo || m.type) === 'apertura';
+    }),
     [cashMovements, yesterdayStr]
   );
   const cajaAyerSinCerrar = !!aperturaAyer && !cierreAyer;

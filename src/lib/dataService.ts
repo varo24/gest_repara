@@ -465,6 +465,23 @@ export const storage = {
     return `${prefix}${String(next).padStart(5, '0')}`;
   },
 
+  // Pull a single collection from Firestore and broadcast, bypassing the sync-TTL cache.
+  // Use this when the component needs guaranteed-fresh data (e.g., historial de cierres).
+  refreshCollection: async (col: string): Promise<void> => {
+    if (!firestoreAvailable) {
+      firestoreAvailable = await testFirestore();
+      if (!firestoreAvailable) return;
+    }
+    try {
+      const snap = await getDocs(collection(db, col));
+      snap.forEach(docSnap => {
+        const data = normalizeDoc({ id: docSnap.id, ...docSnap.data() });
+        localStore.put(col, data);
+      });
+      broadcast(col);
+    } catch (e) { console.warn(`[DS] refreshCollection(${col}):`, e); }
+  },
+
   exportData: async (): Promise<string> => {
     const BACKUP_COLS = [
       'repairs', 'budgets', 'invoices', 'cash_movements',
