@@ -37,7 +37,8 @@
       "Bash(npm i *)",
       "Bash(npx vite-bundle-visualizer *)",
       "Bash(npx vite *)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(git revert *)"
     ]
   }
 }

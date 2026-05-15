@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Wallet, Plus, X, Printer, ArrowLeft,
-  AlertTriangle, CheckCircle, Eye, RotateCcw, Pencil, Trash2
+  AlertTriangle, CheckCircle, Eye, RotateCcw, Pencil, Trash2,
+  FileSpreadsheet, FileText
 } from 'lucide-react';
 import { AppSettings, CierreCaja as CierreCajaType, DetalleBilletes } from '../types';
 import { storage } from '../lib/dataService';
+import { exportCajaExcel, exportCajaPdf } from '../lib/cajaExport';
 
 interface NormMov {
   id: string;
@@ -156,6 +158,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
       storage.refreshCollection('cierres_caja').catch(() => {});
     }
   }, [activeTab]);
+
 
   const allMovements = useMemo(() => cashMovements.map(normalizeMov), [cashMovements]);
 
@@ -843,6 +846,24 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                 Ver todos
               </button>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => exportCajaExcel(historialFiltered, allMovements, settings.appName, historialMes)}
+                disabled={historialFiltered.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <FileSpreadsheet size={13} />
+                Excel
+              </button>
+              <button
+                onClick={() => exportCajaPdf(historialFiltered, allMovements, settings.appName, historialMes)}
+                disabled={historialFiltered.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <FileText size={13} />
+                PDF
+              </button>
+            </div>
           </div>
           {historialFiltered.length === 0 ? (
             <div className="text-center py-16 text-slate-400 text-sm">
