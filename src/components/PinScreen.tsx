@@ -202,24 +202,24 @@ const PinScreen: React.FC<PinScreenProps> = ({ onUnlock, onFieldMode, settings }
       <div style={{ width: '100%', maxWidth: 320 }}>
 
         {/* App name / logo */}
-        <div style={{ textAlign: 'center', marginBottom: 44 }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
           {settings?.logoUrl ? (
             <img
               src={settings.logoUrl}
               alt="Logo"
-              style={{ width: 52, height: 52, borderRadius: 12, margin: '0 auto 10px', objectFit: 'contain', display: 'block', opacity: 0.85 }}
+              style={{ width: 88, height: 88, borderRadius: 20, margin: '0 auto 16px', objectFit: 'contain', display: 'block' }}
             />
           ) : (
             <div style={{
-              width: 52, height: 52, borderRadius: 12, margin: '0 auto 10px',
-              background: 'rgba(255,255,255,0.06)', display: 'flex',
+              width: 88, height: 88, borderRadius: 20, margin: '0 auto 16px',
+              background: 'rgba(255,255,255,0.08)', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              fontSize: 22, fontWeight: 600, color: 'rgba(255,255,255,0.6)',
+              fontSize: 36, fontWeight: 600, color: 'rgba(255,255,255,0.7)',
             }}>
               {appInitial}
             </div>
           )}
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 400, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.01em' }}>
+          <p style={{ margin: 0, fontSize: 23, fontWeight: 600, color: 'rgba(255,255,255,0.85)', letterSpacing: '-0.01em' }}>
             {settings?.appName || 'Gestrepara'}
           </p>
         </div>
