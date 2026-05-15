@@ -159,11 +159,6 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
-  // [PADRE-DBG] Traza cierresCaja cada vez que cambia (temporal — eliminar tras diagnóstico)
-  useEffect(() => {
-    console.log('[PADRE-DBG] cierresCaja antes de pasar al hijo:', cierresCaja.length, cierresCaja);
-  }, [cierresCaja]);
-
   // Regenerate notifications whenever source data changes
   useEffect(() => {
     const nuevas = generarNotificaciones({

@@ -153,12 +153,8 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   // Needed because isSyncFresh() may skip pullAll on mount, leaving IDB stale.
   useEffect(() => {
     if (activeTab === 'historial') {
-      console.log('[CAJA-DBG] Historial tab opened — cierresCaja.length at open time:', cierresCaja.length);
-      storage.refreshCollection('cierres_caja')
-        .then(() => console.log('[CAJA-DBG] refreshCollection("cierres_caja") resolved — React will re-render if data changed'))
-        .catch(e => console.error('[CAJA-DBG] refreshCollection ERROR:', e));
+      storage.refreshCollection('cierres_caja').catch(() => {});
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const allMovements = useMemo(() => cashMovements.map(normalizeMov), [cashMovements]);
@@ -210,45 +206,20 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = localDateStr(yesterdayDate);
 
-  // ── DEBUG (remove after diagnosis) ────────────────────────────────────────
-  console.log('[CAJA-DBG] today:', today, '| yesterdayStr:', yesterdayStr);
-  console.log('[CAJA-DBG] cashMovements.length:', cashMovements.length);
-  console.log('[CAJA-DBG] apertura movements (raw):',
-    cashMovements
-      .filter(m => (m.tipo || m.type) === 'apertura')
-      .map(m => ({ id: m.id, tipo: m.tipo, type: m.type, fecha: m.fecha, date: m.date, createdAt: m.createdAt }))
-  );
-  console.log('[CAJA-DBG] cierresCaja prop length:', cierresCaja.length);
-  if (cierresCaja.length > 0) console.log('[CAJA-DBG] first cierre sample:', cierresCaja[0]);
-  // ── END DEBUG ──────────────────────────────────────────────────────────────
-
   const cierreAyer = useMemo(
     () => cierresCaja.find(c => (c.fecha || '').slice(0, 10) === yesterdayStr),
     [cierresCaja, yesterdayStr]
   );
-  // Only match explicit fecha/date — never fall back to createdAt here.
-  // A movement without an explicit fecha was not opened via the Caja UI.
+  // Exclude apertura movements explicitly marked ignorada: true (dismissed by user).
+  // Only match on explicit fecha/date — no createdAt fallback.
   const aperturaAyer = useMemo(
-    () => {
-      const found = cashMovements.find(m => {
-        const fecha = (m.fecha || m.date || '').slice(0, 10);
-        return fecha === yesterdayStr && (m.tipo || m.type) === 'apertura';
-      });
-      console.log('[CAJA-DBG] aperturaAyer result:', found
-        ? { id: found.id, tipo: found.tipo, type: found.type, fecha: found.fecha, date: found.date }
-        : 'NOT FOUND'
-      );
-      console.log('[CAJA-DBG] cierreAyer result:', cierreAyer
-        ? { id: cierreAyer.id, fecha: cierreAyer.fecha }
-        : 'NOT FOUND'
-      );
-      return found;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cashMovements, yesterdayStr, cierreAyer]
+    () => cashMovements.find(m => {
+      const fecha = (m.fecha || m.date || '').slice(0, 10);
+      return fecha === yesterdayStr && (m.tipo || m.type) === 'apertura' && !m.ignorada;
+    }),
+    [cashMovements, yesterdayStr]
   );
   const cajaAyerSinCerrar = !!aperturaAyer && !cierreAyer;
-  console.log('[CAJA-DBG] cajaAyerSinCerrar:', cajaAyerSinCerrar, '| aperturaAyer:', !!aperturaAyer, '| cierreAyer:', !!cierreAyer);
 
   // Today summary
   const todayIngresos = todayMovements.filter(m => m.tipo === 'ingreso');
@@ -365,21 +336,11 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   };
 
   const handleDismissAlerta = async () => {
-    const now = new Date().toISOString();
-    const id = `CIERRE-DISMISS-${yesterdayStr}`;
-    const marcador: CierreCajaType = {
-      id, fecha: yesterdayStr,
-      apertura: 0, totalIngresos: 0, totalGastos: 0,
-      totalEfectivo: 0, totalTarjeta: 0, totalBizum: 0, totalTransferencia: 0,
-      saldoFinal: 0, saldoEsperado: 0, diferencia: 0,
-      movimientos: [],
-      dismissed: true,
-      notas: 'Alerta descartada manualmente — caja de ese día marcada como cerrada.',
-      cerradoPor: 'Sistema',
-      createdAt: now,
-    };
-    await storage.save('cierres_caja', id, marcador);
-    onNotify('info', `Caja del ${yesterdayStr} marcada como cerrada.`);
+    if (!aperturaAyer) return;
+    // Mark the apertura movement itself as ignored — avoids creating fake cierres
+    // that cause a re-alert loop when deleted.
+    await storage.save('cash_movements', aperturaAyer.id, { ...aperturaAyer, ignorada: true });
+    onNotify('info', `Alerta del ${yesterdayStr} descartada.`);
   };
 
   const handleDeleteMov = async () => {
@@ -591,14 +552,12 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
   const editDiff     = Math.round((editEfectivoNum - editSaldoEsp) * 100) / 100;
 
   const historialFiltered = useMemo(() => {
-    console.log('[CAJA-DBG] historialFiltered — cierresCaja.length:', cierresCaja.length);
-    console.log('[CAJA-DBG] historialFiltered — raw cierresCaja:', JSON.stringify(cierresCaja.slice(0, 3)));
+    // Exclude dismissed: true (legacy fake-cierres from old approach — keep for compat)
     const sorted = [...cierresCaja]
-      .filter(c => c.fecha)
+      .filter(c => c.fecha && !c.dismissed)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-    const result = !historialMes ? sorted : sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
-    console.log('[CAJA-DBG] historialFiltered result.length:', result.length);
-    return result;
+    if (!historialMes) return sorted;
+    return sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
   }, [cierresCaja, historialMes]);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -893,28 +852,19 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
             <div className="space-y-3">
               {historialFiltered.map(c => {
                 const diff = c.diferencia ?? 0;
-                const isDismissed = !!c.dismissed;
                 return (
-                  <div key={c.id} className={`rounded-2xl shadow-sm overflow-hidden ${isDismissed ? 'bg-slate-50 opacity-70' : 'bg-white'}`}>
+                  <div key={c.id} className="rounded-2xl shadow-sm overflow-hidden bg-white">
                     <div className="flex items-center gap-4 px-5 py-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-black text-slate-800">{c.fecha}</p>
-                          {isDismissed && (
-                            <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
-                              Descartado
-                            </span>
-                          )}
                         </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          {isDismissed
-                            ? 'Caja marcada como cerrada manualmente'
-                            : `Ingresos ${fmt(c.totalIngresos)} · Gastos ${fmt(c.totalGastos)}${c.cerradoPor ? ` · ${c.cerradoPor}` : ''}`
-                          }
+                          {`Ingresos ${fmt(c.totalIngresos)} · Gastos ${fmt(c.totalGastos)}${c.cerradoPor ? ` · ${c.cerradoPor}` : ''}`}
                         </p>
                       </div>
-                      <span className={`text-sm font-black tabular-nums ${isDismissed ? 'text-slate-300' : diff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {isDismissed ? '—' : `${diff >= 0 ? '+' : ''}${fmt(diff)}`}
+                      <span className={`text-sm font-black tabular-nums ${diff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {`${diff >= 0 ? '+' : ''}${fmt(diff)}`}
                       </span>
                       <div className="flex gap-1">
                         <button onClick={() => openEditModal(c)} className="p-2 rounded-xl hover:bg-blue-50 text-blue-300 hover:text-blue-600 transition-colors" title="Editar cierre">
