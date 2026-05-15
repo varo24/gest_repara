@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import RepairList from './components/RepairList';
@@ -31,6 +31,8 @@ import { SyncStatusProvider } from './lib/syncStatusContext';
 import SyncIndicator from './components/SyncIndicator';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
+import CitaReminderModal from './components/CitaReminderModal';
+import { shouldShowReminders, getCitasPendingReminder, setReminderDate } from './lib/citaReminders';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
 import { printWorkOrder } from './lib/printWorkOrder';
 
@@ -93,6 +95,8 @@ const App: React.FC = () => {
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [reminderCitas, setReminderCitas] = useState<Cita[]>([]);
+  const reminderChecked = useRef(false);
   const [cashMovements, setCashMovements] = useState<any[]>([]);
   const [cierresCaja, setCierresCaja] = useState<any[]>([]);
 
@@ -199,6 +203,31 @@ const App: React.FC = () => {
   const marcarTodasLeidas = useCallback(() => {
     setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
   }, []);
+
+  // ── WhatsApp reminder check (once per day, after configured hour) ───────────
+
+  useEffect(() => {
+    if (loading) return;
+
+    const timer = setTimeout(() => {
+      if (reminderChecked.current) return;
+      reminderChecked.current = true;
+      if (!shouldShowReminders(settings)) return;
+      const pending = getCitasPendingReminder(citas);
+      setReminderDate(new Date().toISOString().slice(0, 10));
+      if (pending.length > 0) setReminderCitas(pending);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [loading, settings, citas]);
+
+  const handleReminderSent = useCallback((citaId: string) => {
+    const cita = citas.find(c => c.id === citaId);
+    if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });
+    setReminderCitas(prev => prev.filter(c => c.id !== citaId));
+  }, [citas]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const navigateTo = (view: ViewType) => {
     setCurrentView(view);
@@ -946,6 +975,16 @@ const App: React.FC = () => {
         )}
       </main>
     </div>
+
+    {/* ── WhatsApp reminder modal ── */}
+    {reminderCitas.length > 0 && (
+      <CitaReminderModal
+        citas={reminderCitas}
+        settings={settings}
+        onSent={handleReminderSent}
+        onClose={() => setReminderCitas([])}
+      />
+    )}
     </SyncStatusProvider>
   );
 };

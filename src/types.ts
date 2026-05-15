@@ -129,6 +129,9 @@ export interface AppSettings {
   dashboardModules?: string[];
   warrantyMonths?: number;
   budgetFollowUpDays?: number;
+  whatsappRemindersEnabled?: boolean;
+  whatsappReminderHour?: number;
+  whatsappReminderMessage?: string;
   imapServerUrl?: string;
   imapApiKey?: string;
   imapDays?: number;

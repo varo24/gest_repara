@@ -3,7 +3,7 @@ import {
   Save, Building2, Download, Upload, Globe, Copy, CheckCircle2,
   Monitor, Mail, Phone, MapPin, FileText, Trash2, Image as ImageIcon,
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
-  Package, Brain, Plus, LayoutDashboard, QrCode
+  Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -511,6 +511,91 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* RECORDATORIOS WHATSAPP */}
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="p-3 rounded-2xl text-white shadow-lg" style={{ background: '#075e54' }}>
+            <MessageCircle size={24} />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recordatorios WhatsApp</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Aviso automático a clientes el día antes de su cita</p>
+          </div>
+          <span className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+            formData.whatsappRemindersEnabled
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            {formData.whatsappRemindersEnabled ? '✓ Activo' : 'Inactivo'}
+          </span>
+        </div>
+
+        <div className="space-y-6">
+          {/* Toggle */}
+          <div className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-200">
+            <div>
+              <p className="text-sm font-black text-slate-800">Activar recordatorios</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                Muestra un aviso al abrir la app para enviar recordatorios por WhatsApp
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, whatsappRemindersEnabled: !formData.whatsappRemindersEnabled })}
+              className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                formData.whatsappRemindersEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+              }`}
+            >
+              <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                formData.whatsappRemindersEnabled ? 'translate-x-7' : 'translate-x-0'
+              }`} />
+            </button>
+          </div>
+
+          {formData.whatsappRemindersEnabled && (
+            <div className="space-y-6 p-5 rounded-2xl border border-emerald-100" style={{ background: '#f0fdf4' }}>
+              {/* Hour */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Hora del aviso (se muestra al abrir la app a partir de esa hora)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    className="w-24 px-4 py-3 bg-white border border-emerald-200 rounded-2xl font-black text-lg text-center focus:ring-4 focus:ring-emerald-500/10 outline-none"
+                    value={formData.whatsappReminderHour ?? 17}
+                    onChange={e => setFormData({ ...formData, whatsappReminderHour: Math.min(23, Math.max(0, parseInt(e.target.value) || 0)) })}
+                  />
+                  <span className="text-sm font-bold text-slate-500">:00 h</span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold ml-1">
+                  Por defecto: 17:00 — El aviso no aparece si se abre antes de esa hora
+                </p>
+              </div>
+
+              {/* Message template */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Mensaje personalizado
+                </label>
+                <textarea
+                  rows={4}
+                  className="w-full px-5 py-4 bg-white border border-emerald-200 rounded-2xl text-sm font-medium text-slate-700 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none leading-relaxed"
+                  value={formData.whatsappReminderMessage || ''}
+                  onChange={e => setFormData({ ...formData, whatsappReminderMessage: e.target.value })}
+                  placeholder={`Hola {nombre}, te recordamos tu cita mañana {fecha} a las {hora} en {taller}. Para cancelar o cambiar hora llámanos al {telefono}.`}
+                />
+                <p className="text-[10px] text-slate-400 font-bold ml-1">
+                  Variables: <code className="bg-white px-1 rounded">{'{nombre}'}</code> · <code className="bg-white px-1 rounded">{'{fecha}'}</code> · <code className="bg-white px-1 rounded">{'{hora}'}</code> · <code className="bg-white px-1 rounded">{'{taller}'}</code> · <code className="bg-white px-1 rounded">{'{telefono}'}</code>
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
