@@ -203,8 +203,7 @@ const GlobalSearch: React.FC<Props> = ({
       {/* ── Modal ────────────────────────────────────────────────────────────── */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[550] flex items-start justify-center px-4"
-          style={{ paddingTop: 'min(12vh, 80px)' }}
+          className="fixed inset-0 z-[550] flex justify-center gs-search-wrap"
           role="dialog"
           aria-modal="true"
           aria-label="Búsqueda global"
@@ -217,11 +216,22 @@ const GlobalSearch: React.FC<Props> = ({
 
           {/* Panel */}
           <div
-            className="relative w-full max-w-xl bg-white shadow-2xl overflow-hidden flex flex-col"
-            style={{ borderRadius: 20, maxHeight: '72vh' }}
+            className="relative bg-white overflow-hidden flex flex-col"
+            style={{
+              width: '92vw',
+              minWidth: 280,
+              maxWidth: 680,
+              borderRadius: 16,
+              maxHeight: '82vh',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              animation: 'gs-slide-down 0.18s ease',
+            }}
           >
             {/* ── Input ─────────────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3 px-5 py-4 shrink-0" style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <div
+              className="flex items-center gap-3 shrink-0"
+              style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}
+            >
               <Search size={18} style={{ color: '#94a3b8', flexShrink: 0 }} />
               <input
                 ref={inputRef}
@@ -230,7 +240,8 @@ const GlobalSearch: React.FC<Props> = ({
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder="Buscar reparaciones, clientes, facturas…"
-                className="flex-1 text-[13px] font-bold text-slate-900 placeholder-slate-300 outline-none bg-transparent"
+                className="flex-1 text-slate-900 placeholder-slate-300 outline-none bg-transparent"
+                style={{ fontSize: 16, fontWeight: 600 }}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -239,11 +250,11 @@ const GlobalSearch: React.FC<Props> = ({
                   onClick={() => { setQuery(''); inputRef.current?.focus(); }}
                   className="p-1 rounded-lg text-slate-300 hover:text-slate-500 transition-colors"
                 >
-                  <X size={15} />
+                  <X size={16} />
                 </button>
               ) : (
                 <kbd
-                  className="text-[9px] px-2 py-1 rounded-lg font-mono text-slate-300"
+                  className="text-[9px] px-2 py-1 rounded-lg font-mono text-slate-300 shrink-0"
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
                 >
                   ESC
@@ -254,76 +265,83 @@ const GlobalSearch: React.FC<Props> = ({
             {/* ── Body ──────────────────────────────────────────────────────── */}
             <div className="overflow-y-auto flex-1">
               {debouncedQ.length < MIN_CHARS ? (
-                <p className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#cbd5e1' }}>
+                <p className="px-4 py-4 text-[11px] font-bold uppercase tracking-widest" style={{ color: '#cbd5e1' }}>
                   Escribe al menos {MIN_CHARS} caracteres…
                 </p>
               ) : groups.length === 0 ? (
-                <div className="py-14 text-center">
+                <div className="py-12 text-center">
                   <Search size={28} style={{ color: '#e2e8f0', margin: '0 auto 10px' }} />
                   <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#cbd5e1' }}>
                     Sin resultados para "{debouncedQ}"
                   </p>
                 </div>
               ) : (
-                <div className="py-2">
+                <div className="py-1">
                   {(() => {
                     let offset = 0;
-                    return groups.map(group => {
+                    return groups.map((group, gi) => {
                       const GroupIcon = group.Icon;
                       const groupOffset = offset;
                       offset += group.items.length;
 
                       return (
-                        <div key={group.type} className="mb-1">
-                          {/* Group label */}
-                          <div className="flex items-center gap-1.5 px-5 pt-3 pb-1.5">
-                            <GroupIcon size={10} style={{ color: group.color }} />
-                            <span
-                              className="text-[9px] font-black uppercase tracking-[0.2em]"
-                              style={{ color: group.color }}
-                            >
+                        <div key={group.type}>
+                          {/* Group label with separator */}
+                          <div
+                            className="flex items-center gap-2 px-4"
+                            style={{
+                              paddingTop: gi > 0 ? 10 : 8,
+                              paddingBottom: 4,
+                              marginTop: gi > 0 ? 8 : 0,
+                              borderTop: gi > 0 ? '1px solid #f1f5f9' : 'none',
+                            }}
+                          >
+                            <GroupIcon size={11} style={{ color: group.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: group.color }}>
                               {group.label}
                             </span>
                           </div>
 
                           {/* Items */}
-                          {group.items.map((item, itemIdx) => {
-                            const flatIdx  = groupOffset + itemIdx;
-                            const isFocused = flatIdx === focusedIdx;
+                          <div className="px-2 pb-1">
+                            {group.items.map((item, itemIdx) => {
+                              const flatIdx  = groupOffset + itemIdx;
+                              const isFocused = flatIdx === focusedIdx;
 
-                            return (
-                              <button
-                                key={item.id}
-                                onClick={item.action}
-                                onMouseEnter={() => setFocusedIdx(flatIdx)}
-                                className="w-full flex items-center gap-3 px-3 py-2 mx-2 text-left transition-colors"
-                                style={{
-                                  width: 'calc(100% - 16px)',
-                                  borderRadius: 12,
-                                  background: isFocused ? '#f8fafc' : 'transparent',
-                                }}
-                              >
-                                <div
-                                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                                  style={{ background: `${group.color}15` }}
-                                >
-                                  <GroupIcon size={14} style={{ color: group.color }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[12px] font-black text-slate-900 truncate leading-tight">{item.title}</p>
-                                  <p className="text-[10px] font-bold truncate mt-0.5" style={{ color: '#94a3b8' }}>{item.subtitle}</p>
-                                </div>
-                                <ArrowRight
-                                  size={12}
+                              return (
+                                <button
+                                  key={item.id}
+                                  onClick={item.action}
+                                  onMouseEnter={() => setFocusedIdx(flatIdx)}
+                                  className="w-full flex items-center gap-3 text-left transition-colors"
                                   style={{
-                                    color: isFocused ? group.color : '#e2e8f0',
-                                    flexShrink: 0,
-                                    transition: 'color 0.15s',
+                                    padding: '10px 12px',
+                                    borderRadius: 8,
+                                    background: isFocused ? '#f0f7f0' : 'transparent',
                                   }}
-                                />
-                              </button>
-                            );
-                          })}
+                                >
+                                  <div
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                    style={{ background: `${group.color}18` }}
+                                  >
+                                    <GroupIcon size={14} style={{ color: group.color }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="truncate" style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>{item.title}</p>
+                                    <p className="truncate" style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8', marginTop: 1 }}>{item.subtitle}</p>
+                                  </div>
+                                  <ArrowRight
+                                    size={13}
+                                    style={{
+                                      color: isFocused ? group.color : '#e2e8f0',
+                                      flexShrink: 0,
+                                      transition: 'color 0.15s',
+                                    }}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     });
@@ -335,8 +353,8 @@ const GlobalSearch: React.FC<Props> = ({
             {/* ── Footer hints ──────────────────────────────────────────────── */}
             {groups.length > 0 && (
               <div
-                className="flex items-center gap-4 px-5 py-2.5 shrink-0"
-                style={{ borderTop: '1px solid #f1f5f9' }}
+                className="flex items-center gap-4 shrink-0"
+                style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9' }}
               >
                 {[['↑↓', 'navegar'], ['↵', 'abrir']].map(([k, label]) => (
                   <span key={k} className="flex items-center gap-1">
