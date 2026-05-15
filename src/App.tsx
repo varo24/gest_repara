@@ -303,6 +303,42 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [loading, settings, citas]);
 
+  // ── Migración one-time: archivar presupuestos con factura/recibo previos ──────
+  const migrationDoneRef = useRef(false);
+  useEffect(() => {
+    const MIGRATION_KEY = 'gestrepara_migration_archivado_v1';
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+    if (migrationDoneRef.current) return;
+    if (budgets.length === 0 && invoices.length === 0) return;
+
+    migrationDoneRef.current = true;
+    localStorage.setItem(MIGRATION_KEY, '1');
+
+    const invoiceByRepairId = new Map<string, any>();
+    for (const inv of invoices) {
+      if (inv.repairId && !invoiceByRepairId.has(inv.repairId)) {
+        invoiceByRepairId.set(inv.repairId, inv);
+      }
+    }
+
+    let count = 0;
+    for (const budget of budgets) {
+      if (budget.archivado || !budget.repairId) continue;
+      const inv = invoiceByRepairId.get(budget.repairId);
+      if (!inv) continue;
+      storage.save('budgets', budget.id, {
+        archivado: true,
+        documentoGenerado: {
+          tipo: (inv.taxRate ?? 0) > 0 ? 'factura' : 'recibo',
+          numero: inv.invoiceNumber,
+          id: inv.id,
+        },
+      });
+      count++;
+    }
+    if (count) console.log(`[Migration v1] Archivados ${count} presupuestos con factura/recibo`);
+  }, [budgets, invoices]);
+
   const handleReminderSent = useCallback((citaId: string) => {
     const cita = citas.find(c => c.id === citaId);
     if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });
@@ -770,10 +806,9 @@ const App: React.FC = () => {
                   };
                   storage.save('invoices', invoice.id, invoice);
 
-                  // Archivar el presupuesto y enlazarlo al documento generado
+                  // Archivar el presupuesto (storage.save hace merge, no hace falta ...budget)
                   const tipoDoc = effectiveTaxRate === 0 ? 'recibo' : 'factura';
                   storage.save('budgets', budget.id, {
-                    ...budget,
                     archivado: true,
                     documentoGenerado: { tipo: tipoDoc, numero: invoiceNumber, id: invoice.id },
                   });
