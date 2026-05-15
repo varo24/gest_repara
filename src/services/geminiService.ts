@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { logError } from '../lib/errorLogger';
 
 export const getSmartDiagnosis = async (device: string, brand: string, problem: string) => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -58,6 +59,7 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
     return JSON.parse(clean);
   } catch (error) {
     console.error("Error en el servicio Gemini:", error);
+    logError('uncaught', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 };

@@ -39,6 +39,7 @@ import {
   checkStockLow, purgeOldNotifIds, setBadge,
 } from './lib/pushNotifications';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
+import { logError } from './lib/errorLogger';
 import { printWorkOrder } from './lib/printWorkOrder';
 
 const APP_VERSION = '6.6.0 UNIFIED';
@@ -937,9 +938,15 @@ const App: React.FC = () => {
                     );
                     return;
                   }
-                  // Anti-duplicado por repairId: bloquear si ya existe FAC/REC activa para esta reparación
+                  // Anti-duplicado por repairId+serie: FAC y REC de la misma RMA son independientes
                   if (repair?.id) {
-                    const existingInv = (invoices as any[]).find(inv => inv.repairId === repair.id && inv.status !== 'anulada');
+                    const newSerie = tipo ?? (budget.taxEnabled === false ? 'REC' : 'FAC');
+                    const getS = (n: string) => (n ?? '').split('-')[0];
+                    const existingInv = (invoices as any[]).find(inv =>
+                      inv.repairId === repair.id &&
+                      inv.status !== 'anulada' &&
+                      getS(inv.invoiceNumber) === newSerie
+                    );
                     if (existingInv) {
                       notify('error', `Ya existe ${existingInv.invoiceNumber} para esta reparación (${repair.customerName})`);
                       return;
@@ -962,8 +969,9 @@ const App: React.FC = () => {
                     try {
                       await descontarStock(budget.items, 'presupuesto', rmaRef);
                       storage.save('budgets', budget.id, { ...budget, status: 'accepted', stockDescontado: true });
-                    } catch {
-                      notify('error', 'Error al descontar stock. Revisa el inventario.');
+                    } catch (stockErr) {
+                      notify('error', 'Error al descontar stock — la factura se creó igualmente. Ajusta el inventario manualmente.');
+                      logError('uncaught', stockErr instanceof Error ? stockErr : new Error(String(stockErr)));
                     }
                   }
 

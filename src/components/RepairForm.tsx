@@ -6,6 +6,7 @@ import {
   Eye, Upload, ClipboardCheck, FlaskConical,
 } from 'lucide-react';
 import { RepairItem, RepairStatus, AppSettings } from '../types';
+import { logError } from '../lib/errorLogger';
 import { getSmartDiagnosis } from '../services/geminiService';
 import CameraCapture from './CameraCapture';
 import { uploadRepairPhoto } from '../lib/storageService';
@@ -147,6 +148,7 @@ const RepairForm: React.FC<RepairFormProps> = ({
       await onSave(formData as Omit<RepairItem, 'rmaNumber'>, initialData?.rmaNumber);
     } catch (err) {
       console.error('Save error:', err);
+      logError('uncaught', err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsSubmitting(false);
     }
@@ -199,6 +201,7 @@ const RepairForm: React.FC<RepairFormProps> = ({
       setPendingPhoto(null);
     } catch (err) {
       console.error('Photo upload error:', err);
+      logError('uncaught', err instanceof Error ? err : new Error(String(err)));
     } finally {
       setUploadingPhoto(false);
     }

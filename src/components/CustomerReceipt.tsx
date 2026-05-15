@@ -3,6 +3,7 @@ import { Printer, Download, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { RepairItem, AppSettings } from '../types';
 import SignaturePad from './SignaturePad';
 import { uploadSignature } from '../lib/storageService';
+import { logError } from '../lib/errorLogger';
 
 interface CustomerReceiptProps {
   repair: RepairItem;
@@ -47,6 +48,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       setFirmaGuardada(true);
     } catch (e) {
       console.error('Firma upload error:', e);
+      logError('uncaught', e instanceof Error ? e : new Error(String(e)));
     } finally {
       setUploadingFirma(false);
     }

@@ -155,6 +155,7 @@ export interface Customer {
   updatedAt?: string;
 }
 
+
 export interface AppNotification {
   id: string;
   type: 'success' | 'error' | 'info';
