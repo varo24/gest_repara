@@ -31,7 +31,7 @@ import { SyncStatusProvider } from './lib/syncStatusContext';
 import SyncIndicator from './components/SyncIndicator';
 import { descontarStock } from './lib/inventoryService';
 import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
-import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList } from 'lucide-react';
+import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
 import { printWorkOrder } from './lib/printWorkOrder';
 
 const APP_VERSION = '6.6.0 UNIFIED';
@@ -92,6 +92,7 @@ const App: React.FC = () => {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [cashMovements, setCashMovements] = useState<any[]>([]);
   const [cierresCaja, setCierresCaja] = useState<any[]>([]);
 
@@ -298,6 +299,13 @@ const App: React.FC = () => {
         </span>
         <SyncIndicator variant="dot" />
         <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center justify-center w-9 h-9 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+        >
+          <Search size={17} style={{ color: '#fff' }} />
+        </button>
+        <button
           onClick={() => setSidebarOpen(true)}
           className="relative flex items-center justify-center w-11 h-11 rounded-xl text-white"
           style={{ background: 'rgba(255,255,255,0.06)', color: hasAlta ? '#ff5252' : '#aaa' }}
@@ -322,6 +330,8 @@ const App: React.FC = () => {
         repairs={repairs}
         budgets={budgets}
         citas={citas}
+        customers={customersDB}
+        invoices={invoices}
         warranties={warranties}
         notificaciones={notificaciones}
         onMarcarLeida={marcarLeida}
@@ -330,6 +340,8 @@ const App: React.FC = () => {
         onClose={() => setSidebarOpen(false)}
         cashMovements={cashMovements}
         cierresCaja={cierresCaja}
+        searchOpen={searchOpen}
+        onSearchClose={() => setSearchOpen(false)}
       />
 
       <main className="flex-1 min-h-screen p-4 lg:p-8 pt-[72px] md:pt-4 ml-0 md:ml-14 lg:ml-[220px]" style={{ backgroundColor: '#f5f5f5' }}>

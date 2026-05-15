@@ -6,7 +6,7 @@ import {
   Zap, Package, Receipt, ShieldCheck, FolderOpen, Inbox, Truck, FileBarChart,
   Bell, X, ArrowRight, ShieldAlert, Wallet
 } from 'lucide-react';
-import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion } from '../types';
+import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion, Customer } from '../types';
 import { storage } from '../lib/dataService';
 import SyncIndicator from './SyncIndicator';
 import GlobalSearch from './GlobalSearch';
@@ -21,6 +21,8 @@ interface SidebarProps {
   repairs: RepairItem[];
   budgets: Budget[];
   citas: Cita[];
+  customers?: Customer[];
+  invoices?: any[];
   warranties?: Warranty[];
   notificaciones?: Notificacion[];
   onMarcarLeida?: (id: string) => void;
@@ -29,6 +31,8 @@ interface SidebarProps {
   onClose?: () => void;
   cashMovements?: any[];
   cierresCaja?: any[];
+  searchOpen?: boolean;
+  onSearchClose?: () => void;
 }
 
 type NavItem = { id: ViewType | 'new-repair'; label: string; icon: React.ElementType; badge?: number };
@@ -57,9 +61,10 @@ const TIPO_LABEL: Record<string, string> = {
 
 const Sidebar: React.FC<SidebarProps> = ({
   currentView, setView, onNewRepair, onEditRepair,
-  appName, repairs, budgets, citas, warranties = [],
+  appName, repairs, budgets, citas, customers = [], invoices = [], warranties = [],
   notificaciones = [], onMarcarLeida, onMarcarTodasLeidas,
   isOpen = false, onClose, cashMovements = [], cierresCaja = [],
+  searchOpen, onSearchClose,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
@@ -190,8 +195,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* ── Search ── */}
       <div className="sidebar-search-wrap px-3 pt-3 pb-1">
         <GlobalSearch
-          repairs={repairs} budgets={budgets} citas={citas}
-          onNavigate={(v) => { setView(v); onClose?.(); }} onEditRepair={onEditRepair}
+          repairs={repairs} budgets={budgets}
+          customers={customers} invoices={invoices}
+          onNavigate={(v) => { setView(v); onClose?.(); }}
+          onEditRepair={onEditRepair}
+          externalOpen={searchOpen}
+          onExternalClose={onSearchClose}
         />
       </div>
 
