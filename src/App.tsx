@@ -503,10 +503,13 @@ const App: React.FC = () => {
                 budgets={budgets}
                 citas={citas}
                 settings={settings}
+                inventoryItems={inventoryItems}
+                warranties={warranties}
+                cashMovements={cashMovements}
+                cierresCaja={cierresCaja}
                 setView={navigateTo}
                 onNewRepair={() => navigateTo('new-repair')}
                 onEditRepair={(r) => { setEditingRepair(r); navigateTo('new-repair'); }}
-                notificaciones={notificaciones}
               />
             )}
             {currentView === 'repairs' && (
