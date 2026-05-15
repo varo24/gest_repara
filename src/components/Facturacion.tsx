@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Receipt, Search, Printer, Trash2, Eye, Plus, CheckCircle2,
   XCircle, Clock, Download, FileText, TrendingUp, X, Save, Pencil,
-  ChevronDown, ChevronRight, Layers, AlertTriangle
+  ChevronDown, ChevronRight, Layers, AlertTriangle, RotateCcw
 } from 'lucide-react';
 import { useDuplicados } from '../lib/useDuplicados';
 import { AppSettings, InventoryItem, FullInvoice, Customer, BudgetItem, LaborItem, RepairItem } from '../types';
@@ -423,6 +423,20 @@ const Facturacion: React.FC<Props> = ({ settings, customers = [], invoices, inve
           {selected.status !== 'anulada' && <button onClick={() => { setEditingInvoice(selected); setSelected(null); }} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-black uppercase hover:bg-amber-100 transition-all"><Pencil size={13}/> Editar</button>}
           {selected.status === 'pendiente' && <button onClick={() => { setPayModal(selected); setPayMethod('efectivo'); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-700 transition-all"><CheckCircle2 size={13}/> Cobrar</button>}
           {selected.status !== 'anulada' && <button onClick={() => anular(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-black uppercase hover:bg-red-100 transition-all"><XCircle size={13}/> Anular</button>}
+          {selected.status === 'anulada' && (selected as any).motivoAnulacion && (
+            <button
+              onClick={() => {
+                if (!window.confirm(`¿Reactivar ${selected.invoiceNumber}? Se eliminará la marca de duplicado.`)) return;
+                const restoredStatus = selected.paidAt ? 'cobrada' : 'pendiente';
+                storage.save('invoices', selected.id, { ...selected, status: restoredStatus, motivoAnulacion: null });
+                onNotify('success', `${selected.invoiceNumber} reactivada`);
+                setSelected(null);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-600 transition-all"
+            >
+              <RotateCcw size={13}/> Reactivar
+            </button>
+          )}
           <button onClick={() => deleteInvoice(selected)} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase hover:bg-red-700 transition-all"><Trash2 size={13}/> Eliminar</button>
         </div>
       </div>

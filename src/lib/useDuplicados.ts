@@ -5,13 +5,17 @@ export interface DuplicateGroup {
   remove: any[];
 }
 
+const getSeries = (invoiceNumber: string) => (invoiceNumber ?? '').split('-')[0]; // 'FAC' | 'REC'
+
 export function useDuplicados(invoices: any[]): DuplicateGroup[] {
   return useMemo(() => {
     const grupos: Record<string, any[]> = {};
     for (const inv of invoices) {
+      // Una FAC y un REC de la misma RMA son documentos distintos — no son duplicados
       if (!inv.repairId || inv.status === 'anulada') continue;
-      if (!grupos[inv.repairId]) grupos[inv.repairId] = [];
-      grupos[inv.repairId].push(inv);
+      const key = `${inv.repairId}:${getSeries(inv.invoiceNumber)}`;
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(inv);
     }
     return Object.values(grupos)
       .filter(g => g.length > 1)

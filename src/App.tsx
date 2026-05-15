@@ -394,6 +394,56 @@ const App: React.FC = () => {
     if (count) console.log(`[Migration v2] Restaurados ${count} duplicados como anulados con motivo`);
   }, [invoices]);
 
+  // ── Migration v3: restaurar facturas incorrectamente anuladas (algoritmo corregido) ──
+  const correctionDoneRef = useRef(false);
+  useEffect(() => {
+    const MIGRATION_KEY = 'gestrepara_migration_correccion_duplicados_v3';
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+    if (correctionDoneRef.current) return;
+    if (!invoices.length) return;
+
+    correctionDoneRef.current = true;
+    localStorage.setItem(MIGRATION_KEY, '1');
+
+    const getSeries = (n: string) => (n ?? '').split('-')[0]; // 'FAC' | 'REC'
+
+    // Incluir las anuladas-con-motivo en el análisis para detectar duplicados reales
+    const forAnalysis = (invoices as any[]).filter(inv =>
+      !(inv._deleted) &&
+      (inv.status !== 'anulada' || (inv.motivoAnulacion ?? '').startsWith('duplicado de'))
+    );
+
+    const grupos: Record<string, any[]> = {};
+    for (const inv of forAnalysis) {
+      if (!inv.repairId) continue;
+      const key = `${inv.repairId}:${getSeries(inv.invoiceNumber)}`;
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(inv);
+    }
+
+    const trueToRemove = new Set<string>();
+    for (const group of Object.values(grupos)) {
+      if (group.length > 1) {
+        const sorted = [...group].sort((a: any, b: any) =>
+          (a.invoiceNumber ?? '').localeCompare(b.invoiceNumber ?? '')
+        );
+        sorted.slice(1).forEach((inv: any) => trueToRemove.add(inv.id));
+      }
+    }
+
+    let count = 0;
+    for (const inv of invoices as any[]) {
+      if (inv.status !== 'anulada') continue;
+      if (!(inv.motivoAnulacion ?? '').startsWith('duplicado de')) continue;
+      if (trueToRemove.has(inv.id)) continue; // duplicado real — dejar anulado
+      // Duplicado incorrecto — restaurar
+      const restoredStatus = inv.paidAt ? 'cobrada' : 'pendiente';
+      storage.save('invoices', inv.id, { ...inv, status: restoredStatus, motivoAnulacion: null });
+      count++;
+    }
+    if (count) console.log(`[Migration v3] Restauradas ${count} facturas incorrectamente anuladas`);
+  }, [invoices]);
+
   const handleReminderSent = useCallback((citaId: string) => {
     const cita = citas.find(c => c.id === citaId);
     if (cita) storage.save('citas', citaId, { ...cita, recordatorioEnviado: true });
