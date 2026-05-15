@@ -23,7 +23,6 @@ const SyncIndicator: React.FC<Props> = ({ variant = 'dot', onClick, disabled }) 
   const [showTip, setShowTip] = useState(false);
   const [, tick] = useState(0);
 
-  // Re-render every 30s so "hace X min" stays fresh
   useEffect(() => {
     const t = setInterval(() => tick(n => n + 1), 30_000);
     return () => clearInterval(t);
@@ -38,16 +37,27 @@ const SyncIndicator: React.FC<Props> = ({ variant = 'dot', onClick, disabled }) 
     status === 'syncing' ? 'Sincronizando...' : 'Sin conexión';
 
   const Dot = () => {
-    if (status === 'syncing') return <Loader2 size={10} style={{ color }} className="animate-spin shrink-0" />;
-    if (status === 'offline') return <CloudOff size={10} style={{ color }} className="shrink-0" />;
-    return <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />;
+    if (status === 'syncing') return <Loader2 size={10} style={{ color, transition: 'color 0.3s ease' }} className="animate-spin shrink-0" />;
+    if (status === 'offline') return <CloudOff size={10} style={{ color, transition: 'color 0.3s ease' }} className="shrink-0" />;
+    return (
+      <span
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{ background: color, transition: 'background-color 0.3s ease' }}
+      />
+    );
   };
 
   const inner = (
-    <div className={`flex items-center gap-1.5 ${variant === 'full' ? 'px-3 py-2' : 'p-1.5'}`}>
+    <div
+      className={`flex items-center gap-1.5 ${variant === 'full' ? 'px-3 py-2' : 'p-1.5'}`}
+      style={{ transition: 'all 0.3s ease' }}
+    >
       <Dot />
       {variant === 'full' && (
-        <span className="sidebar-sync-label sidebar-label text-[10px] font-black uppercase tracking-widest" style={{ color }}>
+        <span
+          className="sidebar-sync-label sidebar-label text-[10px] font-black uppercase tracking-widest"
+          style={{ color, transition: 'color 0.3s ease' }}
+        >
           {label}
         </span>
       )}
@@ -72,8 +82,8 @@ const SyncIndicator: React.FC<Props> = ({ variant = 'dot', onClick, disabled }) 
         <button
           onClick={onClick}
           disabled={disabled ?? status === 'syncing'}
-          className="sync-btn w-full flex items-center transition-colors"
-          style={{ background: '#161616', border: '1px solid #2a2a2a' }}
+          className="sync-btn w-full flex items-center"
+          style={{ background: '#161616', border: '1px solid #2a2a2a', transition: 'opacity 0.2s ease' }}
         >
           {inner}
         </button>

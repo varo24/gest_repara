@@ -12,6 +12,12 @@
 /* Safe area for mobile fixed bottom bars */
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
+/* Sync-status toast slide-up */
+@keyframes rp-slide-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* ── Font ── */
 @theme { --font-sans: 'Nunito', sans-serif; }
 
