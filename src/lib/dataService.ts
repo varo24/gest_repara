@@ -265,37 +265,75 @@ const testFirestore = async (): Promise<boolean> => {
   }
 };
 
-// ── Initial Firestore pull ────────────────────────────────────────────────────
-
-const SYNC_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const SYNC_TS_KEY = 'gestrepara_last_sync';
-
-const isSyncFresh = (): boolean => {
-  try {
-    const ts = localStorage.getItem(SYNC_TS_KEY);
-    if (!ts) return false;
-    return Date.now() - parseInt(ts, 10) < SYNC_TTL_MS;
-  } catch { return false; }
+// ── Per-collection sync TTLs ──────────────────────────────────────────────────
+//
+// Each collection has its own freshness window.  When pullAll() runs at startup
+// it only fetches collections whose timestamp has expired — everything else is
+// served from the IDB cache (kept live by onSnapshot listeners).
+//
+// Criteria for TTL length:
+//  • Short  (1–2 min)  — changes during active use, wrong data is visible bug
+//  • Medium (5 min)    — moderate churn, onSnapshot fills the gap quickly
+//  • Long   (10–30 min)— rarely changes, stale risk is low
+//
+const COL_TTL: Partial<Record<string, number>> = {
+  // ── Datos operativos críticos ──────────────────────────────────────────────
+  repairs:             2 * 60_000,  // activas durante todo el día
+  citas:               2 * 60_000,  // agenda viva
+  cash_movements:      1 * 60_000,  // financiero, cambia con cada movimiento
+  cierres_caja:        1 * 60_000,  // financiero, causó el bug del historial vacío
+  // ── Datos de gestión ──────────────────────────────────────────────────────
+  budgets:             5 * 60_000,
+  invoices:            5 * 60_000,
+  inventory:           5 * 60_000,
+  stock_movements:     5 * 60_000,
+  warranties:          5 * 60_000,
+  // ── Datos de referencia (churn bajo) ──────────────────────────────────────
+  customers:          10 * 60_000,
+  suppliers:          10 * 60_000,
+  informes:           10 * 60_000,
+  facturas_importadas: 10 * 60_000,
+  correos_procesados:  10 * 60_000,
+  correos_analizados:  10 * 60_000,
+  facturas_descartadas:10 * 60_000,
+  // ── Estáticos ─────────────────────────────────────────────────────────────
+  settings:           30 * 60_000,
+  apps_externas:      30 * 60_000,
 };
 
-const markSyncDone = () => {
-  try { localStorage.setItem(SYNC_TS_KEY, String(Date.now())); } catch {}
+const DEFAULT_COL_TTL = 5 * 60_000;
+const SYNC_TS_PREFIX  = 'gestrepara_sync_col_'; // per-col key, avoids old global key
+
+const getColTs      = (col: string): number => {
+  try { const v = localStorage.getItem(SYNC_TS_PREFIX + col); return v ? parseInt(v, 10) : 0; }
+  catch { return 0; }
+};
+const markColSynced = (col: string) => {
+  try { localStorage.setItem(SYNC_TS_PREFIX + col, String(Date.now())); } catch {}
+};
+const isColFresh    = (col: string): boolean => {
+  const ttl = COL_TTL[col] ?? DEFAULT_COL_TTL;
+  return Date.now() - getColTs(col) < ttl;
 };
 
-const pullAll = async () => {
-  let totalDocs = 0;
-  for (const col of ALL_STORES) {
+// pullAll — fetches only stale collections (or all when force=true),
+// then broadcasts every collection so subscribers always get the latest IDB state.
+const pullAll = async (force = false) => {
+  const toFetch = force ? ALL_STORES : ALL_STORES.filter(col => !isColFresh(col));
+
+  for (const col of toFetch) {
     try {
       const snap = await getDocs(collection(db, col));
-      totalDocs += snap.size;
       snap.forEach(docSnap => {
         const data = normalizeDoc({ id: docSnap.id, ...docSnap.data() });
         const existing = localStore.getAll(col).find(x => x.id === data.id);
         if (!existing || newerWins(existing, data)) localStore.put(col, data);
       });
+      markColSynced(col);
     } catch (e) { console.warn(`[DS] pullAll error on ${col}:`, e); }
   }
-  markSyncDone();
+
+  // Always broadcast all collections so subscribers get IDB-cached data immediately
   ALL_STORES.forEach(col => broadcast(col));
 };
 
@@ -315,11 +353,7 @@ export const storage = {
       if (firestoreAvailable) {
         console.log('[DS] Firestore ✅');
         if (pendingQueue.length) await flushPending();
-        if (!isSyncFresh()) {
-          await pullAll();
-        } else {
-          ALL_STORES.forEach(col => broadcast(col));
-        }
+        await pullAll(); // fetches only stale collections; broadcasts all
         restartActiveListeners();
         broadcastSyncStatus('synced');
         console.log('[DS] Sincronización inicial completa ✅');
@@ -470,6 +504,7 @@ export const storage = {
           const existing = localStore.getAll(col).find(x => x.id === data.id);
           if (!existing || newerWins(existing, data)) { localStore.put(col, data); changed = true; }
         });
+        markColSynced(col); // reset TTL so next startup skips this collection
         if (changed) { broadcast(col); pulled++; }
 
         const localItems = localStore.getAll(col);
@@ -523,6 +558,7 @@ export const storage = {
         const data = normalizeDoc({ id: docSnap.id, ...docSnap.data() });
         localStore.put(col, data);
       });
+      markColSynced(col);
       broadcast(col);
     } catch (e) { console.warn(`[DS] refreshCollection(${col}):`, e); }
   },
