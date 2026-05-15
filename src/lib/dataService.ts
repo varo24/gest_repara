@@ -468,17 +468,29 @@ export const storage = {
   // Pull a single collection from Firestore and broadcast, bypassing the sync-TTL cache.
   // Use this when the component needs guaranteed-fresh data (e.g., historial de cierres).
   refreshCollection: async (col: string): Promise<void> => {
+    console.log(`[DS-DBG] refreshCollection("${col}") — firestoreAvailable:`, firestoreAvailable);
     if (!firestoreAvailable) {
       firestoreAvailable = await testFirestore();
-      if (!firestoreAvailable) return;
+      console.log(`[DS-DBG] refreshCollection("${col}") — after testFirestore:`, firestoreAvailable);
+      if (!firestoreAvailable) {
+        console.warn(`[DS-DBG] refreshCollection("${col}") ABORTED — no Firestore connection`);
+        return;
+      }
     }
     try {
       const snap = await getDocs(collection(db, col));
+      console.log(`[DS-DBG] refreshCollection("${col}") — Firestore returned ${snap.size} docs`);
+      if (snap.size > 0) {
+        snap.forEach(docSnap => {
+          console.log(`[DS-DBG]   doc id="${docSnap.id}" fields:`, Object.keys(docSnap.data()));
+        });
+      }
       snap.forEach(docSnap => {
         const data = normalizeDoc({ id: docSnap.id, ...docSnap.data() });
         localStore.put(col, data);
       });
       broadcast(col);
+      console.log(`[DS-DBG] refreshCollection("${col}") — broadcast done, IDB now has ${localStore.getAll(col).length} docs`);
     } catch (e) { console.warn(`[DS] refreshCollection(${col}):`, e); }
   },
 

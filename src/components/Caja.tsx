@@ -153,8 +153,12 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   // Needed because isSyncFresh() may skip pullAll on mount, leaving IDB stale.
   useEffect(() => {
     if (activeTab === 'historial') {
-      storage.refreshCollection('cierres_caja').catch(() => {});
+      console.log('[CAJA-DBG] Historial tab opened — cierresCaja.length at open time:', cierresCaja.length);
+      storage.refreshCollection('cierres_caja')
+        .then(() => console.log('[CAJA-DBG] refreshCollection("cierres_caja") resolved — React will re-render if data changed'))
+        .catch(e => console.error('[CAJA-DBG] refreshCollection ERROR:', e));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const allMovements = useMemo(() => cashMovements.map(normalizeMov), [cashMovements]);
@@ -206,6 +210,18 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterdayStr = localDateStr(yesterdayDate);
 
+  // ── DEBUG (remove after diagnosis) ────────────────────────────────────────
+  console.log('[CAJA-DBG] today:', today, '| yesterdayStr:', yesterdayStr);
+  console.log('[CAJA-DBG] cashMovements.length:', cashMovements.length);
+  console.log('[CAJA-DBG] apertura movements (raw):',
+    cashMovements
+      .filter(m => (m.tipo || m.type) === 'apertura')
+      .map(m => ({ id: m.id, tipo: m.tipo, type: m.type, fecha: m.fecha, date: m.date, createdAt: m.createdAt }))
+  );
+  console.log('[CAJA-DBG] cierresCaja prop length:', cierresCaja.length);
+  if (cierresCaja.length > 0) console.log('[CAJA-DBG] first cierre sample:', cierresCaja[0]);
+  // ── END DEBUG ──────────────────────────────────────────────────────────────
+
   const cierreAyer = useMemo(
     () => cierresCaja.find(c => (c.fecha || '').slice(0, 10) === yesterdayStr),
     [cierresCaja, yesterdayStr]
@@ -213,13 +229,26 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   // Only match explicit fecha/date — never fall back to createdAt here.
   // A movement without an explicit fecha was not opened via the Caja UI.
   const aperturaAyer = useMemo(
-    () => cashMovements.find(m => {
-      const fecha = (m.fecha || m.date || '').slice(0, 10);
-      return fecha === yesterdayStr && (m.tipo || m.type) === 'apertura';
-    }),
-    [cashMovements, yesterdayStr]
+    () => {
+      const found = cashMovements.find(m => {
+        const fecha = (m.fecha || m.date || '').slice(0, 10);
+        return fecha === yesterdayStr && (m.tipo || m.type) === 'apertura';
+      });
+      console.log('[CAJA-DBG] aperturaAyer result:', found
+        ? { id: found.id, tipo: found.tipo, type: found.type, fecha: found.fecha, date: found.date }
+        : 'NOT FOUND'
+      );
+      console.log('[CAJA-DBG] cierreAyer result:', cierreAyer
+        ? { id: cierreAyer.id, fecha: cierreAyer.fecha }
+        : 'NOT FOUND'
+      );
+      return found;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cashMovements, yesterdayStr, cierreAyer]
   );
   const cajaAyerSinCerrar = !!aperturaAyer && !cierreAyer;
+  console.log('[CAJA-DBG] cajaAyerSinCerrar:', cajaAyerSinCerrar, '| aperturaAyer:', !!aperturaAyer, '| cierreAyer:', !!cierreAyer);
 
   // Today summary
   const todayIngresos = todayMovements.filter(m => m.tipo === 'ingreso');
@@ -544,11 +573,14 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
   const editDiff     = Math.round((editEfectivoNum - editSaldoEsp) * 100) / 100;
 
   const historialFiltered = useMemo(() => {
+    console.log('[CAJA-DBG] historialFiltered — cierresCaja.length:', cierresCaja.length);
+    console.log('[CAJA-DBG] historialFiltered — raw cierresCaja:', JSON.stringify(cierresCaja.slice(0, 3)));
     const sorted = [...cierresCaja]
       .filter(c => c.fecha)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-    if (!historialMes) return sorted;
-    return sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
+    const result = !historialMes ? sorted : sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
+    console.log('[CAJA-DBG] historialFiltered result.length:', result.length);
+    return result;
   }, [cierresCaja, historialMes]);
 
   // ── Render ────────────────────────────────────────────────────────────────
