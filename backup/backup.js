@@ -31,7 +31,7 @@ const COLLECTIONS = {
 const MAX_BACKUPS   = 4;
 const BACKUP_PREFIX = 'backups/backup_';
 const DATABASE_ID   = 'gestrepara';
-const STORAGE_BUCKET = 'gestrepara.firebasestorage.app';
+const STORAGE_BUCKET = 'gestion-reparaciones-45878.firebasestorage.app';
 
 // ── Parse service account ──────────────────────────────────────────────────
 let serviceAccount;
