@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import RepairList from './components/RepairList';
@@ -38,7 +38,7 @@ import {
   requestPermissionIfNeeded, checkRepairsReady, checkCitasReminder,
   checkStockLow, purgeOldNotifIds, setBadge,
 } from './lib/pushNotifications';
-import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
+import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search, AlertTriangle } from 'lucide-react';
 import { printWorkOrder } from './lib/printWorkOrder';
 
 const APP_VERSION = '6.6.0 UNIFIED';
@@ -451,6 +451,22 @@ const App: React.FC = () => {
   const unreadCount = notificaciones.filter(n => !n.leida).length;
   const hasAlta = notificaciones.some(n => !n.leida && n.prioridad === 'alta');
 
+  // Detectar facturas/recibos duplicados (mismo repairId, no anuladas)
+  const invoiceDuplicates = useMemo(() => {
+    const byRepairId = new Map<string, any[]>();
+    for (const inv of invoices) {
+      if (!inv.repairId || inv.status === 'anulada') continue;
+      if (!byRepairId.has(inv.repairId)) byRepairId.set(inv.repairId, []);
+      byRepairId.get(inv.repairId)!.push(inv);
+    }
+    return [...byRepairId.values()]
+      .filter(group => group.length > 1)
+      .map(group => {
+        const sorted = [...group].sort((a: any, b: any) => a.invoiceNumber.localeCompare(b.invoiceNumber));
+        return { keep: sorted[0], remove: sorted.slice(1) };
+      });
+  }, [invoices]);
+
   return (
     <SyncStatusProvider>
     <div className="flex min-h-screen no-print" style={{ backgroundColor: '#f5f5f5', color: '#1a1a1a' }}>
@@ -528,6 +544,46 @@ const App: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* Aviso de facturas/recibos duplicados */}
+        {invoiceDuplicates.length > 0 && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4">
+              <AlertTriangle size={15} className="text-red-500 shrink-0" />
+              <p className="text-xs font-black text-red-700 uppercase tracking-widest flex-1">
+                {invoiceDuplicates.length} grupo{invoiceDuplicates.length !== 1 ? 's' : ''} de facturas duplicadas detectadas
+              </p>
+              <button
+                onClick={() => confirm2(
+                  `¿Eliminar ${invoiceDuplicates.reduce((s, g) => s + g.remove.length, 0)} factura(s) duplicada(s)? Se mantiene el número más bajo de cada grupo. Esta acción no se puede deshacer.`,
+                  () => {
+                    let n = 0;
+                    for (const { remove } of invoiceDuplicates) {
+                      for (const inv of remove) { storage.remove('invoices', inv.id); n++; }
+                    }
+                    notify('success', `${n} factura${n !== 1 ? 's' : ''} duplicada${n !== 1 ? 's' : ''} eliminada${n !== 1 ? 's' : ''}`);
+                  },
+                )}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-red-700 transition-all"
+              >
+                Limpiar duplicados
+              </button>
+            </div>
+            <div className="px-5 pb-4 space-y-1.5">
+              {invoiceDuplicates.map(({ keep, remove }) => (
+                <div key={keep.repairId} className="flex flex-wrap items-center gap-2 text-[10px] bg-white rounded-xl px-4 py-2 border border-red-100">
+                  <span className="text-emerald-700 font-black">✓ Mantener: {keep.invoiceNumber}</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-red-600 font-black">✗ Eliminar: {remove.map((r: any) => r.invoiceNumber).join(', ')}</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-600 font-bold">{keep.customerName}</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-600 font-bold">{(keep.total ?? 0).toFixed(2)}€</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Modal selector de documentos tras guardar RMA */}
         {pendingDocRepair && (
@@ -795,6 +851,14 @@ const App: React.FC = () => {
                       () => navigateTo('invoices'),
                     );
                     return;
+                  }
+                  // Anti-duplicado por repairId: bloquear si ya existe FAC/REC activa para esta reparación
+                  if (repair?.id) {
+                    const existingInv = (invoices as any[]).find(inv => inv.repairId === repair.id && inv.status !== 'anulada');
+                    if (existingInv) {
+                      notify('error', `Ya existe ${existingInv.invoiceNumber} para esta reparación (${repair.customerName})`);
+                      return;
+                    }
                   }
                   const effectiveTaxRate = tipo === 'REC' ? 0 : tipo === 'FAC' ? (settings.taxRate || 21) : (budget.taxEnabled === false ? 0 : (budget.taxRate || 21));
                   const budgetSubtotal = [
