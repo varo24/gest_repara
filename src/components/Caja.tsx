@@ -364,6 +364,24 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
     closeCierreModal();
   };
 
+  const handleDismissAlerta = async () => {
+    const now = new Date().toISOString();
+    const id = `CIERRE-DISMISS-${yesterdayStr}`;
+    const marcador: CierreCajaType = {
+      id, fecha: yesterdayStr,
+      apertura: 0, totalIngresos: 0, totalGastos: 0,
+      totalEfectivo: 0, totalTarjeta: 0, totalBizum: 0, totalTransferencia: 0,
+      saldoFinal: 0, saldoEsperado: 0, diferencia: 0,
+      movimientos: [],
+      dismissed: true,
+      notas: 'Alerta descartada manualmente — caja de ese día marcada como cerrada.',
+      cerradoPor: 'Sistema',
+      createdAt: now,
+    };
+    await storage.save('cierres_caja', id, marcador);
+    onNotify('info', `Caja del ${yesterdayStr} marcada como cerrada.`);
+  };
+
   const handleDeleteMov = async () => {
     if (!deletingMov) return;
     await storage.remove('cash_movements', deletingMov.id);
@@ -644,11 +662,19 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
 
       {/* Alert: yesterday not closed */}
       {cajaAyerSinCerrar && (
-        <div className="flex items-center gap-3 px-5 py-3" style={{ background: '#ff6f00', color: '#fff' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-wrap" style={{ background: '#ff6f00', color: '#fff' }}>
           <AlertTriangle size={16} className="shrink-0" />
-          <p className="text-xs font-black uppercase tracking-widest">
+          <p className="text-xs font-black uppercase tracking-widest flex-1">
             La caja del {yesterdayStr} no fue cerrada — revisa el historial
           </p>
+          <button
+            onClick={handleDismissAlerta}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all hover:opacity-80 shrink-0"
+            style={{ background: 'rgba(0,0,0,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}
+            title="Marcar esta caja como cerrada para que no vuelva a aparecer la alerta"
+          >
+            Descartar
+          </button>
         </div>
       )}
 
@@ -867,18 +893,28 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
             <div className="space-y-3">
               {historialFiltered.map(c => {
                 const diff = c.diferencia ?? 0;
+                const isDismissed = !!c.dismissed;
                 return (
-                  <div key={c.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <div key={c.id} className={`rounded-2xl shadow-sm overflow-hidden ${isDismissed ? 'bg-slate-50 opacity-70' : 'bg-white'}`}>
                     <div className="flex items-center gap-4 px-5 py-4">
                       <div className="flex-1">
-                        <p className="text-sm font-black text-slate-800">{c.fecha}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black text-slate-800">{c.fecha}</p>
+                          {isDismissed && (
+                            <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                              Descartado
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          Ingresos {fmt(c.totalIngresos)} · Gastos {fmt(c.totalGastos)}
-                          {c.cerradoPor ? ` · ${c.cerradoPor}` : ''}
+                          {isDismissed
+                            ? 'Caja marcada como cerrada manualmente'
+                            : `Ingresos ${fmt(c.totalIngresos)} · Gastos ${fmt(c.totalGastos)}${c.cerradoPor ? ` · ${c.cerradoPor}` : ''}`
+                          }
                         </p>
                       </div>
-                      <span className={`text-sm font-black tabular-nums ${diff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {diff >= 0 ? '+' : ''}{fmt(diff)}
+                      <span className={`text-sm font-black tabular-nums ${isDismissed ? 'text-slate-300' : diff >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {isDismissed ? '—' : `${diff >= 0 ? '+' : ''}${fmt(diff)}`}
                       </span>
                       <div className="flex gap-1">
                         <button onClick={() => openEditModal(c)} className="p-2 rounded-xl hover:bg-blue-50 text-blue-300 hover:text-blue-600 transition-colors" title="Editar cierre">

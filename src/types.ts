@@ -196,6 +196,7 @@ export interface CierreCaja {
   detalleBilletes?: DetalleBilletes;
   notas?: string;
   cerradoPor?: string;
+  dismissed?: boolean;
   createdAt: string;
 }
 
