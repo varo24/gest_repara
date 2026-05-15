@@ -38,7 +38,9 @@
       "Bash(npx vite-bundle-visualizer *)",
       "Bash(npx vite *)",
       "Bash(npm uninstall *)",
-      "Bash(git revert *)"
+      "Bash(git revert *)",
+      "Bash(npx firebase-tools *)",
+      "Bash(npx --yes firebase-tools@latest login:list)"
     ]
   }
 }
