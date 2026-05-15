@@ -17,6 +17,7 @@ interface BudgetListProps {
   onUpdateBudgetStatus?: (budget: Budget, status: 'accepted' | 'rejected' | 'pending', motivo?: string) => void;
   onMarkContacted?: (budgetId: string) => void;
   onViewInvoices?: () => void;
+  onReactivarBudget?: (budget: Budget) => void;
   onBack?: () => void;
 }
 
@@ -44,7 +45,7 @@ function getBadgeInfo(budget: Budget): { label: string; bg: string; color: strin
 const BudgetList: React.FC<BudgetListProps> = ({
   budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget,
   onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onMarkContacted,
-  onViewInvoices, onBack,
+  onViewInvoices, onReactivarBudget, onBack,
 }) => {
   const followUpThreshold = settings?.budgetFollowUpDays ?? 3;
   const [searchTerm, setSearchTerm] = useState('');
@@ -302,14 +303,25 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                 </>
                               )}
                               {isArchivado && docGenerado ? (
-                                <button
-                                  onClick={() => onViewInvoices?.()}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all"
-                                  style={{ background: docGenerado.tipo === 'factura' ? '#eff6ff' : '#f8fafc', color: docGenerado.tipo === 'factura' ? '#1d4ed8' : '#475569', border: `1px solid ${docGenerado.tipo === 'factura' ? '#bfdbfe' : '#e2e8f0'}` }}
-                                  title={`Ver ${docGenerado.tipo} ${docGenerado.numero}`}
-                                >
-                                  {docGenerado.tipo === 'factura' ? '🧾' : '📄'} {docGenerado.numero}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => onViewInvoices?.()}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all"
+                                    style={{ background: docGenerado.tipo === 'factura' ? '#eff6ff' : '#f8fafc', color: docGenerado.tipo === 'factura' ? '#1d4ed8' : '#475569', border: `1px solid ${docGenerado.tipo === 'factura' ? '#bfdbfe' : '#e2e8f0'}` }}
+                                    title={`Ver ${docGenerado.tipo} ${docGenerado.numero}`}
+                                  >
+                                    {docGenerado.tipo === 'factura' ? '🧾' : '📄'} {docGenerado.numero}
+                                  </button>
+                                  {onReactivarBudget && (
+                                    <button
+                                      onClick={() => onReactivarBudget(budget)}
+                                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                                      title="Reactivar presupuesto"
+                                    >
+                                      <RotateCcw size={11} /> Reactivar
+                                    </button>
+                                  )}
+                                </>
                               ) : isAccepted && onConvertToInvoice && (
                                 <>
                                   <button

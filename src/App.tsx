@@ -304,6 +304,23 @@ const App: React.FC = () => {
   }, [loading, settings, citas]);
 
   // ── Migración one-time: archivar presupuestos con factura/recibo previos ──────
+  // ── Integridad: reactivar presupuestos huérfanos (documento borrado) ──────────
+  const integrityCheckRef = useRef(false);
+  useEffect(() => {
+    if (integrityCheckRef.current) return;
+    if (budgets.length === 0 && invoices.length === 0) return;
+    integrityCheckRef.current = true;
+
+    const invoiceIds = new Set(invoices.map((inv: any) => inv.id));
+    for (const budget of budgets) {
+      if (!budget.archivado || !budget.documentoGenerado) continue;
+      if (!invoiceIds.has(budget.documentoGenerado.id)) {
+        storage.save('budgets', budget.id, { archivado: false, documentoGenerado: null });
+        console.log(`[Integrity] Presupuesto ${budget.id} reactivado — ${budget.documentoGenerado.tipo} ${budget.documentoGenerado.numero} no existe`);
+      }
+    }
+  }, [budgets, invoices]);
+
   const migrationDoneRef = useRef(false);
   useEffect(() => {
     const MIGRATION_KEY = 'gestrepara_migration_archivado_v1';
@@ -739,6 +756,23 @@ const App: React.FC = () => {
                 onDeleteBudget={id => confirm2('¿Eliminar presupuesto?', () => storage.remove('budgets', id))}
                 onMarkContacted={handleMarkBudgetContacted}
                 onViewInvoices={() => navigateTo('invoices')}
+                onReactivarBudget={(budget) => {
+                  const docId = budget.documentoGenerado?.id;
+                  const exists = docId && invoices.some((inv: any) => inv.id === docId);
+                  if (!exists) {
+                    storage.save('budgets', budget.id, { archivado: false, documentoGenerado: null });
+                    notify('success', 'Presupuesto reactivado');
+                  } else {
+                    const docLabel = budget.documentoGenerado?.tipo === 'factura' ? 'una factura' : 'un recibo';
+                    confirm2(
+                      `Este presupuesto tiene ${docLabel} generado (${budget.documentoGenerado?.numero}). ¿Reactivar igualmente?`,
+                      () => {
+                        storage.save('budgets', budget.id, { archivado: false, documentoGenerado: null });
+                        notify('success', 'Presupuesto reactivado');
+                      },
+                    );
+                  }
+                }}
                 onSendWhatsApp={async (budget, repair) => {
                   const msg = buildBudgetMessage(repair, budget, settings);
                   await sendWhatsApp(repair.customerPhone, msg);
