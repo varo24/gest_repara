@@ -440,68 +440,6 @@ const RepairForm: React.FC<RepairFormProps> = ({
               <textarea required rows={3} placeholder="Fallo reportado por el cliente..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none resize-none" value={formData.problemDescription} onChange={e => setFormData({...formData, problemDescription: e.target.value})}/>
             </div>
 
-            {/* ── Diagnóstico IA ── */}
-            {aiDiagnosis && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setAiDiagnosisOpen(o => !o)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-blue-100 transition-colors"
-                >
-                  <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
-                    <BrainCircuit size={14}/> Diagnóstico IA
-                  </span>
-                  <ChevronDown size={14} className={`text-blue-500 transition-transform ${aiDiagnosisOpen ? 'rotate-180' : ''}`}/>
-                </button>
-
-                {aiDiagnosisOpen && (
-                  <div className="px-5 pb-5 space-y-4 border-t border-blue-200">
-                    {/* Cabecera: tiempo + dificultad */}
-                    <div className="flex flex-wrap items-center gap-3 pt-4">
-                      <span className="text-[10px] font-black text-blue-800 bg-blue-100 px-3 py-1 rounded-lg">
-                        ⏱ {aiDiagnosis.estimatedTime}
-                      </span>
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-lg ${difficultyBadgeClass(aiDiagnosis.difficultyLevel)}`}>
-                        {aiDiagnosis.difficultyLevel}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Causas probables */}
-                      <div className="space-y-2">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Causas probables</p>
-                        <ul className="space-y-1">
-                          {aiDiagnosis.possibleCauses.map((c, i) => (
-                            <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700">
-                              <span className="text-blue-400 mt-0.5 shrink-0">▸</span>{c}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Repuestos sugeridos */}
-                      <div className="space-y-2">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Repuestos sugeridos</p>
-                        <ul className="space-y-1">
-                          {aiDiagnosis.suggestedParts.map((p, i) => (
-                            <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700">
-                              <span className="text-emerald-500 mt-0.5 shrink-0">▸</span>{p}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Consejo técnico */}
-                    <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                      <span className="text-amber-500 text-base shrink-0">⚠</span>
-                      <p className="text-[11px] text-amber-800 font-medium">{aiDiagnosis.technicalAdvice}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Opciones */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
@@ -719,6 +657,64 @@ const RepairForm: React.FC<RepairFormProps> = ({
           {/* ════════════ DIAGNÓSTICO ════════════ */}
           {activeTab === 'diagnostico' && (
             <div className="space-y-6">
+
+              {/* ── Resultado IA ── */}
+              {aiDiagnosis && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAiDiagnosisOpen(o => !o)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-blue-100 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                      <BrainCircuit size={14}/> Diagnóstico IA
+                    </span>
+                    <ChevronDown size={14} className={`text-blue-500 transition-transform ${aiDiagnosisOpen ? 'rotate-180' : ''}`}/>
+                  </button>
+
+                  {aiDiagnosisOpen && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-blue-200">
+                      <div className="flex flex-wrap items-center gap-3 pt-4">
+                        <span className="text-[10px] font-black text-blue-800 bg-blue-100 px-3 py-1 rounded-lg">
+                          ⏱ {aiDiagnosis.estimatedTime}
+                        </span>
+                        <span className={`text-[10px] font-black px-3 py-1 rounded-lg ${difficultyBadgeClass(aiDiagnosis.difficultyLevel)}`}>
+                          {aiDiagnosis.difficultyLevel}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Causas probables</p>
+                          <ul className="space-y-1">
+                            {aiDiagnosis.possibleCauses.map((c, i) => (
+                              <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700">
+                                <span className="text-blue-400 mt-0.5 shrink-0">▸</span>{c}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Repuestos sugeridos</p>
+                          <ul className="space-y-1">
+                            {aiDiagnosis.suggestedParts.map((p, i) => (
+                              <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700">
+                                <span className="text-emerald-500 mt-0.5 shrink-0">▸</span>{p}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <span className="text-amber-500 text-base shrink-0">⚠</span>
+                        <p className="text-[11px] text-amber-800 font-medium">{aiDiagnosis.technicalAdvice}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-start gap-4 p-4 bg-purple-50 border border-purple-200 rounded-2xl">
                 <ClipboardCheck size={20} className="text-purple-600 mt-0.5 shrink-0"/>
                 <div>
