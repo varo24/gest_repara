@@ -6,6 +6,7 @@ import {
 import { AppSettings, Supplier } from '../types';
 import { storage, localDB } from '../lib/dataService';
 import { uploadFacturaPDF } from '../lib/storageService';
+import { analyzeInvoice } from '../lib/gemini';
 
 interface DatosFactura {
   proveedor: string;
@@ -281,9 +282,32 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
       }
     }
 
+    // Enriquecer datos con info de contacto del proveedor
+    let enrichedDatos: DatosFactura = { ...doc.datos_factura };
+
+    // Fallback B: email desde la cabecera "From" del correo
+    if (!enrichedDatos.email_proveedor && doc.from) {
+      const m = doc.from.match(/[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+      if (m) enrichedDatos.email_proveedor = m[0];
+    }
+
+    // Opción A: analizar PDF con Gemini (máx. 5s) para extraer CIF, teléfono, dirección
+    if (pdfData?.base64 && settings.geminiApiKey) {
+      try {
+        const result = await Promise.race([
+          analyzeInvoice(pdfData.base64, 'application/pdf', settings.geminiApiKey),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+        ]);
+        if (result.cif_proveedor)       enrichedDatos.cif_proveedor       = result.cif_proveedor;
+        if (result.email_proveedor)     enrichedDatos.email_proveedor     = result.email_proveedor;
+        if (result.telefono_proveedor)  enrichedDatos.telefono_proveedor  = result.telefono_proveedor;
+        if (result.direccion_proveedor) enrichedDatos.direccion_proveedor = result.direccion_proveedor;
+      } catch { /* timeout o error — continuar sin datos de contacto adicionales */ }
+    }
+
     setImportingUid(doc.emailUid);
     try {
-      await doImport(doc.datos_factura, doc.emailUid, false, pdfData?.base64);
+      await doImport(enrichedDatos, doc.emailUid, false, pdfData?.base64);
     } finally { setImportingUid(null); }
   };
 

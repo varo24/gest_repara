@@ -2,10 +2,11 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Truck, Search, Plus, ArrowLeft, Phone, Mail, Globe, Building2,
   Edit2, Trash2, Save, FileText, Package, BarChart2,
-  Euro, TrendingUp, Clock, ExternalLink,
+  Euro, TrendingUp, Clock, ExternalLink, Upload, RefreshCw,
 } from 'lucide-react';
 import { Supplier, StockMovement } from '../types';
 import { storage } from '../lib/dataService';
+import { uploadFacturaPDF } from '../lib/storageService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -43,7 +44,7 @@ const emptyForm = (): Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'> => ({
 type View = 'list' | 'detail' | 'form';
 
 export default function Proveedores({
-  suppliers, facturasImportadas, stockMovements, onNotify, onBack, initialSupplierName,
+  suppliers, facturasImportadas, stockMovements, onNotify, onBack, initialSupplierName, settings,
 }: ProveedoresProps) {
   const [view, setView]                   = useState<View>(() => {
     if (initialSupplierName) return 'detail';
@@ -73,6 +74,7 @@ export default function Proveedores({
   const [activeTab, setActiveTab]         = useState<'facturas' | 'stock'>('facturas');
   const [isSaving, setIsSaving]           = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Supplier | null>(null);
+  const [reuploadingId, setReuploadingId] = useState<string | null>(null);
 
   // ── Computed per supplier ────────────────────────────────────────────────────
 
@@ -151,6 +153,33 @@ export default function Proveedores({
   , [stockMovements, selected]);
 
   // ── Form handlers ─────────────────────────────────────────────────────────────
+
+  const reuploadPdf = async (factura: any) => {
+    if (!factura.emailUid) { onNotify('error', 'Sin UID de email — no se puede recuperar el PDF'); return; }
+    const imapUrl = (settings?.imapServerUrl || '').trim().replace(/\/$/, '');
+    const imapKey = settings?.imapApiKey || '';
+    if (!imapUrl || !imapKey) { onNotify('error', 'Configura el servidor IMAP en Ajustes para recuperar PDFs'); return; }
+    setReuploadingId(factura.id);
+    try {
+      const r = await fetch(`${imapUrl}/emails/${factura.emailUid}`, {
+        headers: { 'x-api-key': imapKey },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!r.ok) throw new Error('No se pudo contactar con el servidor IMAP');
+      const data = await r.json();
+      const att = (data.attachments || []).find(
+        (a: any) => a.contentType === 'application/pdf' || (a.filename || '').toLowerCase().endsWith('.pdf')
+      );
+      if (!att?.data) throw new Error('El email no tiene adjunto PDF');
+      const url = await uploadFacturaPDF(att.data, factura.proveedor, factura.numeroFactura, factura.fecha);
+      await storage.save('facturas_importadas', factura.id, { ...factura, pdfUrl: url });
+      onNotify('success', `PDF de ${factura.numeroFactura} subido correctamente`);
+    } catch (err: any) {
+      onNotify('error', `No se pudo recuperar el PDF: ${err?.message || 'Error desconocido'}`);
+    } finally {
+      setReuploadingId(null);
+    }
+  };
 
   const openNew = () => {
     setEditingSupplier(null);
@@ -494,7 +523,16 @@ export default function Proveedores({
                           <ExternalLink size={12} />
                         </a>
                       ) : (
-                        <span className="w-7 h-7 flex items-center justify-center text-slate-200"><FileText size={12} /></span>
+                        <button
+                          onClick={() => reuploadPdf(f)}
+                          disabled={reuploadingId === f.id}
+                          title="Re-subir PDF desde correo"
+                          className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-500 transition-colors disabled:opacity-40"
+                        >
+                          {reuploadingId === f.id
+                            ? <RefreshCw size={12} className="animate-spin" />
+                            : <Upload size={12} />}
+                        </button>
                       )}
                     </div>
                   ))}
