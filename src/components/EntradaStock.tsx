@@ -14,6 +14,7 @@ interface PreFillData {
   fecha: string;
   total: number;
   lineas: Array<{ descripcion: string; referencia: string; cantidad: number; precio_unitario: number }>;
+  supplierId?: string;
 }
 
 interface EntradaStockProps {
@@ -60,7 +61,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   const [aiParsing, setAiParsing] = useState(false);
   const [aiLines, setAiLines] = useState<EntryLine[]>([]);
   const [aiRawText, setAiRawText] = useState('');
-  const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number } | null>(null);
+  const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number; supplierId?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Anti-duplicate + historial
@@ -100,6 +101,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
       numero_factura: preFillData.numero_factura,
       fecha: preFillData.fecha,
       total: preFillData.total,
+      supplierId: preFillData.supplierId,
     });
     setAiLines(preFillData.lineas.map(l => ({
       inventoryItemId: '',
@@ -148,7 +150,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     value: EntryLine[keyof EntryLine],
   ) => setter(prev => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
 
-  const commitEntries = async (lines: EntryLine[], notes: string, date: string, origin: StockMovement['origin'] = 'entrada-stock') => {
+  const commitEntries = async (lines: EntryLine[], notes: string, date: string, origin: StockMovement['origin'] = 'entrada-stock', supplierId?: string) => {
     if (!lines.length) return;
     setIsSaving(true);
     try {
@@ -206,6 +208,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
           costPrice: line.costPrice,
           date,
           origin,
+          supplierId: supplierId || undefined,
           notes: notes || undefined,
           createdAt: now,
         };
@@ -320,7 +323,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
 
     const origin = preFillFromCorreo ? 'correo' : 'entrada-stock';
     const notesStr = ['Gemini IA', aiMeta?.proveedor, aiMeta?.numero_factura, aiFile?.name].filter(Boolean).join(' · ');
-    await commitEntries(aiLines, notesStr, entryDate, origin);
+    await commitEntries(aiLines, notesStr, entryDate, origin, aiMeta?.supplierId);
     setAiLines([]);
     setAiFile(null);
     setAiRawText('');

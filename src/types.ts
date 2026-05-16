@@ -282,6 +282,7 @@ export interface StockMovement {
   costPrice: number;
   date: string;
   origin: 'manual' | 'entrada-stock' | 'presupuesto' | 'factura' | 'correo';
+  supplierId?: string;
   notes?: string;
   createdAt: string;
 }

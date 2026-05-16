@@ -3,8 +3,8 @@ import {
   FileText, RefreshCw, AlertCircle, CheckCircle2, Package,
   X, ChevronDown, ChevronRight, AlertTriangle, Trash2, Play, Download,
 } from 'lucide-react';
-import { AppSettings } from '../types';
-import { storage } from '../lib/dataService';
+import { AppSettings, Supplier } from '../types';
+import { storage, localDB } from '../lib/dataService';
 import { uploadFacturaPDF } from '../lib/storageService';
 
 interface DatosFactura {
@@ -13,6 +13,7 @@ interface DatosFactura {
   fecha: string;
   total: number;
   lineas: Array<{ descripcion: string; referencia: string; cantidad: number; precio_unitario: number }>;
+  supplierId?: string;
 }
 
 interface AnalizadoDoc {
@@ -184,6 +185,22 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
     return s;
   }, [facturasImportadas]);
 
+  const upsertSupplier = async (nombre: string): Promise<string> => {
+    const normalized = nombre.trim().toLowerCase();
+    const existing = (localDB.getAll('suppliers') as Supplier[]).find(
+      s => s.name.trim().toLowerCase() === normalized
+    );
+    if (existing) return existing.id;
+    const now = new Date().toISOString();
+    const id = `SUPP-${Date.now()}`;
+    const newSupplier: Supplier = {
+      id, name: nombre.trim(),
+      createdAt: now, updatedAt: now,
+    };
+    await storage.save('suppliers', id, newSupplier);
+    return id;
+  };
+
   const doImport = async (datos: DatosFactura, emailUid: number, forzado: boolean, pdfBase64?: string) => {
     const now = new Date().toISOString();
     const claveUnica = `${emailUid}-${datos.numero_factura}`;
@@ -198,18 +215,23 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
       }
     }
 
+    let supplierId: string | undefined;
+    if (datos.proveedor) {
+      try { supplierId = await upsertSupplier(datos.proveedor); } catch {}
+    }
+
     storage.save('facturas_importadas', importId, {
       id: importId, emailUid, claveUnica,
       proveedor: datos.proveedor, numeroFactura: datos.numero_factura,
       fecha: datos.fecha, total: datos.total, lineas: datos.lineas,
-      importadoEn: now, forzado, pdfUrl,
+      importadoEn: now, forzado, pdfUrl, supplierId,
     });
     storage.save('correos_procesados', `PROC-${emailUid}`, {
       id: `PROC-${emailUid}`, emailUid, tipo: 'stock_importado',
       proveedor: datos.proveedor, numeroFactura: datos.numero_factura, procesadoEn: now,
     });
     setDupeModal(null);
-    onImportToStock(datos);
+    onImportToStock({ ...datos, supplierId });
   };
 
   const handleImport = async (doc: AnalizadoDoc) => {
