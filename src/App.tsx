@@ -218,35 +218,39 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const unsubs: (() => void)[] = [];
+
     const initApp = async () => {
       try {
         await storage.init();
-        storage.subscribe('repairs', (data) => {
+        unsubs.push(storage.subscribe('repairs', (data) => {
           setRepairs(data);
           setLoading(false);
-        });
-        storage.subscribe('budgets', setBudgets);
-        storage.subscribe('settings', (data) => {
+        }));
+        unsubs.push(storage.subscribe('budgets', setBudgets));
+        unsubs.push(storage.subscribe('settings', (data) => {
           if (data && data.length > 0) setSettings(data[0]);
-        });
-        storage.subscribe('invoices', setInvoices);
-        storage.subscribe('citas', setCitas);
-        storage.subscribe('apps_externas', setExternalApps);
-        storage.subscribe('customers', setCustomersDB);
-        storage.subscribe('inventory', setInventoryItems);
-        storage.subscribe('stock_movements', setStockMovements);
-        storage.subscribe('warranties', setWarranties);
-        storage.subscribe('suppliers', setSuppliers);
-        storage.subscribe('facturas_importadas', setFacturasImportadas);
-        storage.subscribe('informes', setInformes);
-        storage.subscribe('cash_movements', setCashMovements);
-        storage.subscribe('cierres_caja', setCierresCaja);
+        }));
+        unsubs.push(storage.subscribe('invoices', setInvoices));
+        unsubs.push(storage.subscribe('citas', setCitas));
+        unsubs.push(storage.subscribe('apps_externas', setExternalApps));
+        unsubs.push(storage.subscribe('customers', setCustomersDB));
+        unsubs.push(storage.subscribe('inventory', setInventoryItems));
+        unsubs.push(storage.subscribe('stock_movements', setStockMovements));
+        unsubs.push(storage.subscribe('warranties', setWarranties));
+        unsubs.push(storage.subscribe('suppliers', setSuppliers));
+        unsubs.push(storage.subscribe('facturas_importadas', setFacturasImportadas));
+        unsubs.push(storage.subscribe('informes', setInformes));
+        unsubs.push(storage.subscribe('cash_movements', setCashMovements));
+        unsubs.push(storage.subscribe('cierres_caja', setCierresCaja));
       } catch (err) {
         console.error('Init Error:', err);
         setLoading(false);
       }
     };
+
     initApp();
+    return () => unsubs.forEach(fn => fn());
   }, []);
 
   const handleMarkBudgetContacted = useCallback((budgetId: string) => {

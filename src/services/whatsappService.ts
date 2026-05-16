@@ -15,12 +15,12 @@ export interface WhatsAppConfig {
 }
 
 const getConfig = (): WhatsAppConfig => {
-  const mode = (process.env.VITE_WA_MODE || 'web') as 'api' | 'web';
+  const mode = ((import.meta.env.VITE_WA_MODE as string | undefined) || 'web') as 'api' | 'web';
   return {
     mode,
-    phoneNumberId: process.env.VITE_WA_PHONE_NUMBER_ID,
-    accessToken: process.env.VITE_WA_ACCESS_TOKEN,
-    fromPhone: process.env.VITE_WA_FROM_PHONE,
+    phoneNumberId: import.meta.env.VITE_WA_PHONE_NUMBER_ID as string | undefined,
+    accessToken: import.meta.env.VITE_WA_ACCESS_TOKEN as string | undefined,
+    fromPhone: import.meta.env.VITE_WA_FROM_PHONE as string | undefined,
   };
 };
 
