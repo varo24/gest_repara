@@ -257,11 +257,14 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
       setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: existing || {} });
       return;
     }
+
+    // Bloquear antes de cualquier operación async para evitar doble importación por doble clic
+    setImportingUid(doc.emailUid);
+
     let pdfData = pdfCacheRef.current.get(doc.emailUid);
 
     // Si el PDF no está en cache pero el email tenía adjunto, re-fetchear del servidor
     if (!pdfData && doc.tiene_adjunto_pdf && serverUrl) {
-      setImportingUid(doc.emailUid);
       try {
         const r = await fetch(`${serverUrl}/emails/${doc.emailUid}`, {
           headers: { 'x-api-key': apiKey },
@@ -305,7 +308,6 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
       } catch { /* timeout o error — continuar sin datos de contacto adicionales */ }
     }
 
-    setImportingUid(doc.emailUid);
     try {
       await doImport(enrichedDatos, doc.emailUid, false, pdfData?.base64);
     } finally { setImportingUid(null); }

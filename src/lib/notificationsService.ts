@@ -44,8 +44,8 @@ export function generarNotificaciones(data: {
     }
   });
 
-  // 2. Stock bajo o agotado
-  inventory.filter(i => i.stock <= i.minStock).forEach(i => {
+  // 2. Stock bajo o agotado (solo si minStock > 0, para no alertar de ítems sin mínimo definido)
+  inventory.filter(i => i.minStock > 0 && i.stock <= i.minStock).forEach(i => {
     raw.push({
       tipo: 'stock',
       prioridad: i.stock === 0 ? 'alta' : 'media',

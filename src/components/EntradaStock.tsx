@@ -195,7 +195,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
             description,
             category: line.category || 'Otros',
             stock: line.qty,
-            minStock: 2,
+            minStock: 0,
             costPrice: line.costPrice,
             salePrice: Math.round(line.costPrice * 2.5 * 100) / 100,
             location: line.location || undefined,
