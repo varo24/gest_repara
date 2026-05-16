@@ -7,7 +7,7 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
 
   // [DEBUG] Temporal — eliminar tras verificar
   console.debug('[Gemini] apiKey presente:', !!apiKey);
-  console.debug('[Gemini] modelo:', 'gemini-2.0-flash');
+  console.debug('[Gemini] modelo:', 'gemini-2.5-flash-preview-04-17');
 
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
     console.warn("Gemini API Key no encontrada.");
@@ -18,7 +18,7 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-preview-04-17',
       contents: `Analiza este reporte de avería técnica:
       Equipo: ${device}
       Marca: ${brand}
