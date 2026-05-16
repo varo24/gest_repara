@@ -3,13 +3,17 @@ import { FullInvoice, AppSettings } from '../types';
 
 // Genera la huella SHA-256 del registro de factura
 export const generarHuella = (invoice: FullInvoice, settings: AppSettings): string => {
+  // Normalize createdAt to UTC ISO to guarantee the same hash across devices/timezones.
+  const createdAtUTC = invoice.createdAt
+    ? new Date(invoice.createdAt).toISOString()
+    : '';
   const data = [
     settings.verifactuNIF || settings.taxId || '',
     invoice.invoiceNumber,
     invoice.date,
     invoice.customerName,
     (invoice.total || 0).toFixed(2),
-    invoice.createdAt,
+    createdAtUTC,
   ].join('|');
   return CryptoJS.SHA256(data).toString(CryptoJS.enc.Hex).toUpperCase();
 };

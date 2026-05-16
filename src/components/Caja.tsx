@@ -299,7 +299,7 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
 
   const handleCerrarCaja = async () => {
     const now = new Date().toISOString();
-    const id = `CIERRE-${today}`;
+    const id = `CIERRE-${today}-${crypto.randomUUID().slice(0, 8)}`;
     const detalleBilletes: DetalleBilletes = {
       b200: billetes.b200 || 0,
       b100: billetes.b100 || 0, b50: billetes.b50 || 0,

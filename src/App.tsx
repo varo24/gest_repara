@@ -275,7 +275,7 @@ const App: React.FC = () => {
       const leidasIds = new Set(prev.filter(n => n.leida).map(n => n.id));
       return nuevas.map(n => ({ ...n, leida: leidasIds.has(n.id) }));
     });
-  }, [warranties, inventoryItems, citas, repairs, invoices]);
+  }, [warranties, inventoryItems, citas, repairs, invoices, budgets]);
 
   useEffect(() => { solicitarPermiso(); }, []);
 

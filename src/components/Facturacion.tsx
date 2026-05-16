@@ -57,6 +57,8 @@ const exportCSV = (invoices: FullInvoice[]) => {
 
 // ── Bulk print helpers ────────────────────────────────────────────────────────
 const buildInvoicePageHTML = (inv: any, settings: AppSettings): string => {
+  const esc = (s?: string | null) =>
+    (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const isSimplificada = !inv.customerTaxId;
   const isRecibo = (inv.invoiceNumber || '').startsWith('REC-');
   return `
@@ -66,22 +68,22 @@ const buildInvoicePageHTML = (inv: any, settings: AppSettings): string => {
   <div class="header">
     <div class="logo-area">
       ${settings.logoUrl
-        ? `<div class="logo-box"><img src="${settings.logoUrl}" alt="Logo"/></div>`
-        : `<div class="logo-box"><span class="logo-initials">${(settings.appName || 'G').charAt(0)}</span></div>`}
+        ? `<div class="logo-box"><img src="${esc(settings.logoUrl)}" alt="Logo"/></div>`
+        : `<div class="logo-box"><span class="logo-initials">${esc((settings.appName || 'G').charAt(0))}</span></div>`}
       <div class="shop-data">
-        <div class="shop-name">${settings.appName}</div>
+        <div class="shop-name">${esc(settings.appName)}</div>
         <div class="shop-sub">
-          ${settings.address ? settings.address + '<br>' : ''}
-          ${settings.phone ? 'Tel. ' + settings.phone : ''}
-          ${settings.email ? '<br>e-Mail ' + settings.email : ''}
-          ${settings.taxId ? '<br>C.I.F. ' + settings.taxId : ''}
+          ${settings.address ? esc(settings.address) + '<br>' : ''}
+          ${settings.phone ? 'Tel. ' + esc(settings.phone) : ''}
+          ${settings.email ? '<br>e-Mail ' + esc(settings.email) : ''}
+          ${settings.taxId ? '<br>C.I.F. ' + esc(settings.taxId) : ''}
         </div>
       </div>
     </div>
     <div class="doc-type-block">
       <div class="doc-type">${isRecibo ? 'Recibo' : inv.isRectificativa ? 'Factura Rectificativa' : isSimplificada ? 'Fact. Simplificada' : 'Factura'}</div>
       <div class="doc-meta">
-        <strong>${isRecibo ? 'Nº Recibo' : 'Nº Fact.'}</strong> &nbsp; ${inv.invoiceNumber}<br>
+        <strong>${isRecibo ? 'Nº Recibo' : 'Nº Fact.'}</strong> &nbsp; ${esc(inv.invoiceNumber)}<br>
         <strong>Fecha</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${fmtDate(inv.date)}<br>
         <strong>Fecha Valor</strong> ${inv.paidAt ? fmtDate(inv.paidAt) : fmtDate(inv.date)}<br>
         ${inv.rmaNumber ? `<strong>Referencia</strong> ${fmtRMA(inv.rmaNumber)}` : ''}
@@ -92,20 +94,20 @@ const buildInvoicePageHTML = (inv: any, settings: AppSettings): string => {
     <div class="party-box">
       <div class="party-title">Emisor</div>
       <div class="party-body">
-        <div class="party-name">${settings.appName}</div>
-        ${settings.address ? settings.address + '<br>' : ''}
-        ${settings.phone ? 'Tel. ' + settings.phone : ''}
-        ${settings.email ? '<br>' + settings.email : ''}
-        <div class="party-cif">${settings.taxId ? 'C.I.F. ' + settings.taxId : ''}</div>
+        <div class="party-name">${esc(settings.appName)}</div>
+        ${settings.address ? esc(settings.address) + '<br>' : ''}
+        ${settings.phone ? 'Tel. ' + esc(settings.phone) : ''}
+        ${settings.email ? '<br>' + esc(settings.email) : ''}
+        <div class="party-cif">${settings.taxId ? 'C.I.F. ' + esc(settings.taxId) : ''}</div>
       </div>
     </div>
     <div class="party-box">
       <div class="party-title">Cliente</div>
       <div class="party-body">
-        <div class="party-name">${inv.customerName}</div>
-        ${inv.customerAddress ? inv.customerAddress + '<br>' : ''}
-        Tel. ${inv.customerPhone}
-        ${inv.customerTaxId ? '<div class="party-cif">' + inv.customerTaxId + '</div>' : ''}
+        <div class="party-name">${esc(inv.customerName)}</div>
+        ${inv.customerAddress ? esc(inv.customerAddress) + '<br>' : ''}
+        Tel. ${esc(inv.customerPhone)}
+        ${inv.customerTaxId ? '<div class="party-cif">' + esc(inv.customerTaxId) + '</div>' : ''}
       </div>
     </div>
   </div>
@@ -122,7 +124,7 @@ const buildInvoicePageHTML = (inv: any, settings: AppSettings): string => {
       <tr>
         <td class="c">${item.quantity}</td>
         <td><span class="item-code">${String(i + 1).padStart(4, '0')}</span></td>
-        <td>${item.description}</td>
+        <td>${esc(item.description)}</td>
         <td class="r">${(item.unitPrice || 0).toFixed(2)}</td>
         ${!isRecibo ? `<td class="r">${(inv.taxRate || 0).toFixed(2)}%</td>` : ''}
         <td class="r">${(item.quantity * (item.unitPrice || 0)).toFixed(2)}</td>
@@ -131,7 +133,7 @@ const buildInvoicePageHTML = (inv: any, settings: AppSettings): string => {
       <tr>
         <td class="c">${item.hours}h</td>
         <td><span class="item-code">MO${String(i + 1).padStart(3, '0')}</span></td>
-        <td>${item.description} <em style="color:#888;font-size:8px">(Mano de obra)</em></td>
+        <td>${esc(item.description)} <em style="color:#888;font-size:8px">(Mano de obra)</em></td>
         <td class="r">${(item.hourlyRate || 0).toFixed(2)}</td>
         ${!isRecibo ? `<td class="r">${(inv.taxRate || 0).toFixed(2)}%</td>` : ''}
         <td class="r">${((item.hours || 0) * (item.hourlyRate || 0)).toFixed(2)}</td>
@@ -850,6 +852,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
   const [notes, setNotes]                   = useState('');
   const [invSearch, setInvSearch]           = useState('');
   const [showInvDrop, setShowInvDrop]       = useState(false);
+  const [isSaving, setIsSaving]             = useState(false);
 
   const filteredInv = invSearch.trim()
     ? inventoryItems.filter(i => {
@@ -874,40 +877,50 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
   const taxAmount = Math.round(subtotal * (effectiveTaxRate/100) * 100) / 100;
   const total     = Math.round((subtotal + taxAmount) * 100) / 100;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
     if (!customerName.trim()) { alert('El nombre del cliente es obligatorio'); return; }
     if (items.every(i => !i.description.trim())) { alert('Añade al menos una línea'); return; }
-    const now = new Date().toISOString();
-    const filteredItems = items.filter(i => i.description.trim());
-    const inv: FullInvoice = {
-      id:            isEditing ? initialInvoice!.id : uid(),
-      invoiceNumber: isEditing ? initialInvoice!.invoiceNumber : storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC'),
-      createdAt:     isEditing ? initialInvoice!.createdAt : now,
-      repairId:      initialInvoice?.repairId,
-      rmaNumber:     initialInvoice?.rmaNumber,
-      isRectificativa: initialInvoice?.isRectificativa || false,
-      customerName: customerName.trim(), customerPhone: customerPhone.trim(),
-      customerTaxId: customerTaxId.trim() || undefined,
-      customerAddress: customerAddress.trim() || undefined,
-      date: isEditing ? initialInvoice!.date : now.slice(0,10),
-      items: filteredItems,
-      laborItems: laborItems.filter(i => i.description.trim()),
-      subtotal, taxRate: effectiveTaxRate, taxAmount, total,
-      status,
-      payMethod: status === 'cobrada' ? payMethod : undefined,
-      paidAt: status === 'cobrada' ? (isEditing && initialInvoice!.paidAt ? initialInvoice!.paidAt : now) : undefined,
-      // Marcar el descuento de stock: true si es nueva factura, conservar valor si edición
-      stockDescontado: isEditing ? (initialInvoice?.stockDescontado ?? false) : true,
-    };
-    const finalInv = (!isEditing && settings.verifactuEnabled)
-      ? prepararFacturaVeriFactu(inv, settings)
-      : inv;
 
-    onSave(finalInv, !isEditing && saveAsCustomer);
+    setIsSaving(true);
+    try {
+      const now = new Date().toISOString();
+      const filteredItems = items.filter(i => i.description.trim());
+      const inv: FullInvoice = {
+        id:            isEditing ? initialInvoice!.id : uid(),
+        invoiceNumber: isEditing ? initialInvoice!.invoiceNumber : storage.nextInvoiceNumber(effectiveTaxRate === 0 ? 'REC' : 'FAC'),
+        createdAt:     isEditing ? initialInvoice!.createdAt : now,
+        repairId:      initialInvoice?.repairId,
+        rmaNumber:     initialInvoice?.rmaNumber,
+        isRectificativa: initialInvoice?.isRectificativa || false,
+        customerName: customerName.trim(), customerPhone: customerPhone.trim(),
+        customerTaxId: customerTaxId.trim() || undefined,
+        customerAddress: customerAddress.trim() || undefined,
+        date: isEditing ? initialInvoice!.date : now.slice(0,10),
+        items: filteredItems,
+        laborItems: laborItems.filter(i => i.description.trim()),
+        subtotal, taxRate: effectiveTaxRate, taxAmount, total,
+        status,
+        payMethod: status === 'cobrada' ? payMethod : undefined,
+        paidAt: status === 'cobrada' ? (isEditing && initialInvoice!.paidAt ? initialInvoice!.paidAt : now) : undefined,
+        stockDescontado: isEditing ? (initialInvoice?.stockDescontado ?? false) : true,
+      };
+      const finalInv = (!isEditing && settings.verifactuEnabled)
+        ? prepararFacturaVeriFactu(inv, settings)
+        : inv;
 
-    // Descontar stock al CREAR (no al editar). Usa inventoryItemId o búsqueda por descripción.
-    if (!isEditing) {
-      descontarStock(filteredItems, 'factura', finalInv.invoiceNumber);
+      // Descontar stock ANTES de confirmar la factura. Si falla, el error se
+      // propaga al catch y onSave no se llama — la factura no queda guardada.
+      if (!isEditing) {
+        await descontarStock(filteredItems, 'factura', finalInv.invoiceNumber);
+      }
+
+      onSave(finalInv, !isEditing && saveAsCustomer);
+    } catch (err) {
+      console.error('[Facturacion] Error al descontar stock:', err);
+      alert('Error al actualizar el inventario. La factura no se ha guardado. Inténtalo de nuevo.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1141,8 +1154,8 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
       {/* Guardar */}
       <div className="flex gap-3 justify-end">
         <button onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase hover:bg-slate-200 transition-all">Cancelar</button>
-        <button onClick={handleSave} className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all">
-          <Save size={14}/> {isEditing ? 'Guardar cambios' : 'Guardar factura'}
+        <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all disabled:opacity-60 disabled:pointer-events-none">
+          <Save size={14}/> {isSaving ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Guardar factura'}
         </button>
       </div>
     </div>

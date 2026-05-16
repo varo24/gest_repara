@@ -132,7 +132,6 @@ ${activeWarranties.map(w => `<tr><td>${esc(w.deviceDescription)}</td><td>${fmtDa
   w.document.close();
   w.focus();
   w.onload = () => setTimeout(() => { try { w.print(); } catch {} }, 500);
-  setTimeout(() => { try { w.print(); } catch {} }, 2000);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

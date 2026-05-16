@@ -34,6 +34,9 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
   const [lastInvoice, setLastInvoice] = useState<any>(null);
   const [lastWarranty, setLastWarranty] = useState<any>(null);
   const [isCobrar, setIsCobrar] = useState(false);
+  // useRef lock: synchronous guard that fires before React can re-render,
+  // ensuring a second click (or concurrent call) is rejected even in the same tick.
+  const cobrarLockRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const bufRef = useRef('');
   const tmrRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,94 +78,103 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
     if (b) {
       const sub = b.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
         + b.laborItems.reduce((s, i) => s + i.hours * i.hourlyRate, 0);
-      const tax = Math.round(sub * ((b.taxRate || settings.taxRate || 21) / 100) * 100) / 100;
-      return { budget: b, subtotal: sub, taxAmount: tax, total: Math.round((sub + tax) * 100) / 100 };
+      const effectiveRate = b.taxEnabled === false ? 0 : (b.taxRate || settings.taxRate || 21);
+      const tax = Math.round(sub * (effectiveRate / 100) * 100) / 100;
+      return { budget: b, subtotal: sub, taxAmount: tax, total: Math.round((sub + tax) * 100) / 100, effectiveRate };
     }
     const sub = (r.estimatedParts || 0) + (r.estimatedHours || 0) * (settings.hourlyRate || 45);
-    const tax = Math.round(sub * ((settings.taxRate || 21) / 100) * 100) / 100;
-    return { budget: null, subtotal: sub, taxAmount: tax, total: Math.round((sub + tax) * 100) / 100 };
+    const effectiveRate = settings.taxRate || 21;
+    const tax = Math.round(sub * (effectiveRate / 100) * 100) / 100;
+    return { budget: null, subtotal: sub, taxAmount: tax, total: Math.round((sub + tax) * 100) / 100, effectiveRate };
   };
 
   const cobrar = async () => {
-    if (!repair || isCobrar) return;
+    if (!repair || cobrarLockRef.current) return;
+    cobrarLockRef.current = true;  // synchronous — blocks concurrent calls in the same tick
     setIsCobrar(true);
-    const { subtotal, taxAmount, total, budget } = getTotals(repair);
-    const now = new Date().toISOString();
+    try {
+      const { subtotal, taxAmount, total, budget, effectiveRate } = getTotals(repair);
+      const now = new Date().toISOString();
 
-    const invoiceNumber = storage.nextInvoiceNumber('FAC');
+      // Respetar taxEnabled del presupuesto: sin IVA → serie REC, con IVA → FAC
+      const serie: 'FAC' | 'REC' = effectiveRate === 0 ? 'REC' : 'FAC';
+      const invoiceNumber = storage.nextInvoiceNumber(serie);
 
-    const invoiceItems = budget?.items ?? [];
+      const invoiceItems = budget?.items ?? [];
 
-    // Si el presupuesto no había descontado stock (stockDescontado !== true), descontar ahora
-    const budgetAlreadyDeducted = (budget as any)?.stockDescontado === true;
-    if (!budgetAlreadyDeducted && invoiceItems.length > 0) {
-      await descontarStock(invoiceItems, 'despacho', invoiceNumber);
+      // Si el presupuesto no había descontado stock (stockDescontado !== true), descontar ahora
+      const budgetAlreadyDeducted = (budget as any)?.stockDescontado === true;
+      if (!budgetAlreadyDeducted && invoiceItems.length > 0) {
+        await descontarStock(invoiceItems, 'despacho', invoiceNumber);
+      }
+
+      const invoice = {
+        id: `INV-${Date.now()}`,
+        invoiceNumber,
+        repairId: repair.id,
+        rmaNumber: repair.rmaNumber,
+        customerName: repair.customerName,
+        customerPhone: repair.customerPhone,
+        date: now.slice(0, 10),
+        items: invoiceItems,
+        laborItems: budget?.laborItems ?? [],
+        subtotal,
+        taxRate: effectiveRate,
+        taxAmount,
+        total,
+        status: 'cobrada',
+        payMethod: pay,
+        paidAt: now,
+        isRectificativa: false,
+        createdAt: now,
+        stockDescontado: true,
+      };
+
+      const finalInvoice: FullInvoice = settings.verifactuEnabled
+        ? prepararFacturaVeriFactu(invoice as FullInvoice, settings)
+        : (invoice as FullInvoice);
+      storage.save('invoices', finalInvoice.id, finalInvoice);
+      const cashId = `CASH-${Date.now()}`;
+      storage.save('cash_movements', cashId, {
+        id: cashId,
+        type: 'ingreso',
+        invoiceId: finalInvoice.id,
+        description: `${invoiceNumber} — ${repair.customerName}`,
+        amount: total,
+        payMethod: pay,
+        date: now.slice(0, 10),
+        category: 'reparacion',
+        createdAt: now,
+      });
+
+      const wMonths = settings.warrantyMonths ?? 3;
+      const expiryDate = new Date(now);
+      expiryDate.setMonth(expiryDate.getMonth() + wMonths);
+      const warrantyData = {
+        id: `WAR-${Date.now()}`,
+        repairId: repair.id,
+        rmaNumber: repair.rmaNumber,
+        customerName: repair.customerName,
+        customerPhone: repair.customerPhone,
+        deviceDescription: `${repair.brand} ${repair.model}`,
+        deliveryDate: now.slice(0, 10),
+        expiryDate: expiryDate.toISOString().slice(0, 10),
+        months: wMonths,
+        status: 'activa',
+        createdAt: now,
+      };
+      storage.save('warranties', warrantyData.id, warrantyData);
+
+      storage.save('repairs', repair.id, { ...repair, status: RepairStatus.DELIVERED, updatedAt: now });
+      onStatusChange(repair.id, RepairStatus.DELIVERED);
+      onNotify('success', `${invoiceNumber} — ${repair.customerName} despachado`);
+      setLastInvoice(finalInvoice);
+      setLastWarranty(warrantyData);
+      setPhase('done');
+    } finally {
+      cobrarLockRef.current = false;
+      setIsCobrar(false);
     }
-
-    const invoice = {
-      id: `INV-${Date.now()}`,
-      invoiceNumber,
-      repairId: repair.id,
-      rmaNumber: repair.rmaNumber,
-      customerName: repair.customerName,
-      customerPhone: repair.customerPhone,
-      date: now.slice(0, 10),
-      items: invoiceItems,
-      laborItems: budget?.laborItems ?? [],
-      subtotal,
-      taxRate: settings.taxRate || 21,
-      taxAmount,
-      total,
-      status: 'cobrada',
-      payMethod: pay,
-      paidAt: now,
-      isRectificativa: false,
-      createdAt: now,
-      stockDescontado: true,
-    };
-
-    const finalInvoice: FullInvoice = settings.verifactuEnabled
-      ? prepararFacturaVeriFactu(invoice as FullInvoice, settings)
-      : (invoice as FullInvoice);
-    storage.save('invoices', finalInvoice.id, finalInvoice);
-    const cashId = `CASH-${Date.now()}`;
-    storage.save('cash_movements', cashId, {
-      id: cashId,
-      type: 'ingreso',
-      invoiceId: finalInvoice.id,
-      description: `${invoiceNumber} — ${repair.customerName}`,
-      amount: total,
-      payMethod: pay,
-      date: now.slice(0, 10),
-      category: 'reparacion',
-      createdAt: now,
-    });
-
-    const wMonths = settings.warrantyMonths ?? 3;
-    const expiryDate = new Date(now);
-    expiryDate.setMonth(expiryDate.getMonth() + wMonths);
-    const warrantyData = {
-      id: `WAR-${Date.now()}`,
-      repairId: repair.id,
-      rmaNumber: repair.rmaNumber,
-      customerName: repair.customerName,
-      customerPhone: repair.customerPhone,
-      deviceDescription: `${repair.brand} ${repair.model}`,
-      deliveryDate: now.slice(0, 10),
-      expiryDate: expiryDate.toISOString().slice(0, 10),
-      months: wMonths,
-      status: 'activa',
-      createdAt: now,
-    };
-    storage.save('warranties', warrantyData.id, warrantyData);
-
-    storage.save('repairs', repair.id, { ...repair, status: RepairStatus.DELIVERED, updatedAt: now });
-    onStatusChange(repair.id, RepairStatus.DELIVERED);
-    onNotify('success', `${invoiceNumber} — ${repair.customerName} despachado`);
-    setLastInvoice(finalInvoice);
-    setLastWarranty(warrantyData);
-    setPhase('done');
-    setIsCobrar(false);
   };
 
   const printTicket = (r: RepairItem) => {

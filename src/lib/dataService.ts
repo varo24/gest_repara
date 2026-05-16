@@ -232,6 +232,7 @@ const flushPending = async () => {
 // ── Connectivity test ────────────────────────────────────────────────────────
 
 let firestoreAvailable = false;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let initialized = false;
 
 // ── Sync-status pub/sub ───────────────────────────────────────────────────────
@@ -339,6 +340,11 @@ const pullAll = async (force = false) => {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// Tracks the highest invoice number reserved this session per series.
+// Prevents two concurrent nextInvoiceNumber() calls from returning the same number
+// before either has written to IDB.
+const invoiceReserved: Record<string, number> = {};
+
 export const storage = {
   init: async () => {
     if (initialized) return;
@@ -398,7 +404,8 @@ export const storage = {
       // Heartbeat every 30 s:
       // - If offline: try to reconnect silently, flush pending, restart listeners
       // - If online: restart any dead listeners
-      setInterval(async () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(async () => {
         if (!firestoreAvailable) {
           firestoreAvailable = await testFirestore();
           if (firestoreAvailable) {
@@ -529,7 +536,12 @@ export const storage = {
       .filter((i: any) => (i.invoiceNumber || '').startsWith(prefix))
       .map((i: any) => parseInt((i.invoiceNumber || '').replace(/\D/g, '') || '0'))
       .filter(Boolean);
-    const next = nums.length ? Math.max(...nums) + 1 : 1;
+    const dbMax = nums.length ? Math.max(...nums) : 0;
+    // Also check in-memory reservations so concurrent calls in the same tick
+    // (e.g. double-click or Despacho + Facturacion race) never return the same number.
+    const reserved = invoiceReserved[type] ?? 0;
+    const next = Math.max(dbMax, reserved) + 1;
+    invoiceReserved[type] = next;
     return `${prefix}${String(next).padStart(5, '0')}`;
   },
 
