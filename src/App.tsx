@@ -692,7 +692,7 @@ const App: React.FC = () => {
         <div className="fixed top-6 right-6 z-[110] space-y-3 pointer-events-none">
           {notifications.map(n => (
             <div key={n.id} className="px-6 py-4 rounded-2xl bg-slate-900 text-white shadow-2xl border border-white/10 flex items-center gap-4 pointer-events-auto">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${n.type === 'success' ? 'bg-emerald-400' : n.type === 'error' ? 'bg-red-400' : 'bg-blue-400'}`} />
+              <div className={`w-2 h-2 rounded-full shrink-0 ${n.type === 'success' ? 'bg-emerald-400' : n.type === 'error' ? 'bg-red-400' : n.type === 'warning' ? 'bg-amber-400' : 'bg-blue-400'}`} />
               <p className="text-[10px] font-black uppercase tracking-widest">{n.message}</p>
             </div>
           ))}
@@ -1230,6 +1230,7 @@ const App: React.FC = () => {
                     navigateTo('inventory-entrada');
                   }}
                   onBack={() => navigateTo('dashboard')}
+                  onNotify={notify}
                 />
               </Suspense>
             )}

@@ -158,7 +158,7 @@ export interface Customer {
 
 export interface AppNotification {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
 

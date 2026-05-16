@@ -38,6 +38,7 @@ interface CorreosProps {
   settings: AppSettings;
   onImportToStock: (datos: DatosFactura) => void;
   onBack: () => void;
+  onNotify?: (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
 }
 
 const fmtDateShort = (iso: string | null) => {
@@ -52,7 +53,7 @@ const fmtDateTime = (iso: string | null) => {
   catch { return iso; }
 };
 
-export default function Correos({ settings, onImportToStock, onBack }: CorreosProps) {
+export default function Correos({ settings, onImportToStock, onBack, onNotify }: CorreosProps) {
   const serverUrl = (settings.imapServerUrl || '').trim().replace(/\/$/, '');
   const apiKey    = settings.imapApiKey || '';
 
@@ -192,8 +193,8 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     if (pdfBase64) {
       try {
         pdfUrl = await uploadFacturaPDF(pdfBase64, datos.proveedor, datos.numero_factura, datos.fecha);
-      } catch (e) {
-        console.warn('[Storage] Error subiendo PDF (la importación continúa):', e);
+      } catch {
+        onNotify?.('warning', 'La factura se importó pero el PDF no se pudo guardar. Súbelo manualmente desde Archivo Facturas.');
       }
     }
 
@@ -223,7 +224,31 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
       setDupeModal({ datos: doc.datos_factura, emailUid: doc.emailUid, existing: existing || {} });
       return;
     }
-    const pdfData = pdfCacheRef.current.get(doc.emailUid);
+    let pdfData = pdfCacheRef.current.get(doc.emailUid);
+
+    // Si el PDF no está en cache pero el email tenía adjunto, re-fetchear del servidor
+    if (!pdfData && doc.tiene_adjunto_pdf && serverUrl) {
+      setImportingUid(doc.emailUid);
+      try {
+        const r = await fetch(`${serverUrl}/emails/${doc.emailUid}`, {
+          headers: { 'x-api-key': apiKey },
+          signal: AbortSignal.timeout(20000),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const att = (data.attachments || []).find(
+            (a: any) => a.contentType === 'application/pdf' || (a.filename || '').toLowerCase().endsWith('.pdf')
+          );
+          if (att?.data) {
+            pdfData = { base64: att.data, filename: att.filename || 'factura.pdf' };
+            pdfCacheRef.current.set(doc.emailUid, pdfData);
+          }
+        }
+      } catch {
+        // continúa sin PDF — se avisará en doImport si el upload falla
+      }
+    }
+
     setImportingUid(doc.emailUid);
     try {
       await doImport(doc.datos_factura, doc.emailUid, false, pdfData?.base64);
