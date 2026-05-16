@@ -40,7 +40,10 @@
       "Bash(npm uninstall *)",
       "Bash(git revert *)",
       "Bash(npx firebase-tools *)",
-      "Bash(npx --yes firebase-tools@latest login:list)"
+      "Bash(npx --yes firebase-tools@latest login:list)",
+      "Bash(xargs wc *)",
+      "Bash(npm test *)",
+      "Bash(npx vitest *)"
     ]
   }
 }

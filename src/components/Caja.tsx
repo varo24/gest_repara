@@ -7,6 +7,7 @@ import {
 import { AppSettings, CierreCaja as CierreCajaType, DetalleBilletes } from '../types';
 import { storage } from '../lib/dataService';
 import { exportCajaExcel, exportCajaPdf } from '../lib/cajaExport';
+import { localDateStr } from '../lib/cajaUtils';
 
 interface NormMov {
   id: string;
@@ -106,10 +107,6 @@ const CAT_LABELS: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-// Local-date helpers — toISOString() uses UTC, which causes off-by-one at midnight
-// in timezones ahead of UTC (e.g., Spain UTC+1/+2). Use getFullYear/getMonth/getDate instead.
-const localDateStr = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImportadas = [], settings, onBack, onViewArchivo, onNotify }) => {
   const today = localDateStr(new Date());
