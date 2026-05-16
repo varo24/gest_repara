@@ -430,12 +430,8 @@ const RepairForm: React.FC<RepairFormProps> = ({
 
             {/* Avería */}
             <div className="space-y-3">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
-                <span>Descripción de la Avería</span>
-                <button type="button" onClick={handleAiDiagnosis} disabled={aiLoading} className="text-blue-600 flex items-center gap-1.5 hover:underline disabled:opacity-50 text-[10px]">
-                  {aiLoading ? <Loader2 size={12} className="animate-spin"/> : <BrainCircuit size={14}/>}
-                  {aiLoading ? 'Analizando...' : 'IA'}
-                </button>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Descripción de la Avería
               </h3>
               <textarea required rows={3} placeholder="Fallo reportado por el cliente..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none resize-none" value={formData.problemDescription} onChange={e => setFormData({...formData, problemDescription: e.target.value})}/>
             </div>
@@ -657,6 +653,17 @@ const RepairForm: React.FC<RepairFormProps> = ({
           {/* ════════════ DIAGNÓSTICO ════════════ */}
           {activeTab === 'diagnostico' && (
             <div className="space-y-6">
+
+              {/* ── Botón IA ── */}
+              <button
+                type="button"
+                onClick={handleAiDiagnosis}
+                disabled={aiLoading || !formData.deviceType || !formData.problemDescription}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <BrainCircuit size={14}/>}
+                {aiLoading ? 'Analizando...' : 'Analizar con IA'}
+              </button>
 
               {/* ── Resultado IA ── */}
               {aiDiagnosis && (
