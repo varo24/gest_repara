@@ -5,7 +5,7 @@ import {
   Euro, TrendingUp, Clock, ExternalLink, Upload, RefreshCw,
 } from 'lucide-react';
 import { Supplier, StockMovement } from '../types';
-import { storage } from '../lib/dataService';
+import { storage, localDB } from '../lib/dataService';
 import { uploadFacturaPDF } from '../lib/storageService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -155,13 +155,24 @@ export default function Proveedores({
   // ── Form handlers ─────────────────────────────────────────────────────────────
 
   const reuploadPdf = async (factura: any) => {
-    if (!factura.emailUid) { onNotify('error', 'Sin UID de email — no se puede recuperar el PDF'); return; }
+    let emailUid: number | undefined = factura.emailUid || undefined;
+
+    // Fallback: buscar emailUid en correos_analizados por número de factura
+    if (!emailUid && factura.numeroFactura) {
+      const analizado = (localDB.getAll('correos_analizados') as any[]).find(
+        d => d.datos_factura?.numero_factura === factura.numeroFactura
+      );
+      if (analizado?.emailUid) emailUid = analizado.emailUid;
+    }
+
+    if (!emailUid) { onNotify('error', 'Sin UID de email — no se puede recuperar el PDF'); return; }
+
     const imapUrl = (settings?.imapServerUrl || '').trim().replace(/\/$/, '');
     const imapKey = settings?.imapApiKey || '';
     if (!imapUrl || !imapKey) { onNotify('error', 'Configura el servidor IMAP en Ajustes para recuperar PDFs'); return; }
     setReuploadingId(factura.id);
     try {
-      const r = await fetch(`${imapUrl}/emails/${factura.emailUid}`, {
+      const r = await fetch(`${imapUrl}/emails/${emailUid}`, {
         headers: { 'x-api-key': imapKey },
         signal: AbortSignal.timeout(20000),
       });
@@ -621,7 +632,7 @@ export default function Proveedores({
           { label: 'Proveedores',       value: stats.total,             color: '#2e7d32', icon: Truck },
           { label: 'Compras este año',  value: fmtEuros(stats.yearSpend), color: '#1565c0', icon: Euro },
           { label: 'Proveedor top',     value: stats.topSupplier,       color: '#6a1b9a', icon: TrendingUp },
-          { label: 'Facturas recibidas',value: String(facturasImportadas.length), color: '#e65100', icon: FileText },
+          { label: 'Facturas recibidas',value: String(facturasImportadas.filter(f => suppliers.some(s => matchesSupplier(f, s))).length), color: '#e65100', icon: FileText },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-3">
             <div className="p-2.5 rounded-xl shrink-0" style={{ background: s.color + '15' }}>
