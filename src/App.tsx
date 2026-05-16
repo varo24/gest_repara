@@ -176,16 +176,14 @@ const App: React.FC = () => {
   }, []);
 
   // ── Ask notification permission once, then check conditions ──────────────
-  const notifCheckedRef = useRef(false);
+  const permissionRequestedRef = useRef(false);
   useEffect(() => {
     if (!unlocked || loading) return;
-    if (notifCheckedRef.current) return;
-    notifCheckedRef.current = true;
-
-    requestPermissionIfNeeded();
-
-    // Run checks after a short delay to let data settle
-    const t = setTimeout(async () => {
+    if (!permissionRequestedRef.current) {
+      permissionRequestedRef.current = true;
+      requestPermissionIfNeeded();
+    }
+    (async () => {
       await checkRepairsReady(repairs);
       await checkCitasReminder(citas);
       await checkStockLow(inventoryItems);
@@ -193,11 +191,9 @@ const App: React.FC = () => {
         new Set(repairs.map(r => r.id)),
         new Set(citas.map(c => c.id)),
       );
-      // Update PWA badge with count of "ready" repairs
       const readyCount = repairs.filter(r => r.status === RepairStatus.READY).length;
       setBadge(readyCount);
-    }, 3000);
-    return () => clearTimeout(t);
+    })();
   }, [unlocked, loading, repairs, citas, inventoryItems]);
 
   const handleInstallPWA = async () => {

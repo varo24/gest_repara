@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X, Camera, Trash2, User, Smartphone,
   BrainCircuit, Loader2, Save,
@@ -50,6 +50,23 @@ const DIFICULTAD = [
 ] as const;
 
 const genId = () => `RMA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+const BtnGroup = ({ value, options, onChange }: {
+  value: string | undefined;
+  options: readonly { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) => (
+  <div className="flex gap-2 flex-wrap">
+    {options.map(o => (
+      <button key={o.value} type="button" onClick={() => onChange(o.value)}
+        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${
+          value === o.value ? 'bg-slate-800 text-white shadow' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+        }`}>
+        {o.label}
+      </button>
+    ))}
+  </div>
+);
 
 const RepairForm: React.FC<RepairFormProps> = ({
   onSave, onCancel, initialData, settings, repairs = [], prefillCustomer,
@@ -130,6 +147,17 @@ const RepairForm: React.FC<RepairFormProps> = ({
     setCustomerQuery('');
   };
 
+  useEffect(() => {
+    if (!prefillCustomer || initialData) return;
+    setFormData(prev => ({
+      ...prev,
+      customerName: prefillCustomer.name,
+      customerPhone: prefillCustomer.phone,
+      address: prefillCustomer.address || prev.address,
+      city: prefillCustomer.city || prev.city,
+    }));
+  }, [prefillCustomer, initialData]);
+
   const isDomicilio = formData.repairType === 'domicilio';
   const photos = formData.photos || [];
   const estético = formData.estadoEstetico;
@@ -169,7 +197,7 @@ const RepairForm: React.FC<RepairFormProps> = ({
 
   const handleOpenMaps = () => {
     const dir = [formData.address, formData.city, 'España'].filter(Boolean).join(', ');
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dir)}`, '_blank');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dir)}`, '_blank', 'noopener,noreferrer');
   };
 
   // ── Photo handlers ──
@@ -225,24 +253,6 @@ const RepairForm: React.FC<RepairFormProps> = ({
       ...prev,
       diagnostico: { problema: '', ...prev.diagnostico, [field]: value },
     }));
-
-  // ── Reusable button-group ──
-  const BtnGroup = ({ value, options, onChange }: {
-    value: string | undefined;
-    options: readonly { value: string; label: string }[];
-    onChange: (v: string) => void;
-  }) => (
-    <div className="flex gap-2 flex-wrap">
-      {options.map(o => (
-        <button key={o.value} type="button" onClick={() => onChange(o.value)}
-          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${
-            value === o.value ? 'bg-slate-800 text-white shadow' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-          }`}>
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
 
   const tabs: { id: Tab; label: string; dot?: boolean }[] = [
     { id: 'general',     label: 'General' },

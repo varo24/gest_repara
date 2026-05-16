@@ -149,6 +149,9 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
             base64: f.attachment_base64,
             filename: f.attachment_filename || 'factura.pdf',
           });
+          if (pdfCacheRef.current.size > 20) {
+            pdfCacheRef.current.delete(pdfCacheRef.current.keys().next().value!);
+          }
         }
       }
       setProgress({
@@ -163,11 +166,15 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     } finally { setLoading(false); }
   }, [serverUrl, apiKey]);
 
+  const initialFetchDoneRef = useRef(false);
   useEffect(() => {
-    if (serverUrl) fetchFacturas(days);
-  }, [serverUrl]); // eslint-disable-line
+    if (!serverUrl) return;
+    const force = initialFetchDoneRef.current;
+    initialFetchDoneRef.current = true;
+    fetchFacturas(days, force);
+  }, [serverUrl, days, fetchFacturas]);
 
-  const changePeriod = (d: number) => { setDays(d); fetchFacturas(d, true); };
+  const changePeriod = (d: number) => setDays(d);
 
   // ── Import ───────────────────────────────────────────────────────────────
   const importedNumeros = useMemo(() => {

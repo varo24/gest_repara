@@ -18,9 +18,15 @@ export async function descontarStock(
           i.ref?.toLowerCase() === item.description?.toLowerCase()
         );
     if (!invItem) continue;
+    if (qty > invItem.stock) {
+      console.warn(
+        `[inventoryService] Stock insuficiente — "${invItem.description}": ` +
+        `solicitado ${qty}, disponible ${invItem.stock}. Se descuenta el máximo posible.`
+      );
+    }
     const newStock = Math.max(0, invItem.stock - qty);
     storage.save('inventory', invItem.id, { ...invItem, stock: newStock, updatedAt: now });
-    const mvId = `SM-${Date.now()}-${invItem.id}`;
+    const mvId = `SM-${crypto.randomUUID().slice(0, 8)}-${invItem.id}`;
     storage.save('stock_movements', mvId, {
       id: mvId,
       itemId: invItem.id,
@@ -55,7 +61,7 @@ export async function devolverStock(
         );
     if (!invItem) continue;
     storage.save('inventory', invItem.id, { ...invItem, stock: invItem.stock + qty, updatedAt: now });
-    const mvId = `SM-${Date.now()}-${invItem.id}`;
+    const mvId = `SM-${crypto.randomUUID().slice(0, 8)}-${invItem.id}`;
     storage.save('stock_movements', mvId, {
       id: mvId,
       itemId: invItem.id,
