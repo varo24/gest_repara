@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   FileText, RefreshCw, AlertCircle, CheckCircle2, Package,
-  X, ChevronDown, ChevronRight, AlertTriangle, Trash2, Play,
+  X, ChevronDown, ChevronRight, AlertTriangle, Trash2, Play, Download,
 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { storage } from '../lib/dataService';
@@ -228,6 +228,19 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
     try {
       await doImport(doc.datos_factura, doc.emailUid, false, pdfData?.base64);
     } finally { setImportingUid(null); }
+  };
+
+  const downloadPdf = (emailUid: number) => {
+    const cached = pdfCacheRef.current.get(emailUid);
+    if (!cached) return;
+    const bytes = Uint8Array.from(atob(cached.base64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = cached.filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const doDescartar = (doc: AnalizadoDoc) => {
@@ -584,23 +597,34 @@ export default function Correos({ settings, onImportToStock, onBack }: CorreosPr
                             </div>
 
                             {/* Right: actions */}
-                            {!isImportada && !isDescartada && doc.datos_factura && (
+                            {((!isImportada && !isDescartada && doc.datos_factura) || pdfCacheRef.current.has(doc.emailUid)) && (
                               <div className="flex flex-col items-end gap-2 shrink-0">
-                                <button
-                                  onClick={() => handleImport(doc)}
-                                  disabled={importingUid === doc.emailUid}
-                                  className={`flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-sm disabled:opacity-60 ${posibleDuplicado ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-                                >
-                                  {importingUid === doc.emailUid
-                                    ? <><RefreshCw size={11} className="animate-spin" /> Subiendo PDF…</>
-                                    : <><Package size={11} /> {posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}</>}
-                                </button>
-                                <button
-                                  onClick={() => setDescartarModal(doc)}
-                                  className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-red-500 transition-colors font-bold"
-                                >
-                                  <Trash2 size={10} /> Descartar
-                                </button>
+                                {!isImportada && !isDescartada && doc.datos_factura && (<>
+                                  <button
+                                    onClick={() => handleImport(doc)}
+                                    disabled={importingUid === doc.emailUid}
+                                    className={`flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-sm disabled:opacity-60 ${posibleDuplicado ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                  >
+                                    {importingUid === doc.emailUid
+                                      ? <><RefreshCw size={11} className="animate-spin" /> Subiendo PDF…</>
+                                      : <><Package size={11} /> {posibleDuplicado ? 'Importar igualmente' : 'Importar a Stock'}</>}
+                                  </button>
+                                  <button
+                                    onClick={() => setDescartarModal(doc)}
+                                    className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-red-500 transition-colors font-bold"
+                                  >
+                                    <Trash2 size={10} /> Descartar
+                                  </button>
+                                </>)}
+                                {pdfCacheRef.current.has(doc.emailUid) && (
+                                  <button
+                                    onClick={() => downloadPdf(doc.emailUid)}
+                                    className="flex items-center gap-1 text-[9px] text-sky-600 hover:text-sky-800 transition-colors font-bold"
+                                    title="Descargar PDF adjunto"
+                                  >
+                                    <Download size={10} /> PDF
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
