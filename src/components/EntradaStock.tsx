@@ -4,8 +4,8 @@ import {
   Brain, Upload, CheckCircle2, AlertTriangle, Package,
   ArrowLeft, RefreshCw, Search, FileText, Mail, Clock,
 } from 'lucide-react';
-import { InventoryItem, StockMovement, AppSettings } from '../types';
-import { storage } from '../lib/dataService';
+import { InventoryItem, StockMovement, AppSettings, Supplier } from '../types';
+import { storage, localDB } from '../lib/dataService';
 import { analyzeInvoice, analyzeInvoiceText, GeminiInvoiceResult } from '../lib/gemini';
 
 interface PreFillData {
@@ -61,7 +61,10 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   const [aiParsing, setAiParsing] = useState(false);
   const [aiLines, setAiLines] = useState<EntryLine[]>([]);
   const [aiRawText, setAiRawText] = useState('');
-  const [aiMeta, setAiMeta] = useState<{ proveedor: string; numero_factura: string; fecha: string; total: number; supplierId?: string } | null>(null);
+  const [aiMeta, setAiMeta] = useState<{
+    proveedor: string; numero_factura: string; fecha: string; total: number; supplierId?: string;
+    cif_proveedor?: string; email_proveedor?: string; telefono_proveedor?: string; direccion_proveedor?: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Anti-duplicate + historial
@@ -141,6 +144,26 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
       }];
     });
     if (target === 'manual') { setManualSearch(''); setShowDropdown(false); }
+  };
+
+  const upsertSupplier = async (meta: NonNullable<typeof aiMeta>): Promise<string> => {
+    const normalized = meta.proveedor.trim().toLowerCase();
+    const existing = (localDB.getAll('suppliers') as Supplier[]).find(
+      s => s.name.trim().toLowerCase() === normalized
+    );
+    if (existing) return existing.id;
+    const now = new Date().toISOString();
+    const id = `SUPP-${Date.now()}`;
+    const newSupplier: Supplier = {
+      id, name: meta.proveedor.trim(),
+      taxId: meta.cif_proveedor || undefined,
+      email: meta.email_proveedor || undefined,
+      phone: meta.telefono_proveedor || undefined,
+      city: meta.direccion_proveedor || undefined,
+      createdAt: now, updatedAt: now,
+    };
+    await storage.save('suppliers', id, newSupplier);
+    return id;
   };
 
   const updateLine = (
@@ -297,7 +320,13 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
         const text = aiRawText || (aiFile ? await aiFile.text() : '');
         result = await analyzeInvoiceText(text, apiKey);
       }
-      setAiMeta({ proveedor: result.proveedor, numero_factura: result.numero_factura, fecha: result.fecha, total: result.total });
+      setAiMeta({
+        proveedor: result.proveedor, numero_factura: result.numero_factura, fecha: result.fecha, total: result.total,
+        cif_proveedor: result.cif_proveedor || undefined,
+        email_proveedor: result.email_proveedor || undefined,
+        telefono_proveedor: result.telefono_proveedor || undefined,
+        direccion_proveedor: result.direccion_proveedor || undefined,
+      });
       setAiLines(mapGeminiResult(result));
       onNotify('success', `${result.lineas.length} artículo(s) detectados · ${result.proveedor || 'Proveedor desconocido'}`);
     } catch (err: any) {
@@ -308,8 +337,8 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
   };
 
   const handleAiSave = async () => {
-    // Verificar número de factura duplicado (solo si hay numero_factura y no ha sido reconocido ya)
-    if (aiMeta?.numero_factura && !dupeFacAck) {
+    // Verificar número de factura duplicado — saltar si viene de Correos (ya hizo su propio check)
+    if (aiMeta?.numero_factura && !dupeFacAck && !preFillFromCorreo) {
       const existing = facturasImportadas.find(f =>
         f.numeroFactura === aiMeta.numero_factura || f.numero_factura === aiMeta.numero_factura
       );
@@ -321,9 +350,15 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     setDupeWarning(null);
     setDupeFacAck(false);
 
+    // Crear/actualizar proveedor si viene de carga directa AI (sin supplierId del prefill de Correos)
+    let supplierId = aiMeta?.supplierId;
+    if (!supplierId && aiMeta?.proveedor && !preFillFromCorreo) {
+      try { supplierId = await upsertSupplier(aiMeta); } catch {}
+    }
+
     const origin = preFillFromCorreo ? 'correo' : 'entrada-stock';
     const notesStr = ['Gemini IA', aiMeta?.proveedor, aiMeta?.numero_factura, aiFile?.name].filter(Boolean).join(' · ');
-    await commitEntries(aiLines, notesStr, entryDate, origin, aiMeta?.supplierId);
+    await commitEntries(aiLines, notesStr, entryDate, origin, supplierId);
     setAiLines([]);
     setAiFile(null);
     setAiRawText('');

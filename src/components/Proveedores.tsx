@@ -145,10 +145,10 @@ export default function Proveedores({
 
   const entradaMovements = useMemo(() =>
     [...stockMovements]
-      .filter(m => m.origin === 'entrada-stock' || m.origin === 'correo')
+      .filter(m => (m.origin === 'entrada-stock' || m.origin === 'correo') && m.supplierId === selected?.id)
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 50)
-  , [stockMovements]);
+  , [stockMovements, selected]);
 
   // ── Form handlers ─────────────────────────────────────────────────────────────
 

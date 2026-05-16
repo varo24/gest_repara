@@ -3,7 +3,9 @@ import { GoogleGenAI, Type } from '@google/genai';
 const MODEL = 'gemini-2.5-flash';
 
 const INVOICE_PROMPT =
-  'Analiza esta factura de proveedor y extrae SOLO los artículos físicos (piezas, componentes, productos). ' +
+  'Analiza esta factura de proveedor. ' +
+  'Extrae los datos del proveedor emisor (nombre, CIF/NIF, email, teléfono, dirección/ciudad) si aparecen en la cabecera. ' +
+  'Extrae SOLO los artículos físicos (piezas, componentes, productos). ' +
   'EXCLUYE líneas de: portes, transporte, envío, gastos de gestión, embalaje, descuentos, impuestos.';
 
 export interface GeminiInvoiceLine {
@@ -19,15 +21,23 @@ export interface GeminiInvoiceResult {
   fecha: string;
   lineas: GeminiInvoiceLine[];
   total: number;
+  cif_proveedor?: string;
+  email_proveedor?: string;
+  telefono_proveedor?: string;
+  direccion_proveedor?: string;
 }
 
 const INVOICE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    proveedor:      { type: Type.STRING },
-    numero_factura: { type: Type.STRING },
-    fecha:          { type: Type.STRING },
-    total:          { type: Type.NUMBER },
+    proveedor:           { type: Type.STRING },
+    numero_factura:      { type: Type.STRING },
+    fecha:               { type: Type.STRING },
+    total:               { type: Type.NUMBER },
+    cif_proveedor:       { type: Type.STRING },
+    email_proveedor:     { type: Type.STRING },
+    telefono_proveedor:  { type: Type.STRING },
+    direccion_proveedor: { type: Type.STRING },
     lineas: {
       type: Type.ARRAY,
       items: {

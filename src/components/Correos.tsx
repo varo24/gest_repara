@@ -14,6 +14,10 @@ interface DatosFactura {
   total: number;
   lineas: Array<{ descripcion: string; referencia: string; cantidad: number; precio_unitario: number }>;
   supplierId?: string;
+  cif_proveedor?: string;
+  email_proveedor?: string;
+  telefono_proveedor?: string;
+  direccion_proveedor?: string;
 }
 
 interface AnalizadoDoc {
@@ -185,8 +189,8 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
     return s;
   }, [facturasImportadas]);
 
-  const upsertSupplier = async (nombre: string): Promise<string> => {
-    const normalized = nombre.trim().toLowerCase();
+  const upsertSupplier = async (datos: DatosFactura): Promise<string> => {
+    const normalized = datos.proveedor.trim().toLowerCase();
     const existing = (localDB.getAll('suppliers') as Supplier[]).find(
       s => s.name.trim().toLowerCase() === normalized
     );
@@ -194,8 +198,14 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
     const now = new Date().toISOString();
     const id = `SUPP-${Date.now()}`;
     const newSupplier: Supplier = {
-      id, name: nombre.trim(),
-      createdAt: now, updatedAt: now,
+      id,
+      name: datos.proveedor.trim(),
+      taxId: datos.cif_proveedor || undefined,
+      email: datos.email_proveedor || undefined,
+      phone: datos.telefono_proveedor || undefined,
+      city: datos.direccion_proveedor || undefined,
+      createdAt: now,
+      updatedAt: now,
     };
     await storage.save('suppliers', id, newSupplier);
     return id;
@@ -217,7 +227,7 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
 
     let supplierId: string | undefined;
     if (datos.proveedor) {
-      try { supplierId = await upsertSupplier(datos.proveedor); } catch {}
+      try { supplierId = await upsertSupplier(datos); } catch {}
     }
 
     storage.save('facturas_importadas', importId, {
