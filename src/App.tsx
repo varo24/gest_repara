@@ -275,11 +275,10 @@ const App: React.FC = () => {
 
   useEffect(() => { solicitarPermiso(); }, []);
 
-  // One-time migration: reset minStock:2 default on items created today (buggy default, now fixed to 0)
+  // One-time migration: reset minStock:2 default (was hardcoded bug, now fixed to 0)
   useEffect(() => {
     if (!inventoryItems.length) return;
-    const todayPrefix = new Date().toISOString().slice(0, 10);
-    const toFix = inventoryItems.filter(i => i.minStock === 2 && i.createdAt?.startsWith(todayPrefix));
+    const toFix = inventoryItems.filter(i => i.minStock === 2);
     toFix.forEach(i => storage.save('inventory', i.id, { ...i, minStock: 0 }));
   }, [inventoryItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
