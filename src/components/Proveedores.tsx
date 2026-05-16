@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Truck, Search, Plus, ArrowLeft, Phone, Mail, Globe, Building2,
-  Edit2, Trash2, Save, FileText, Package, BarChart2,
+  Edit2, Trash2, Save, FileText, Package,
   Euro, TrendingUp, Clock, ExternalLink, Upload, RefreshCw,
 } from 'lucide-react';
 import { Supplier, StockMovement } from '../types';

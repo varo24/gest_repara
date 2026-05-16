@@ -46,7 +46,13 @@
       "Bash(npx vitest *)",
       "Bash(grep -v \"^$\")",
       "Bash(curl -s -X POST 'https://firestore.googleapis.com/v1/projects/gestion-reparaciones-45878/databases/gestrepara/documents:runQuery?key=AIzaSyBrrv6HYM-0MVxHOaoWbeJMFmQL54l3I3A' -H 'Content-Type: application/json' -d '{ *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/gestion-reparaciones-45878/databases/gestrepara/documents/budgets?key=AIzaSyBrrv6HYM-0MVxHOaoWbeJMFmQL54l3I3A&pageSize=300\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "Bash(npm audit *)",
+      "Bash(echo \"AUDIT_EXIT:$?\")",
+      "Bash(echo \"BUILD_EXIT:$?\")"
     ]
   }
 }
