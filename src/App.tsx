@@ -275,14 +275,7 @@ const App: React.FC = () => {
 
   useEffect(() => { solicitarPermiso(); }, []);
 
-  // One-time migration: reset minStock:2 default (was hardcoded bug, now fixed to 0)
-  useEffect(() => {
-    if (!inventoryItems.length) return;
-    const toFix = inventoryItems.filter(i => i.minStock === 2);
-    toFix.forEach(i => storage.save('inventory', i.id, { ...i, minStock: 0 }));
-  }, [inventoryItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
+useEffect(() => {
     if (notificaciones.length > 0) enviarNotificacionesBrowser(notificaciones);
   }, [notificaciones]);
 

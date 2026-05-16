@@ -84,7 +84,7 @@ export function generarNotificaciones(data: {
 
   // 5. Presupuestos sin respuesta
   budgets
-    .filter(b => !b.status || b.status === 'pending')
+    .filter(b => (!b.status || b.status === 'pending') && !b.archivado)
     .forEach(b => {
       const ref = b.lastContactedAt || b.date;
       if (!ref) return;
