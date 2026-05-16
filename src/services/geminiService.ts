@@ -5,6 +5,10 @@ import { logError } from '../lib/errorLogger';
 export const getSmartDiagnosis = async (device: string, brand: string, problem: string) => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
+  // [DEBUG] Temporal — eliminar tras verificar
+  console.debug('[Gemini] apiKey presente:', !!apiKey);
+  console.debug('[Gemini] modelo:', 'gemini-2.0-flash');
+
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
     console.warn("Gemini API Key no encontrada.");
     return null;
@@ -57,7 +61,8 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
     if (!text) return null;
     return JSON.parse(text);
   } catch (error) {
-    console.error("Error en el servicio Gemini:", error);
+    // [DEBUG] Temporal — eliminar tras verificar
+    console.error('[Gemini] Error completo:', error);
     logError('uncaught', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
