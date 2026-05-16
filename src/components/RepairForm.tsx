@@ -191,7 +191,10 @@ const RepairForm: React.FC<RepairFormProps> = ({
         const m = String(result.estimatedTime).match(/(\d+(\.\d+)?)/);
         if (m) setFormData(prev => ({ ...prev, estimatedHours: parseFloat(m[0]) }));
       }
-    } catch {}
+    } catch (e) {
+      // [DEBUG] Temporal — eliminar tras verificar
+      console.error('[RepairForm] Error en getSmartDiagnosis:', e);
+    }
     finally { setAiLoading(false); }
   };
 

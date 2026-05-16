@@ -6,8 +6,8 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
   // [DEBUG] Temporal — eliminar tras verificar
-  console.debug('[Gemini] apiKey presente:', !!apiKey);
-  console.debug('[Gemini] modelo:', 'gemini-2.5-flash');
+  console.log('[Gemini] apiKey presente:', !!apiKey);
+  console.log('[Gemini] modelo:', 'gemini-2.5-flash');
 
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
     console.warn("Gemini API Key no encontrada.");
