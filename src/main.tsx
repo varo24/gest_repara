@@ -20,9 +20,6 @@ window.addEventListener('error', (e) => {
 });
 
 window.addEventListener('unhandledrejection', (e) => {
-  // [DEBUG] Temporal — eliminar tras verificar
-  console.error('[UNHANDLED REJECTION]', e.reason);
-
   const error = e.reason instanceof Error
     ? e.reason
     : new Error(typeof e.reason === 'string' ? e.reason : 'Unhandled promise rejection');

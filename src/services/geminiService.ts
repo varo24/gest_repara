@@ -5,16 +5,11 @@ import { logError } from '../lib/errorLogger';
 export const getSmartDiagnosis = async (device: string, brand: string, problem: string) => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
-  // [DEBUG] Temporal — eliminar tras verificar
-  console.log('[Gemini] apiKey presente:', !!apiKey);
-  console.log('[Gemini] modelo:', 'gemini-2.5-flash');
-
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
     console.warn("Gemini API Key no encontrada.");
     return null;
   }
 
-  // [DEBUG] Temporal — eliminar tras verificar
   const requestPayload = {
     model: 'gemini-2.5-flash',
     contents: `Analiza este reporte de avería técnica:
@@ -37,8 +32,6 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
       },
     },
   };
-  console.debug('[Gemini] Request payload:', JSON.stringify(requestPayload, null, 2));
-
   try {
     const ai = new GoogleGenAI({ apiKey });
 
@@ -47,21 +40,7 @@ export const getSmartDiagnosis = async (device: string, brand: string, problem: 
     const text = response.text;
     if (!text) return null;
     return JSON.parse(text);
-  } catch (error: any) {
-    // [DEBUG] Temporal — eliminar tras verificar
-    console.error('[Gemini] Error completo:', error);
-    console.error('[Gemini] error.message:', error?.message);
-    console.error('[Gemini] error.status:', error?.status);
-    console.error('[Gemini] error.statusText:', error?.statusText);
-    // La SDK de Google puede adjuntar el body de respuesta en distintos campos
-    console.error('[Gemini] error.errorDetails:', error?.errorDetails);
-    console.error('[Gemini] error.response:', error?.response);
-    try {
-      const body = await error?.response?.json?.();
-      console.error('[Gemini] error.response body (parsed):', body);
-    } catch {
-      console.error('[Gemini] error.response body: no disponible o ya consumido');
-    }
+  } catch (error) {
     logError('uncaught', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
