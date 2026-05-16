@@ -187,8 +187,17 @@ const RepairForm: React.FC<RepairFormProps> = ({
     setAiLoading(true);
     try {
       const result = await getSmartDiagnosis(formData.deviceType, formData.brand || '', formData.problemDescription);
+      // [DEBUG] Temporal — eliminar tras verificar
+      console.log('[RepairForm] resultado de Gemini:', result);
+      console.log('[RepairForm] typeof result:', typeof result);
       if (result) {
+        console.log('[RepairForm] result.possibleCauses:', result.possibleCauses);
+        console.log('[RepairForm] result.suggestedParts:', result.suggestedParts);
+        console.log('[RepairForm] result.estimatedTime:', result.estimatedTime);
+        console.log('[RepairForm] result.technicalAdvice:', result.technicalAdvice);
+        console.log('[RepairForm] result.difficultyLevel:', result.difficultyLevel);
         const m = String(result.estimatedTime).match(/(\d+(\.\d+)?)/);
+        console.log('[RepairForm] regex match en estimatedTime:', m);
         if (m) setFormData(prev => ({ ...prev, estimatedHours: parseFloat(m[0]) }));
       }
     } catch (e) {
