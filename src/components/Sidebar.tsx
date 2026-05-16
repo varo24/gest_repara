@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { ViewType, RepairItem, Budget, Cita, Warranty, Notificacion, Customer } from '../types';
 import { storage } from '../lib/dataService';
+import { localDateStr } from '../lib/cajaUtils';
 import SyncIndicator from './SyncIndicator';
 import GlobalSearch from './GlobalSearch';
 
@@ -95,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const cajaBadge = (() => {
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
-    const ayerStr = ayer.toISOString().slice(0, 10);
+    const ayerStr = localDateStr(ayer);
     const cierreAyer = cierresCaja.find((c: any) => c.fecha === ayerStr);
     const aperturaAyer = cashMovements.some((m: any) =>
       (m.fecha || m.date || '').slice(0, 10) === ayerStr && (m.tipo || m.type) === 'apertura'

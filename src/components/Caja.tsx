@@ -152,7 +152,9 @@ const Caja: React.FC<CajaProps> = ({ cashMovements, cierresCaja, facturasImporta
   // Needed because isSyncFresh() may skip pullAll on mount, leaving IDB stale.
   useEffect(() => {
     if (activeTab === 'historial') {
-      storage.refreshCollection('cierres_caja').catch(() => {});
+      storage.refreshCollection('cierres_caja').catch(() => {
+        onNotify('error', 'No se pudo cargar el historial desde el servidor. Mostrando datos locales.');
+      });
     }
   }, [activeTab]);
 
@@ -554,7 +556,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
   const historialFiltered = useMemo(() => {
     // Exclude dismissed: true (legacy fake-cierres from old approach — keep for compat)
     const sorted = [...cierresCaja]
-      .filter(c => c.fecha && !c.dismissed)
+      .filter(c => c.fecha && c.dismissed !== true)
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
     if (!historialMes) return sorted;
     return sorted.filter(c => c.fecha.slice(0, 7) === historialMes);
