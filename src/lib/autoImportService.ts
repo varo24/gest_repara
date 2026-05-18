@@ -75,9 +75,10 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
 
     const nuevasProveedores: string[] = [];
 
-    console.log(`[AutoImport] Facturas nuevas encontradas: ${(data.facturas || []).length}`);
+    const facturasConPdf = (data.facturas || []).filter((f: any) => !!f.attachment_base64);
+    console.log(`[AutoImport] Facturas nuevas encontradas: ${facturasConPdf.length} (con PDF)`);
 
-    for (const f of (data.facturas || []) as any[]) {
+    for (const f of facturasConPdf as any[]) {
       const claveUnica = `${f.uid}-${f.numero_factura}`;
       if (existingClavas.has(claveUnica)) continue;
 
