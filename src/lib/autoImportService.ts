@@ -75,8 +75,13 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
 
     const nuevasProveedores: string[] = [];
 
-    const facturasConPdf = (data.facturas || []).filter((f: any) => !!f.attachment_base64);
-    console.log(`[AutoImport] Facturas nuevas encontradas: ${facturasConPdf.length} (con PDF)`);
+    // data.facturas already contains only es_factura===true entries from the server.
+    // Additional guard: require analizado_via==='pdf' (Gemini read the actual document,
+    // not just the email body) AND attachment_base64 present (PDF fits inline ≤2 MB).
+    const facturasConPdf = (data.facturas || []).filter(
+      (f: any) => f.analizado_via === 'pdf' && !!f.attachment_base64
+    );
+    console.log(`[AutoImport] Facturas aptas (confirmadas + PDF): ${facturasConPdf.length}`);
 
     for (const f of facturasConPdf as any[]) {
       const claveUnica = `${f.uid}-${f.numero_factura}`;
