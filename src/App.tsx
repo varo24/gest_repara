@@ -569,6 +569,15 @@ useEffect(() => {
     });
   }, [budgets]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep editingBudget in sync with live budgets (e.g. when firmaData arrives from Firestore)
+  useEffect(() => {
+    if (!editingBudget) return;
+    const fresh = budgets.find(b => b.id === editingBudget.id);
+    if (fresh && (fresh.firmaData !== editingBudget.firmaData || fresh.firmaEstado !== editingBudget.firmaEstado || fresh.status !== editingBudget.status)) {
+      setEditingBudget(fresh);
+    }
+  }, [budgets]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleEnviarFirma = useCallback(async (budget: Budget) => {
     const repair = repairs.find(r => r.id === budget.repairId);
     const customerName = budget.customerName || repair?.customerName || '';
