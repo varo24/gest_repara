@@ -24,8 +24,6 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
   const apiKey = settings.imapApiKey || '';
   if (!serverUrl || !apiKey) return;
 
-  console.log('[AutoImport] Ejecutando...');
-
   try {
     const TTL_MS = 24 * 60 * 60 * 1000;
     const cutoff = Date.now() - TTL_MS;
@@ -34,8 +32,6 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
     const skipUids = analizados
       .filter(d => d.analyzedAt && new Date(d.analyzedAt).getTime() > cutoff)
       .map(d => String(d.emailUid));
-
-    console.log(`[AutoImport] Skip UIDs: ${skipUids.length}`);
 
     const descartadas = localDB.getAll('facturas_descartadas') as any[];
     const descartadasUids = descartadas.map((d: any) => String(d.emailUid)).filter(Boolean);
@@ -81,7 +77,6 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
     const facturasConPdf = (data.facturas || []).filter(
       (f: any) => f.analizado_via === 'pdf' && !!f.attachment_base64
     );
-    console.log(`[AutoImport] Facturas aptas (confirmadas + PDF): ${facturasConPdf.length}`);
 
     for (const f of facturasConPdf as any[]) {
       const claveUnica = `${f.uid}-${f.numero_factura}`;
@@ -125,8 +120,6 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
 
       nuevasProveedores.push(f.proveedor || 'Proveedor desconocido');
     }
-
-    console.log('[AutoImport] Completado');
 
     if (nuevasProveedores.length > 0) {
       const proveedores = [...new Set(nuevasProveedores)].join(', ');
