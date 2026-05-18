@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, CierreCaja as CierreCajaType, DetalleBilletes } from '../types';
 import { storage } from '../lib/dataService';
-import { exportCajaExcel, exportCajaPdf } from '../lib/cajaExport';
+
 import { localDateStr } from '../lib/cajaUtils';
 
 interface NormMov {
@@ -847,7 +847,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
             )}
             <div className="ml-auto flex items-center gap-2">
               <button
-                onClick={() => exportCajaExcel(historialFiltered, allMovements, settings.appName, historialMes)}
+                onClick={async () => { const { exportCajaExcel } = await import('../lib/cajaExport'); exportCajaExcel(historialFiltered, allMovements, settings.appName, historialMes); }}
                 disabled={historialFiltered.length === 0}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               >
@@ -855,7 +855,7 @@ ${cierre.notas ? `<div class="section"><div class="section-title">Notas</div><p>
                 Excel
               </button>
               <button
-                onClick={() => exportCajaPdf(historialFiltered, allMovements, settings.appName, historialMes)}
+                onClick={async () => { const { exportCajaPdf } = await import('../lib/cajaExport'); exportCajaPdf(historialFiltered, allMovements, settings.appName, historialMes); }}
                 disabled={historialFiltered.length === 0}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               >

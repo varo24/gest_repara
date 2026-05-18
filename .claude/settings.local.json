@@ -54,7 +54,8 @@
       "Bash(echo \"AUDIT_EXIT:$?\")",
       "Bash(echo \"BUILD_EXIT:$?\")",
       "Bash(grep -v \"//.*console\\\\.log\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(sort -k5 -rh)"
     ]
   }
 }
