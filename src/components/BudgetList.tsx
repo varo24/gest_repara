@@ -381,7 +381,7 @@ const BudgetList: React.FC<BudgetListProps> = ({
                               )}
 
                               {/* Firma actions */}
-                              {!isArchivado && onEnviarFirma && !budget.firmaEstado && isPending && (
+                              {!isArchivado && onEnviarFirma && budget.firmaEstado !== 'firmado' && isPending && (
                                 <button
                                   onClick={() => onEnviarFirma(budget)}
                                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100"
