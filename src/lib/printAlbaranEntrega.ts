@@ -214,9 +214,16 @@ export function printAlbaranEntrega(
       <div class="sig-name">${repair.customerName}</div>
     </div>
     <div class="sig-col">
-      <div class="sig-label">Firma del Técnico / Sello</div>
-      <div class="sig-empty"></div>
-      <div class="sig-name">${repair.technician || settings.appName}</div>
+      <div class="sig-label">Sello del Establecimiento</div>
+      <div class="sig-empty" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px">
+        ${settings.logoUrl ? `<img src="${settings.logoUrl}" style="height:40px;object-fit:contain;opacity:0.7" alt="Logo">` : ''}
+        <div style="text-align:left;font-size:8px;line-height:1.6;color:#333">
+          <div style="font-weight:900;font-size:9px">${settings.appName}</div>
+          ${settings.taxId ? `<div>CIF/NIF: ${settings.taxId}</div>` : ''}
+          ${settings.address ? `<div>${settings.address}</div>` : ''}
+        </div>
+      </div>
+      <div class="sig-name">${repair.technician ? `Técnico: ${repair.technician}` : ''}</div>
     </div>
   </div>
 </div>

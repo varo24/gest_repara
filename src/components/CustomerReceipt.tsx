@@ -260,13 +260,16 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       Sus datos se conservarán durante el tiempo necesario para cumplir con las obligaciones legales y contractuales.
     </div>
     <div class="rgpd-consent-row">
-      <div class="rgpd-checkbox"></div>
-      <span>El cliente declara haber sido informado y presta su consentimiento para el tratamiento de sus datos personales con la finalidad indicada.</span>
+      <div class="rgpd-checkbox">${(repair.firmaClienteUrl || sigBase64) ? '✓' : ''}</div>
+      <span>La firma del cliente en este documento implica su consentimiento para el tratamiento de sus datos personales conforme al RGPD.</span>
     </div>
     <div class="rgpd-sig">
       <div class="rgpd-sig-col">
         <div class="rgpd-sig-label">Firma del cliente — Consentimiento RGPD</div>
-        <div class="rgpd-sig-empty"></div>
+        ${(repair.firmaClienteUrl || sigBase64)
+          ? `<img src="${repair.firmaClienteUrl || sigBase64}" style="height:35px;max-width:100%;object-fit:contain;display:block;margin:0 auto">`
+          : '<div class="rgpd-sig-empty"></div>'
+        }
       </div>
       <div class="rgpd-sig-col">
         <div class="rgpd-sig-label">Fecha y lugar</div>
@@ -446,13 +449,16 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
                 De conformidad con el RGPD y la LOPDGDD, sus datos serán tratados por <strong>{settings.appName}</strong>{settings.taxId ? ` (CIF ${settings.taxId})` : ''} para gestionar la reparación. Puede ejercer sus derechos en {settings.address || '[dirección]'}{settings.email ? ` o ${settings.email}` : ''}.
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '8px', fontWeight: 700, marginBottom: '6px' }}>
-                <div style={{ width: '11px', height: '11px', border: '1.5px solid #000', borderRadius: '2px', flexShrink: 0, marginTop: '1px' }}></div>
-                <span>El cliente declara haber sido informado y presta su consentimiento para el tratamiento de sus datos personales.</span>
+                <div style={{ width: '11px', height: '11px', border: '1.5px solid #000', borderRadius: '2px', flexShrink: 0, marginTop: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{(repair.firmaClienteUrl || sigBase64) ? '✓' : ''}</div>
+                <span>La firma del cliente en este documento implica su consentimiento para el tratamiento de sus datos personales conforme al RGPD.</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#555', marginBottom: '4px' }}>Firma — Consentimiento RGPD</div>
-                  <div style={{ height: '28px', borderBottom: '1px solid #000' }}></div>
+                  {(repair.firmaClienteUrl || sigBase64)
+                    ? <img src={repair.firmaClienteUrl || sigBase64} alt="Firma RGPD" style={{ height: '28px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+                    : <div style={{ height: '28px', borderBottom: '1px solid #000' }}></div>
+                  }
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#555', marginBottom: '4px' }}>Fecha y lugar</div>
