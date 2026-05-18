@@ -25,6 +25,8 @@ interface ImportadaDoc {
   importadoEn?: string;
   lineas?: any[];
   pdfUrl?: string;
+  estado?: 'pendiente_revision' | 'importada' | 'descartada';
+  origen?: 'auto' | 'manual';
 }
 
 // Unified entry merging facturas_importadas + Firebase Storage
@@ -39,6 +41,7 @@ interface UnifiedEntry {
   fecha: string;
   total?: number;
   importadoEn?: string;
+  estado?: ImportadaDoc['estado'];
   year: string;
   month: string;
   displayName: string;
@@ -91,7 +94,7 @@ export default function ArchivoFacturas({ onBack, onViewSupplier }: ArchivoFactu
   // Primary data source: facturas_importadas from IDB/Firestore
   useEffect(() => {
     const unsub = storage.subscribe('facturas_importadas', (data: any[]) => {
-      setImportadasList(data.filter(d => d.proveedor || d.numeroFactura));
+      setImportadasList(data.filter(d => (d.proveedor || d.numeroFactura) && d.estado !== 'descartada'));
     });
     return unsub;
   }, []);
@@ -145,12 +148,13 @@ export default function ArchivoFacturas({ onBack, onViewSupplier }: ArchivoFactu
         importId: imp.id,
         storagePath: storageEntry?.path,
         pdfUrl: imp.pdfUrl || undefined,
-        hasPdf: !!imp.pdfUrl,
+        hasPdf: !!imp.pdfUrl && imp.estado !== 'pendiente_revision',
         proveedor: imp.proveedor,
         numeroFactura: imp.numeroFactura,
         fecha: imp.fecha,
         total: imp.total,
         importadoEn: imp.importadoEn,
+        estado: imp.estado,
         year,
         month,
         displayName: imp.numeroFactura || imp.id,
@@ -266,7 +270,12 @@ export default function ArchivoFacturas({ onBack, onViewSupplier }: ArchivoFactu
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-xs font-bold text-slate-900 truncate">{e.displayName}</p>
-            {!e.hasPdf && (
+            {e.estado === 'pendiente_revision' && (
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                Pendiente
+              </span>
+            )}
+            {!e.hasPdf && e.estado !== 'pendiente_revision' && (
               <span className="shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">
                 Sin PDF
               </span>
@@ -540,8 +549,13 @@ export default function ArchivoFacturas({ onBack, onViewSupplier }: ArchivoFactu
                       {/* PDF status dot */}
                       <div className={`w-2 h-2 rounded-full shrink-0 ${e.hasPdf ? 'bg-emerald-400' : 'bg-slate-200'}`} title={e.hasPdf ? 'Con PDF' : 'Sin PDF'} />
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">{e.displayName}</p>
-                        {!e.hasPdf && (
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-slate-900 truncate">{e.displayName}</p>
+                          {e.estado === 'pendiente_revision' && (
+                            <span className="shrink-0 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Pendiente</span>
+                          )}
+                        </div>
+                        {!e.hasPdf && e.estado !== 'pendiente_revision' && (
                           <span className="text-[9px] font-black uppercase text-slate-400">Sin PDF</span>
                         )}
                       </div>
