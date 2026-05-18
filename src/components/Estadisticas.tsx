@@ -337,11 +337,6 @@ const Estadisticas: React.FC<Props> = ({
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [filtImportadas]);
 
-  // supplier name lookup helper
-  const supplierName = (id: string) =>
-    suppliers.find(s => s.id === id)?.name ?? id;
-  void supplierName; // available for future use
-
   // ── E: Caja ────────────────────────────────────────────────────────────────
   const filtMov = useMemo(
     () => cashMovements.map(normMov).filter(m => inRange(m.fecha)),

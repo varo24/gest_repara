@@ -52,7 +52,9 @@
       "Bash(echo \"TSC_EXIT:$?\")",
       "Bash(npm audit *)",
       "Bash(echo \"AUDIT_EXIT:$?\")",
-      "Bash(echo \"BUILD_EXIT:$?\")"
+      "Bash(echo \"BUILD_EXIT:$?\")",
+      "Bash(grep -v \"//.*console\\\\.log\")",
+      "Bash(npx eslint *)"
     ]
   }
 }
