@@ -195,7 +195,16 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
     const existing = (localDB.getAll('suppliers') as Supplier[]).find(
       s => s.name.trim().toLowerCase() === normalized
     );
-    if (existing) return existing.id;
+    if (existing) {
+      const patch: Partial<Supplier> = {};
+      if (!existing.taxId && datos.cif_proveedor)       patch.taxId = datos.cif_proveedor;
+      if (!existing.email && datos.email_proveedor)      patch.email = datos.email_proveedor;
+      if (!existing.phone && datos.telefono_proveedor)   patch.phone = datos.telefono_proveedor;
+      if (!existing.city  && datos.direccion_proveedor)  patch.city  = datos.direccion_proveedor;
+      if (Object.keys(patch).length)
+        await storage.save('suppliers', existing.id, { ...existing, ...patch, updatedAt: new Date().toISOString() });
+      return existing.id;
+    }
     const now = new Date().toISOString();
     const id = `SUPP-${Date.now()}`;
     const newSupplier: Supplier = {

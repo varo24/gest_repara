@@ -19,7 +19,16 @@ async function upsertSupplier(f: SupplierFields): Promise<string | undefined> {
   const existing = (localDB.getAll('suppliers') as Supplier[]).find(
     s => s.name.trim().toLowerCase() === normalized
   );
-  if (existing) return existing.id;
+  if (existing) {
+    const patch: Partial<Supplier> = {};
+    if (!existing.taxId && f.cif_proveedor)       patch.taxId = f.cif_proveedor;
+    if (!existing.email && f.email_proveedor)      patch.email = f.email_proveedor;
+    if (!existing.phone && f.telefono_proveedor)   patch.phone = f.telefono_proveedor;
+    if (!existing.city  && f.direccion_proveedor)  patch.city  = f.direccion_proveedor;
+    if (Object.keys(patch).length)
+      await storage.save('suppliers', existing.id, { ...existing, ...patch, updatedAt: new Date().toISOString() });
+    return existing.id;
+  }
   const now = new Date().toISOString();
   const id = `SUPP-${Date.now()}`;
   await storage.save('suppliers', id, {
