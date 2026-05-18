@@ -1,29 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import RepairList from './components/RepairList';
-import RepairForm from './components/RepairForm';
-import BudgetCreator from './components/BudgetCreator';
-import BudgetList from './components/BudgetList';
-import SettingsForm from './components/SettingsForm';
-import CustomerList from './components/CustomerList';
 import PinScreen from './components/PinScreen';
-import CustomerReceipt from './components/CustomerReceipt';
-import ThermalTicket from './components/ThermalTicket';
-import CalendarView from './components/CalendarView';
-import ExternalAppsView from './components/ExternalAppsView';
-import ExternalAppViewer from './components/ExternalAppViewer';
-import Despacho from './components/Despacho';
-const Facturacion    = lazy(() => import('./components/Facturacion'));
-const Inventario     = lazy(() => import('./components/Inventario'));
-const EntradaStock   = lazy(() => import('./components/EntradaStock'));
-const Garantias      = lazy(() => import('./components/Garantias'));
-const Correos        = lazy(() => import('./components/Correos'));
+const RepairList      = lazy(() => import('./components/RepairList'));
+const RepairForm      = lazy(() => import('./components/RepairForm'));
+const BudgetCreator   = lazy(() => import('./components/BudgetCreator'));
+const BudgetList      = lazy(() => import('./components/BudgetList'));
+const SettingsForm    = lazy(() => import('./components/SettingsForm'));
+const CustomerList    = lazy(() => import('./components/CustomerList'));
+const CustomerReceipt = lazy(() => import('./components/CustomerReceipt'));
+const ThermalTicket   = lazy(() => import('./components/ThermalTicket'));
+const CalendarView    = lazy(() => import('./components/CalendarView'));
+const ExternalAppsView = lazy(() => import('./components/ExternalAppsView'));
+const ExternalAppViewer = lazy(() => import('./components/ExternalAppViewer'));
+const Despacho        = lazy(() => import('./components/Despacho'));
+const Facturacion     = lazy(() => import('./components/Facturacion'));
+const Inventario      = lazy(() => import('./components/Inventario'));
+const EntradaStock    = lazy(() => import('./components/EntradaStock'));
+const Garantias       = lazy(() => import('./components/Garantias'));
+const Correos         = lazy(() => import('./components/Correos'));
 const ArchivoFacturas = lazy(() => import('./components/ArchivoFacturas'));
-const Proveedores    = lazy(() => import('./components/Proveedores'));
-const Informes       = lazy(() => import('./components/Informes'));
-const Caja           = lazy(() => import('./components/Caja'));
-const Estadisticas   = lazy(() => import('./components/Estadisticas'));
+const Proveedores     = lazy(() => import('./components/Proveedores'));
+const Informes        = lazy(() => import('./components/Informes'));
+const Caja            = lazy(() => import('./components/Caja'));
+const Estadisticas    = lazy(() => import('./components/Estadisticas'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
@@ -793,6 +793,7 @@ useEffect(() => {
 
         {/* Resguardo del cliente */}
         {showReceiptFor && (
+          <Suspense fallback={null}>
           <CustomerReceipt
             repair={showReceiptFor}
             settings={settings}
@@ -815,18 +816,22 @@ useEffect(() => {
               }
             }}
           />
+          </Suspense>
         )}
 
         {/* Ticket térmico */}
         {showTicketFor && (
+          <Suspense fallback={null}>
           <ThermalTicket
             repair={showTicketFor}
             settings={settings}
             onClose={() => setShowTicketFor(null)}
           />
+          </Suspense>
         )}
 
         {(activeBudgetRepair || freeBudgetMode) ? (
+          <Suspense fallback={<LazyFallback />}>
           <BudgetCreator
             repair={activeBudgetRepair || undefined}
             settings={settings}
@@ -845,6 +850,7 @@ useEffect(() => {
               }
             }}
           />
+          </Suspense>
         ) : (
           <>
             {currentView === 'dashboard' && (
@@ -860,6 +866,7 @@ useEffect(() => {
               />
             )}
             {currentView === 'repairs' && (
+              <Suspense fallback={<LazyFallback />}>
               <RepairList
                 repairs={repairs}
                 budgets={budgets}
@@ -901,8 +908,10 @@ useEffect(() => {
                 }}
                 settings={settings}
               />
+              </Suspense>
             )}
             {currentView === 'new-repair' && (
+              <Suspense fallback={<LazyFallback />}>
               <RepairForm
                 settings={settings}
                 onSave={handleSaveRepair}
@@ -911,8 +920,10 @@ useEffect(() => {
                 repairs={repairs}
                 prefillCustomer={prefillCustomer}
               />
+              </Suspense>
             )}
             {currentView === 'budgets' && (
+              <Suspense fallback={<LazyFallback />}>
               <BudgetList
                 budgets={budgets}
                 repairs={repairs}
@@ -1054,8 +1065,10 @@ useEffect(() => {
                   navigateTo('invoices');
                 }}
               />
+              </Suspense>
             )}
             {currentView === 'customers' && (
+              <Suspense fallback={<LazyFallback />}>
               <CustomerList
                 repairs={repairs}
                 customers={customersDB}
@@ -1098,6 +1111,7 @@ useEffect(() => {
                   navigateTo('calendar');
                 }}
               />
+              </Suspense>
             )}
             {(currentView === 'stats' || currentView === 'estadisticas') && (
               <Suspense fallback={<LazyFallback />}>
@@ -1116,6 +1130,7 @@ useEffect(() => {
               </Suspense>
             )}
             {currentView === 'calendar' && (
+              <Suspense fallback={<LazyFallback />}>
               <CalendarView
                 citas={citas}
                 repairs={repairs}
@@ -1158,8 +1173,10 @@ useEffect(() => {
                   notify('success', `Orden creada desde cita de ${cita.clienteName}. Complete los datos del equipo.`);
                 }}
               />
+              </Suspense>
             )}
             {currentView === 'external-apps' && (
+              <Suspense fallback={<LazyFallback />}>
               <ExternalAppsView
                 apps={externalApps}
                 onSaveApp={handleSaveExternalApp}
@@ -1167,14 +1184,18 @@ useEffect(() => {
                 onViewApp={handleViewExternalApp}
                 onBack={() => navigateTo('dashboard')}
               />
+              </Suspense>
             )}
             {currentView === 'external-app-view' && activeExternalApp && (
+              <Suspense fallback={<LazyFallback />}>
               <ExternalAppViewer
                 app={activeExternalApp}
                 onBack={() => navigateTo('external-apps')}
               />
+              </Suspense>
             )}
             {currentView === 'settings' && (
+              <Suspense fallback={<LazyFallback />}>
               <SettingsForm
                 settings={settings}
                 canInstall={canInstall}
@@ -1186,8 +1207,10 @@ useEffect(() => {
                 }}
                 onBack={() => navigateTo('dashboard')}
               />
+              </Suspense>
             )}
             {currentView === 'despacho' && (
+              <Suspense fallback={<LazyFallback />}>
               <Despacho
                 repairs={repairs}
                 budgets={budgets}
@@ -1199,6 +1222,7 @@ useEffect(() => {
                 }}
                 onNotify={notify}
               />
+              </Suspense>
             )}
             {currentView === 'invoices' && (
               <Suspense fallback={<LazyFallback />}>
