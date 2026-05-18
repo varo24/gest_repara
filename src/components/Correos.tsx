@@ -365,6 +365,29 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
     return facturasAll;
   }, [filter, facturasAll, facturasActivas, procesados]);
 
+  // Facturas auto-importadas pendientes de confirmar stock
+  const facturasPendientesRevision = useMemo(() =>
+    Object.values(facturasImportadas)
+      .filter((f: any) => f.estado === 'pendiente_revision' && f.origen === 'auto')
+      .sort((a: any, b: any) => new Date(b.importadoEn).getTime() - new Date(a.importadoEn).getTime()),
+  [facturasImportadas]);
+
+  const confirmarStockAutoImport = (imp: any) => {
+    storage.save('facturas_importadas', imp.id, { ...imp, estado: 'importada' });
+    onImportToStock({
+      proveedor: imp.proveedor,
+      numero_factura: imp.numeroFactura,
+      fecha: imp.fecha,
+      total: imp.total,
+      lineas: imp.lineas || [],
+      supplierId: imp.supplierId,
+    });
+  };
+
+  const descartarAutoImport = (imp: any) => {
+    storage.save('facturas_importadas', imp.id, { ...imp, estado: 'descartada' });
+  };
+
   // Group by proveedor
   const grouped = useMemo(() => {
     const map: Record<string, AnalizadoDoc[]> = {};
@@ -600,6 +623,35 @@ export default function Correos({ settings, onImportToStock, onBack, onNotify }:
           <p className="text-[10px] font-bold text-slate-500">
             Analizados {progress.analizados} de {progress.total} candidatos · {progress.facturas} factura{progress.facturas !== 1 ? 's' : ''} detectada{progress.facturas !== 1 ? 's' : ''}
           </p>
+        </div>
+      )}
+
+      {/* ── Banner: facturas auto-importadas pendientes de confirmar stock ── */}
+      {facturasPendientesRevision.length > 0 && (
+        <div className="mx-0 mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+            {facturasPendientesRevision.length} factura{facturasPendientesRevision.length !== 1 ? 's' : ''} pendiente{facturasPendientesRevision.length !== 1 ? 's' : ''} de confirmar stock
+          </p>
+          {(facturasPendientesRevision as any[]).map((imp: any) => (
+            <div key={imp.id} className="flex items-center justify-between gap-3 bg-white rounded-xl p-3 border border-amber-100">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-slate-800 truncate">{imp.proveedor || 'Sin proveedor'}</p>
+                <p className="text-[10px] text-slate-500">{imp.numeroFactura} · {imp.fecha} · {Number(imp.total ?? 0).toFixed(2)}€</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => descartarAutoImport(imp)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors">
+                  Descartar
+                </button>
+                <button
+                  onClick={() => confirmarStockAutoImport(imp)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-colors">
+                  Confirmar stock
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

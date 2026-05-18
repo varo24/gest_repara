@@ -208,9 +208,9 @@ const App: React.FC = () => {
     }
   };
 
-  const notify = useCallback((type: AppNotification['type'], message: string) => {
+  const notify = useCallback((type: AppNotification['type'], message: string, action?: AppNotification['action']) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setNotifications(prev => [...prev, { id, type, message }]);
+    setNotifications(prev => [...prev, { id, type, message, action }]);
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3500);
   }, []);
 
@@ -282,7 +282,9 @@ useEffect(() => {
 
   // ── Background auto-import de facturas (cada 30 min + al arrancar) ───────────
   useEffect(() => {
-    const run = () => procesarFacturasBackground(settings, notify);
+    const run = () => procesarFacturasBackground(settings, (type, msg) =>
+      notify(type, msg, type === 'info' ? { label: 'Ver facturas', onClick: () => navigateTo('correos') } : undefined)
+    );
     run();
     const id = setInterval(run, 30 * 60 * 1000);
     return () => clearInterval(id);
@@ -703,6 +705,12 @@ useEffect(() => {
             <div key={n.id} className="px-6 py-4 rounded-2xl bg-slate-900 text-white shadow-2xl border border-white/10 flex items-center gap-4 pointer-events-auto">
               <div className={`w-2 h-2 rounded-full shrink-0 ${n.type === 'success' ? 'bg-emerald-400' : n.type === 'error' ? 'bg-red-400' : n.type === 'warning' ? 'bg-amber-400' : 'bg-blue-400'}`} />
               <p className="text-[10px] font-black uppercase tracking-widest">{n.message}</p>
+              {n.action && (
+                <button onClick={() => { n.action!.onClick(); setNotifications(prev => prev.filter(x => x.id !== n.id)); }}
+                  className="text-[10px] font-black uppercase tracking-widest underline whitespace-nowrap opacity-80 hover:opacity-100">
+                  {n.action.label}
+                </button>
+              )}
             </div>
           ))}
         </div>

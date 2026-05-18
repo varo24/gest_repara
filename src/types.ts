@@ -160,6 +160,7 @@ export interface AppNotification {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
+  action?: { label: string; onClick: () => void };
 }
 
 export type ViewType = 'dashboard' | 'repairs' | 'new-repair' | 'budgets' | 'customers' | 'settings' | 'stats' | 'estadisticas' | 'calendar' | 'external-apps' | 'external-app-view' | 'diagnostic' | 'despacho' | 'inventory' | 'inventory-entrada' | 'invoices' | 'garantias' | 'correos' | 'archivo-facturas' | 'suppliers' | 'informes' | 'caja';
