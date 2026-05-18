@@ -178,8 +178,10 @@ tbody tr{border-bottom:1px solid #f1f5f9}
 </table>
 <div style="display:flex;justify-content:space-between;align-items:flex-end">
   <div style="text-align:center">
-    <div class="sig-box">${signature ? `<img src="${signature}" />` : ''}</div>
+    <div class="sig-box">${(signature || initialBudget?.firmaData) ? `<img src="${signature || initialBudget?.firmaData}" />` : ''}</div>
     <div style="font-size:8px;font-weight:900;color:#94a3b8;text-transform:uppercase;margin-top:8px">Aceptación del Cliente</div>
+    ${initialBudget?.firmadoPor ? `<div style="font-size:8px;font-weight:600;color:#475569;margin-top:4px">Firmado por: ${initialBudget.firmadoPor}</div>` : ''}
+    ${initialBudget?.firmadoAt ? `<div style="font-size:8px;color:#94a3b8;margin-top:2px">${new Date(initialBudget.firmadoAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
   </div>
   <div class="totals-box">
     <div class="total-row"><span>Subtotal</span><span>${pSubtotal.toFixed(2)}€</span></div>

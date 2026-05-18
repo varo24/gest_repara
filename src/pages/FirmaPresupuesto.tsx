@@ -97,6 +97,7 @@ const FirmaPresupuesto: React.FC<FirmaPresupuestoProps> = ({ token }) => {
       const firmaData = canvasRef.current!.toDataURL('image/png');
       await updateDoc(doc(db, 'budgets', budgetDocId), {
         firmaEstado: 'firmado',
+        status: 'accepted',
         firmadoPor: nombre.trim(),
         firmadoAt: new Date().toISOString(),
         firmaData,
@@ -115,6 +116,7 @@ const FirmaPresupuesto: React.FC<FirmaPresupuestoProps> = ({ token }) => {
     try {
       await updateDoc(doc(db, 'budgets', budgetDocId), {
         firmaEstado: 'rechazado',
+        status: 'rejected',
         motivoRechazo: motivo.trim() || 'Sin motivo indicado',
         firmadoAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
