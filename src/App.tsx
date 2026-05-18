@@ -24,6 +24,7 @@ const Proveedores     = lazy(() => import('./components/Proveedores'));
 const Informes        = lazy(() => import('./components/Informes'));
 const Caja            = lazy(() => import('./components/Caja'));
 const Estadisticas    = lazy(() => import('./components/Estadisticas'));
+const FirmaPresupuesto = lazy(() => import('./pages/FirmaPresupuesto'));
 import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
@@ -108,6 +109,8 @@ const App: React.FC = () => {
   const [cierresCaja, setCierresCaja] = useState<any[]>([]);
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
+  const firmaNotificadosRef = useRef<Set<string>>(new Set());
+  const firmaInitializedRef = useRef(false);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -542,6 +545,49 @@ useEffect(() => {
     setReminderCitas(prev => prev.filter(c => c.id !== citaId));
   }, [citas]);
 
+  // ── Firma digital: notificar cuando el cliente firma o rechaza ─────────────
+  useEffect(() => {
+    if (!firmaInitializedRef.current) {
+      if (budgets.length === 0) return;
+      firmaInitializedRef.current = true;
+      budgets.forEach(b => {
+        if (b.firmaEstado === 'firmado') firmaNotificadosRef.current.add(b.id);
+        if (b.firmaEstado === 'rechazado') firmaNotificadosRef.current.add(`${b.id}_r`);
+      });
+      return;
+    }
+    budgets.forEach(b => {
+      const label = b.customerName || `RMA-${String(b.rmaNumber).padStart(5, '0')}`;
+      if (b.firmaEstado === 'firmado' && !firmaNotificadosRef.current.has(b.id)) {
+        firmaNotificadosRef.current.add(b.id);
+        notify('success', `${label} ha firmado el presupuesto`);
+      }
+      if (b.firmaEstado === 'rechazado' && !firmaNotificadosRef.current.has(`${b.id}_r`)) {
+        firmaNotificadosRef.current.add(`${b.id}_r`);
+        notify('error', `${label} ha rechazado el presupuesto`);
+      }
+    });
+  }, [budgets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleEnviarFirma = useCallback(async (budget: Budget) => {
+    const repair = repairs.find(r => r.id === budget.repairId);
+    const customerName = budget.customerName || repair?.customerName || '';
+    const token = crypto.randomUUID();
+    const firmaUrl = `${window.location.origin}/firmar/${token}`;
+    storage.save('budgets', budget.id, {
+      firmaToken: token,
+      firmaUrl,
+      firmaEstado: 'pendiente',
+      ...(customerName && !budget.customerName ? { customerName } : {}),
+    });
+    try {
+      await navigator.clipboard.writeText(firmaUrl);
+      notify('success', `Enlace de firma copiado. Compártelo con ${customerName || 'el cliente'}.`);
+    } catch {
+      notify('info', `Enlace generado. Cópialo manualmente desde el presupuesto.`);
+    }
+  }, [repairs, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   const navigateTo = (view: ViewType) => {
@@ -611,6 +657,16 @@ useEffect(() => {
     setFreeBudgetMode(false);
     navigateTo('budgets');
   };
+
+  // ── Ruta pública: /firmar/:token ─────────────────────────────────────────
+  const firmaToken = window.location.pathname.match(/^\/firmar\/(.+)$/)?.[1];
+  if (firmaToken) {
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center h-screen bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>}>
+        <FirmaPresupuesto token={firmaToken} />
+      </Suspense>
+    );
+  }
 
   // Pantalla de carga
   if (loading) return (
@@ -971,6 +1027,7 @@ useEffect(() => {
                     );
                   }
                 }}
+                onEnviarFirma={handleEnviarFirma}
                 onSendWhatsApp={async (budget, repair) => {
                   const msg = buildBudgetMessage(repair, budget, settings);
                   await sendWhatsApp(repair.customerPhone, msg);

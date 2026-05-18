@@ -111,6 +111,13 @@ export interface Budget {
   customerName?: string;
   customerPhone?: string;
   customerTaxId?: string;
+  // Firma digital remota
+  firmaToken?: string;
+  firmaUrl?: string;
+  firmadoPor?: string;
+  firmadoAt?: string;
+  firmaData?: string;
+  firmaEstado?: 'pendiente' | 'firmado' | 'rechazado';
 }
 
 export interface AppSettings {

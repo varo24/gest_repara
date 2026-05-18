@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone, Archive } from 'lucide-react';
+import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone, Archive, PenLine, Link } from 'lucide-react';
 import { Budget, RepairItem, AppSettings, Customer } from '../types';
 import { getBudgetAlertLevel, workingDaysSince } from '../lib/budgetAlerts';
 
@@ -18,6 +18,7 @@ interface BudgetListProps {
   onMarkContacted?: (budgetId: string) => void;
   onViewInvoices?: () => void;
   onReactivarBudget?: (budget: Budget) => void;
+  onEnviarFirma?: (budget: Budget) => void;
   onBack?: () => void;
 }
 
@@ -45,7 +46,7 @@ function getBadgeInfo(budget: Budget): { label: string; bg: string; color: strin
 const BudgetList: React.FC<BudgetListProps> = ({
   budgets, repairs, customers = [], settings, onViewBudget, onPrintBudget, onDeleteBudget,
   onNewFreeBudget, onSendWhatsApp, onConvertToInvoice, onUpdateBudgetStatus, onMarkContacted,
-  onViewInvoices, onReactivarBudget, onBack,
+  onViewInvoices, onReactivarBudget, onEnviarFirma, onBack,
 }) => {
   const followUpThreshold = settings?.budgetFollowUpDays ?? 3;
   const [searchTerm, setSearchTerm] = useState('');
@@ -274,6 +275,15 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                 </span>
                               )}
                             </div>
+                            {budget.firmaEstado === 'firmado' && (
+                              <span className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background: '#dcfce7', color: '#166534' }}>✓ Firmado</span>
+                            )}
+                            {budget.firmaEstado === 'rechazado' && (
+                              <span className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background: '#fee2e2', color: '#991b1b' }}>✗ Firma rec.</span>
+                            )}
+                            {budget.firmaEstado === 'pendiente' && (
+                              <span className="inline-block text-[9px] font-black px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#1d4ed8' }}>✉ Firma env.</span>
+                            )}
                             {isRejected && budget.motivoRechazo && (
                               <p className="text-[8px] text-red-400 mt-0.5 max-w-[120px] truncate" title={budget.motivoRechazo}>
                                 {budget.motivoRechazo}
@@ -363,6 +373,26 @@ const BudgetList: React.FC<BudgetListProps> = ({
                                   title="Marcar como contactado (resetea el contador)"
                                 >
                                   <Phone size={11} /> Contactado
+                                </button>
+                              )}
+
+                              {/* Firma actions */}
+                              {!isArchivado && onEnviarFirma && !budget.firmaEstado && isPending && (
+                                <button
+                                  onClick={() => onEnviarFirma(budget)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100"
+                                  title="Generar enlace de firma digital para el cliente"
+                                >
+                                  <PenLine size={11} /> Firmar
+                                </button>
+                              )}
+                              {budget.firmaEstado === 'pendiente' && budget.firmaUrl && (
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(budget.firmaUrl!)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                                  title="Copiar enlace de firma"
+                                >
+                                  <Link size={11} /> Enlace
                                 </button>
                               )}
 

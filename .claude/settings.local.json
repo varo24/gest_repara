@@ -55,7 +55,9 @@
       "Bash(echo \"BUILD_EXIT:$?\")",
       "Bash(grep -v \"//.*console\\\\.log\")",
       "Bash(npx eslint *)",
-      "Bash(sort -k5 -rh)"
+      "Bash(sort -k5 -rh)",
+      "Bash(find src *)",
+      "Bash(cat vercel.json)"
     ]
   }
 }
