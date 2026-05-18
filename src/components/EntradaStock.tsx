@@ -152,7 +152,16 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     const existing = (localDB.getAll('suppliers') as Supplier[]).find(
       s => s.name.trim().toLowerCase() === normalized
     );
-    if (existing) return existing.id;
+    if (existing) {
+      const patch: Partial<Supplier> = {};
+      if (!existing.taxId && meta.cif_proveedor)       patch.taxId = meta.cif_proveedor;
+      if (!existing.email && meta.email_proveedor)      patch.email = meta.email_proveedor;
+      if (!existing.phone && meta.telefono_proveedor)   patch.phone = meta.telefono_proveedor;
+      if (!existing.city  && meta.direccion_proveedor)  patch.city  = meta.direccion_proveedor;
+      if (Object.keys(patch).length)
+        await storage.save('suppliers', existing.id, { ...existing, ...patch, updatedAt: new Date().toISOString() });
+      return existing.id;
+    }
     const now = new Date().toISOString();
     const id = `SUPP-${Date.now()}`;
     const newSupplier: Supplier = {
