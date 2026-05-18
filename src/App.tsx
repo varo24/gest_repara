@@ -1022,6 +1022,9 @@ useEffect(() => {
                   }
                 }}
                 onPrintBudget={(budget) => {
+                  console.log('[onPrintBudget] budget.id:', budget.id);
+                  console.log('[onPrintBudget] firmaData:', budget.firmaData ? budget.firmaData.slice(0, 40) : '(undefined)');
+                  console.log('[onPrintBudget] firmaEstado:', budget.firmaEstado ?? '(undefined)');
                   const r = repairs.find(rep => rep.id === budget.repairId);
                   if (r) {
                     setEditingBudget(budget);
