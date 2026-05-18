@@ -193,6 +193,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
 ${settings.legalTerms ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0"><div style="font-size:7px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px">Condiciones Generales</div><div style="font-size:7px;color:#64748b;line-height:1.6;text-align:justify">${settings.legalTerms}</div></div>` : ''}
 </body></html>`;
 
+    console.log('[Budget] cláusula averías ocultas en HTML:', html.includes('AVERÍAS OCULTAS'));
     const win = window.open('', '_blank', 'width=850,height=1100');
     if (win) {
       win.document.write(html);

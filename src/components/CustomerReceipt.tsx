@@ -28,8 +28,8 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
-  const ciudad = settings.city || settings.appName;
-  const fechaLugar = `${ciudad}, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const fechaSola = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fechaLugar = settings.city ? `${settings.city}, ${fechaSola}` : fechaSola;
 
   const [sigBase64, setSigBase64]       = useState(repair.customerSignature || '');
   const [uploadingFirma, setUploadingFirma] = useState(false);
@@ -298,13 +298,14 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
   <!-- PIE -->
   <div class="footer">
     <span>Conserve este resguardo para retirar su equipo · ${settings.appName}</span>
-    <span>Documento generado por ${settings.appName}</span>
+    <span>Generado el ${fechaSola}</span>
   </div>
 
 </body>
 </html>`;
 
   const openPrintWindow = () => {
+    console.log('[Receipt] cláusula averías ocultas en HTML:', printHTML.includes('Averías ocultas'));
     const win = window.open('', '_blank', 'width=850,height=1100');
     if (win) {
       win.document.write(printHTML);
