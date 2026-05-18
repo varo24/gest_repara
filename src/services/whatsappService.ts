@@ -139,8 +139,7 @@ _${settings.appName}_`;
 const sendViaWeb = (phone: string, message: string): void => {
   const cleanedPhone = cleanPhone(phone);
   const encoded = encodeURIComponent(message);
-  // Use whatsapp:// protocol to open native app instead of web browser
-  window.open(`whatsapp://send?phone=${cleanedPhone}&text=${encoded}`, '_self');
+  window.open(`https://wa.me/${cleanedPhone}?text=${encoded}`, '_blank');
 };
 
 // ============================================================

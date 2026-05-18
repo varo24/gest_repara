@@ -597,6 +597,8 @@ useEffect(() => {
 
     if (customerPhone) {
       const msg = buildFirmaMessage(budget, repair ?? null, firmaUrl, settings);
+      console.log('[handleEnviarFirma] firmaUrl:', firmaUrl);
+      console.log('[handleEnviarFirma] msg snippet:', msg.slice(0, 200));
       sendWhatsApp(customerPhone, msg);
       notify('success', `WhatsApp de firma enviado a ${customerName || 'el cliente'}.`);
     } else {
