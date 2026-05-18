@@ -5,8 +5,8 @@ import {
   ShieldCheck, AlertTriangle, Database, RefreshCw, Cloud, CloudDownload,
   Package, Brain, Plus, LayoutDashboard, QrCode, MessageCircle, Lock, Unlock, Bell
 } from 'lucide-react';
-import { AppSettings } from '../types';
-import { storage } from '../lib/dataService';
+import { AppSettings, FullInvoice } from '../types';
+import { storage, localDB } from '../lib/dataService';
 import { isPinEnabled, clearPin, setPin, verifyPin } from '../lib/pinAuth';
 import { isNotifEnabled, setNotifEnabled, requestPermissionIfNeeded } from '../lib/pushNotifications';
 
@@ -103,6 +103,8 @@ const NotifToggle: React.FC = () => {
 
 const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onInstall, onSave, onBack, version }) => {
   const [formData, setFormData] = useState<AppSettings>(settings);
+  const verifactuPendientes = (localDB.getAll('invoices') as FullInvoice[])
+    .filter(inv => inv.verifactu_pendiente_envio === true).length;
   const [copied, setCopied] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -626,6 +628,21 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               </p>
             </div>
           </div>
+
+          {formData.verifactuEnabled && verifactuPendientes > 0 && (
+            <div className="flex items-center justify-between p-5 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="flex items-center gap-3">
+                <RefreshCw size={16} className="text-blue-500 shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-blue-800">Pendientes de envío a la AEAT</p>
+                  <p className="text-[10px] text-blue-600">{verifactuPendientes} factura{verifactuPendientes !== 1 ? 's' : ''} en cola — el envío se activará en julio 2027</p>
+                </div>
+              </div>
+              <span className="px-3 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full uppercase tracking-widest">
+                {verifactuPendientes}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

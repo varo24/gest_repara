@@ -376,6 +376,7 @@ export interface FullInvoice {
   verifactu?: {
     enabled: boolean;
     huella: string;
+    huellaAnterior?: string;
     fechaHuella: string;
     tipoHuella: 'SHA-256';
     numSerieFactura: string;
@@ -385,4 +386,5 @@ export interface FullInvoice {
     respuestaAEAT?: string;
     qrUrl?: string;
   };
+  verifactu_pendiente_envio?: boolean;
 }

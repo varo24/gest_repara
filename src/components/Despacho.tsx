@@ -131,7 +131,7 @@ const Despacho: React.FC<DespachoProps> = ({ repairs, budgets, settings, onStatu
       };
 
       const finalInvoice: FullInvoice = settings.verifactuEnabled
-        ? prepararFacturaVeriFactu(invoice as FullInvoice, settings)
+        ? await prepararFacturaVeriFactu(invoice as FullInvoice, settings)
         : (invoice as FullInvoice);
       storage.save('invoices', finalInvoice.id, finalInvoice);
       const cashId = `CASH-${Date.now()}`;

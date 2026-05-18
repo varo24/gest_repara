@@ -906,7 +906,7 @@ const NewInvoiceForm: React.FC<NewInvoiceFormProps> = ({ settings, customers, in
         stockDescontado: isEditing ? (initialInvoice?.stockDescontado ?? false) : true,
       };
       const finalInv = (!isEditing && settings.verifactuEnabled)
-        ? prepararFacturaVeriFactu(inv, settings)
+        ? await prepararFacturaVeriFactu(inv, settings)
         : inv;
 
       // Descontar stock ANTES de confirmar la factura. Si falla, el error se

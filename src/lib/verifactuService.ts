@@ -1,9 +1,14 @@
 import CryptoJS from 'crypto-js';
+import QRCode from 'qrcode';
 import { FullInvoice, AppSettings } from '../types';
+import { localDB } from './dataService';
 
-// Genera la huella SHA-256 del registro de factura
-export const generarHuella = (invoice: FullInvoice, settings: AppSettings): string => {
-  // Normalize createdAt to UTC ISO to guarantee the same hash across devices/timezones.
+// Genera la huella SHA-256 encadenada con la factura anterior
+export const generarHuella = (
+  invoice: FullInvoice,
+  settings: AppSettings,
+  huellaAnterior = '0',
+): string => {
   const createdAtUTC = invoice.createdAt
     ? new Date(invoice.createdAt).toISOString()
     : '';
@@ -14,11 +19,12 @@ export const generarHuella = (invoice: FullInvoice, settings: AppSettings): stri
     invoice.customerName,
     (invoice.total || 0).toFixed(2),
     createdAtUTC,
+    huellaAnterior,
   ].join('|');
   return CryptoJS.SHA256(data).toString(CryptoJS.enc.Hex).toUpperCase();
 };
 
-// Genera el QR de verificación AEAT
+// Genera la URL de verificación AEAT (para texto y QR)
 export const generarQRVerificacion = (invoice: FullInvoice, settings: AppSettings): string => {
   const params = new URLSearchParams({
     nif:      settings.verifactuNIF || settings.taxId || '',
@@ -27,6 +33,11 @@ export const generarQRVerificacion = (invoice: FullInvoice, settings: AppSetting
     importe:  (invoice.total || 0).toFixed(2),
   });
   return `https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?${params.toString()}`;
+};
+
+// Genera un QR como data URL base64 (sin dependencia de red)
+export const generarQRDataUrl = async (contenido: string): Promise<string> => {
+  return QRCode.toDataURL(contenido, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
 };
 
 // Genera el XML del registro de factura (formato AEAT)
@@ -58,31 +69,41 @@ export const enviarFacturaAEAT = async (
   // TODO: Activar cuando VeriFactu sea obligatorio (julio 2027 autónomos)
   // URL producción: https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSistemaFacturacion
   // URL pruebas: https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSistemaFacturacion
-  console.warn('[VeriFactu] Envío desactivado hasta julio 2027');
   return { ok: false, error: 'VeriFactu no activado todavía' };
 };
 
-// Prepara una factura con datos VeriFactu (huella + QR) sin enviar
-export const prepararFacturaVeriFactu = (
+// Prepara una factura con datos VeriFactu (huella encadenada + QR local) sin enviar
+export const prepararFacturaVeriFactu = async (
   invoice: FullInvoice,
   settings: AppSettings,
-): FullInvoice => {
+): Promise<FullInvoice> => {
   if (!settings.verifactuEnabled) return invoice;
 
-  const huella = generarHuella(invoice, settings);
-  const qrUrl  = generarQRVerificacion(invoice, settings);
+  // Encadenamiento: buscar la huella de la última factura VeriFactu (por fecha de creación)
+  const allInvoices = localDB.getAll('invoices') as FullInvoice[];
+  const sorted = allInvoices
+    .filter(inv => inv.verifactu?.huella && inv.id !== invoice.id)
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const huellaAnterior = sorted[0]?.verifactu?.huella ?? '0';
+
+  const huella = generarHuella(invoice, settings, huellaAnterior);
+  const aeatUrl = generarQRVerificacion(invoice, settings);
+  const qrUrl = await generarQRDataUrl(aeatUrl);
 
   return {
     ...invoice,
     verifactu: {
-      enabled:          true,
+      enabled:         true,
       huella,
-      fechaHuella:      new Date().toISOString(),
-      tipoHuella:       'SHA-256',
-      numSerieFactura:  invoice.invoiceNumber,
-      fechaExpedicion:  invoice.date,
-      enviado:          false,
+      huellaAnterior,
+      fechaHuella:     new Date().toISOString(),
+      tipoHuella:      'SHA-256',
+      numSerieFactura: invoice.invoiceNumber,
+      fechaExpedicion: invoice.date,
+      enviado:         false,
       qrUrl,
     },
+    // Marcar como pendiente de envío (el envío se activará en julio 2027)
+    verifactu_pendiente_envio: true,
   };
 };
