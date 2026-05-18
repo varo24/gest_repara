@@ -4,9 +4,10 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area,
   ComposedChart,
 } from 'recharts';
-import { ArrowLeft, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, BarChart2, Package } from 'lucide-react';
 import {
   AppSettings, RepairItem, InventoryItem, StockMovement, FullInvoice,
+  RepairStatus, Supplier,
 } from '../types';
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   cashMovements: any[];
   cierresCaja: any[];
   settings: AppSettings;
+  facturasImportadas: any[];
+  suppliers: Supplier[];
   onBack: () => void;
 }
 
@@ -140,8 +143,11 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const INACTIVE_STATUSES = [RepairStatus.DELIVERED, RepairStatus.CANCELLED, RepairStatus.SIN_REPARACION];
+
 const Estadisticas: React.FC<Props> = ({
-  repairs, invoices, inventory, stockMovements, cashMovements, settings, onBack,
+  repairs, invoices, inventory, stockMovements, cashMovements,
+  facturasImportadas, suppliers, onBack,
 }) => {
   const [period, setPeriod] = useState<Period>('month');
   const [customStart, setCustomStart] = useState('');
@@ -209,8 +215,8 @@ const Estadisticas: React.FC<Props> = ({
     [repairs, start, end],
   );
 
-  const entregadas  = filtRepairs.filter(r => r.status === 'Entregado');
-  const canceladas  = filtRepairs.filter(r => r.status === 'Cancelado' || r.status === 'Sin Reparación');
+  const entregadas  = filtRepairs.filter(r => r.status === RepairStatus.DELIVERED);
+  const canceladas  = filtRepairs.filter(r => r.status === RepairStatus.CANCELLED || r.status === RepairStatus.SIN_REPARACION);
   const tasaExito   = filtRepairs.length
     ? Math.round((entregadas.length / filtRepairs.length) * 100)
     : 0;
@@ -279,6 +285,7 @@ const Estadisticas: React.FC<Props> = ({
   const bajoStock     = inventory.filter(it => it.stock <= it.minStock).length;
   const entradasStock = filtStock.filter(m => m.type === 'entrada').reduce((s, m) => s + (m.qty ?? 0), 0);
   const salidasStock  = filtStock.filter(m => m.type === 'salida').reduce((s, m) => s + (m.qty ?? 0), 0);
+  const ajustesStock  = filtStock.filter(m => m.type === 'ajuste').reduce((s, m) => s + Math.abs(m.qty ?? 0), 0);
 
   const chart6Data = useMemo(() => {
     if (monthly) {
@@ -287,6 +294,7 @@ const Estadisticas: React.FC<Props> = ({
         key: m.slice(5),
         Entradas: filtStock.filter(s => s.date?.startsWith(m) && s.type === 'entrada').reduce((a, s) => a + (s.qty ?? 0), 0),
         Salidas:  filtStock.filter(s => s.date?.startsWith(m) && s.type === 'salida').reduce((a, s) => a + (s.qty ?? 0), 0),
+        Ajustes:  filtStock.filter(s => s.date?.startsWith(m) && s.type === 'ajuste').reduce((a, s) => a + Math.abs(s.qty ?? 0), 0),
       }));
     }
     const days = buildDays(start, end);
@@ -294,6 +302,7 @@ const Estadisticas: React.FC<Props> = ({
       key: d.slice(5),
       Entradas: filtStock.filter(s => s.date?.startsWith(d) && s.type === 'entrada').reduce((a, s) => a + (s.qty ?? 0), 0),
       Salidas:  filtStock.filter(s => s.date?.startsWith(d) && s.type === 'salida').reduce((a, s) => a + (s.qty ?? 0), 0),
+      Ajustes:  filtStock.filter(s => s.date?.startsWith(d) && s.type === 'ajuste').reduce((a, s) => a + Math.abs(s.qty ?? 0), 0),
     }));
   }, [filtStock, monthly, start, end]);
 
@@ -305,7 +314,35 @@ const Estadisticas: React.FC<Props> = ({
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
   }, [filtStock]);
 
-  // ── D: Caja ────────────────────────────────────────────────────────────────
+  // ── D: Compras (facturas importadas) ───────────────────────────────────────
+  const filtImportadas = useMemo(
+    () => facturasImportadas.filter(f => inRange(f.fecha || f.importadoEn || '')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [facturasImportadas, start, end],
+  );
+
+  const totalCompras       = filtImportadas.filter(f => f.estado !== 'descartada').reduce((s, f) => s + (f.total ?? 0), 0);
+  const nPendientes        = filtImportadas.filter(f => f.estado === 'pendiente_revision').length;
+  const nImportadas        = filtImportadas.filter(f => f.estado === 'importada').length;
+  const nDescartadas       = filtImportadas.filter(f => f.estado === 'descartada').length;
+
+  const top5Proveedores = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtImportadas
+      .filter(f => f.estado !== 'descartada')
+      .forEach(f => {
+        const key = f.proveedor || 'Sin nombre';
+        map[key] = (map[key] ?? 0) + (f.total ?? 0);
+      });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [filtImportadas]);
+
+  // supplier name lookup helper
+  const supplierName = (id: string) =>
+    suppliers.find(s => s.id === id)?.name ?? id;
+  void supplierName; // available for future use
+
+  // ── E: Caja ────────────────────────────────────────────────────────────────
   const filtMov = useMemo(
     () => cashMovements.map(normMov).filter(m => inRange(m.fecha)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +374,7 @@ const Estadisticas: React.FC<Props> = ({
     });
   }, [cajaMov, monthly, start, end]);
 
-  // ── E: Tendencia (últimos 12 meses siempre) ────────────────────────────────
+  // ── F: Tendencia (últimos 12 meses siempre) ────────────────────────────────
   const chart8Data = useMemo(() => {
     const now2 = new Date();
     const months12: string[] = [];
@@ -468,7 +505,7 @@ const Estadisticas: React.FC<Props> = ({
           <Card label="Entregadas"      value={String(entregadas.length)} sub={`Canceladas: ${canceladas.length}`} color="#2e7d32" />
           <Card label="Tasa de éxito"   value={`${tasaExito}%`} color={tasaExito >= 70 ? '#2e7d32' : '#f57f17'} />
           <Card label="Tiempo medio"    value={`${tiempoMedio} días`} sub="entradas → entregadas" color="#6a1b9a" />
-          <Card label="Activas ahora"   value={String(filtRepairs.filter(r => !['Entregado','Cancelado','Sin Reparación'].includes(r.status)).length)} color="#e65100" />
+          <Card label="Activas ahora"   value={String(filtRepairs.filter(r => !INACTIVE_STATUSES.includes(r.status as RepairStatus)).length)} color="#e65100" />
         </div>
 
         {/* Chart 3: Por estado */}
@@ -534,13 +571,14 @@ const Estadisticas: React.FC<Props> = ({
 
         {/* ── C: Inventario ──────────────────────────────────────────────────── */}
         <SectionTitle>Inventario</SectionTitle>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <Card label="Valor stock"   value={fmtShort(totalStockVal)} sub={`${inventory.length} refs.`} color="#00695c" />
           <Card label="Bajo mínimo"   value={String(bajoStock)} sub="referencias" color={bajoStock > 0 ? '#b71c1c' : '#2e7d32'} />
-          <Card label="Movimientos"   value={`+${entradasStock} / -${salidasStock}`} sub="entradas / salidas (uds)" color="#4e342e" />
+          <Card label="Entradas"      value={`+${entradasStock} uds`} color="#2e7d32" />
+          <Card label="Salidas / Aj." value={`-${salidasStock} / ~${ajustesStock}`} sub="uds" color="#4e342e" />
         </div>
 
-        {/* Chart 6: Entradas/Salidas stock */}
+        {/* Chart 6: Movimientos de stock */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-3">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Movimientos de stock por {monthly ? 'mes' : 'día'}</p>
           <ResponsiveContainer width="100%" height={200}>
@@ -551,6 +589,7 @@ const Estadisticas: React.FC<Props> = ({
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="Entradas" stroke="#2e7d32" fill="#2e7d3220" strokeWidth={2} />
               <Area type="monotone" dataKey="Salidas"  stroke="#b71c1c" fill="#b71c1c15" strokeWidth={2} />
+              <Area type="monotone" dataKey="Ajustes"  stroke="#f57f17" fill="#f57f1715" strokeWidth={1} strokeDasharray="4 2" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -572,7 +611,40 @@ const Estadisticas: React.FC<Props> = ({
           </div>
         )}
 
-        {/* ── D: Caja ────────────────────────────────────────────────────────── */}
+        {/* ── D: Compras ─────────────────────────────────────────────────────── */}
+        <SectionTitle icon={<Package size={14} />}>Compras — Facturas de proveedores</SectionTitle>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <Card label="Total compras"       value={fmtShort(totalCompras)} sub={`${filtImportadas.length} facturas`} color="#1565c0" />
+          <Card label="Pendiente revisión"  value={String(nPendientes)} sub="sin confirmar" color={nPendientes > 0 ? '#f57f17' : '#2e7d32'} />
+          <Card label="Confirmadas"         value={String(nImportadas)} sub="importadas a stock" color="#2e7d32" />
+          <Card label="Descartadas"         value={String(nDescartadas)} sub="del período" color="#78909c" />
+        </div>
+
+        {top5Proveedores.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Top 5 proveedores por volumen de compra</p>
+            <div className="divide-y divide-slate-100">
+              {top5Proveedores.map(([name, total], i) => (
+                <div key={i} className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-slate-400 w-4">{i + 1}</span>
+                    <span className="text-xs font-bold text-slate-700">{name}</span>
+                  </div>
+                  <span className="text-xs font-black text-blue-800">{fmtEur(total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filtImportadas.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-3 text-center">
+            <p className="text-xs text-slate-400 font-medium">No hay facturas de proveedores en el período seleccionado</p>
+            <p className="text-[10px] text-slate-300 mt-1">Las facturas se importan automáticamente desde el módulo Correos</p>
+          </div>
+        )}
+
+        {/* ── E: Caja ────────────────────────────────────────────────────────── */}
         <SectionTitle icon={<TrendingDown size={14} />}>Caja</SectionTitle>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <Card label="Ingresos caja"  value={fmtShort(cajIngresos)} color="#2e7d32" />
@@ -598,7 +670,7 @@ const Estadisticas: React.FC<Props> = ({
           </ResponsiveContainer>
         </div>
 
-        {/* ── E: Tendencia 12 meses ──────────────────────────────────────────── */}
+        {/* ── F: Tendencia 12 meses ──────────────────────────────────────────── */}
         <SectionTitle>Tendencia de facturación (12 meses)</SectionTitle>
         <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-3">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Total mensual + línea de tendencia</p>

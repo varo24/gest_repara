@@ -1109,6 +1109,8 @@ useEffect(() => {
                   cashMovements={cashMovements}
                   cierresCaja={cierresCaja}
                   settings={settings}
+                  facturasImportadas={facturasImportadas}
+                  suppliers={suppliers}
                   onBack={() => navigateTo('dashboard')}
                 />
               </Suspense>
