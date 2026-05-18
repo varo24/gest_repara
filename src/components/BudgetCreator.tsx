@@ -91,10 +91,6 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
     : [];
 
   const printBudget = () => {
-    console.log('[printBudget] initialBudget?.id:', initialBudget?.id ?? '(sin id)');
-    console.log('[printBudget] initialBudget?.firmaData:', initialBudget?.firmaData ? initialBudget.firmaData.slice(0, 40) : '(undefined)');
-    console.log('[printBudget] initialBudget?.firmaEstado:', initialBudget?.firmaEstado ?? '(undefined)');
-    console.log('[printBudget] signature (local pad):', signature ? signature.slice(0, 40) : '(vacío)');
     const cName  = repair?.customerName  || customerName  || '—';
     const cPhone = repair?.customerPhone || customerPhone || '—';
     const rmaLabel   = repair ? formatRMA(repair.rmaNumber) : 'PRES. LIBRE';
