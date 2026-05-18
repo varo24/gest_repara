@@ -124,6 +124,7 @@ export interface Budget {
 export interface AppSettings {
   appName: string;
   address: string;
+  city?: string;
   phone: string;
   taxId: string;
   technicians?: string[];

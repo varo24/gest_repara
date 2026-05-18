@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Printer, Trash2, Eye, FileText, MessageCircle, Receipt, Plus, ChevronDown, ChevronRight, RotateCcw, FileCheck, X as XIcon, Phone, Archive, PenLine, Link } from 'lucide-react';
 import { Budget, RepairItem, AppSettings, Customer } from '../types';
 import { getBudgetAlertLevel, workingDaysSince } from '../lib/budgetAlerts';
+import { printRechazoPresupuesto } from '../lib/printRechazoPresupuesto';
 
 interface BudgetListProps {
   budgets: Budget[];
@@ -110,6 +111,9 @@ const BudgetList: React.FC<BudgetListProps> = ({
   const confirmReject = () => {
     if (!rejectModal) return;
     onUpdateBudgetStatus?.(rejectModal.budget, 'rejected', rejectReason || undefined);
+    if (settings) {
+      printRechazoPresupuesto(rejectModal.budget, rejectModal.repair, settings, rejectReason || undefined);
+    }
     setRejectModal(null);
     setRejectReason('');
   };

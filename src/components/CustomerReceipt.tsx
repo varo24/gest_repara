@@ -28,14 +28,8 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
-  // Extraer ciudad de settings.address (último segmento tras coma, sin CP)
-  const cityFromAddress = (() => {
-    if (!settings.address) return '';
-    const parts = settings.address.split(',');
-    const last = parts[parts.length - 1].trim();
-    return last.replace(/^\d{5}\s*/, '').trim(); // quitar código postal si lo hay
-  })();
-  const fechaLugar = `${cityFromAddress ? `${cityFromAddress}, ` : ''}${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const ciudad = settings.city || settings.appName;
+  const fechaLugar = `${ciudad}, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
   const [sigBase64, setSigBase64]       = useState(repair.customerSignature || '');
   const [uploadingFirma, setUploadingFirma] = useState(false);
