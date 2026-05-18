@@ -189,6 +189,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   </div>
 </div>
 <div class="footer">${settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en reparaciones según legislación vigente. Este presupuesto tiene una validez de 15 días.`}</div>
+<div style="margin-top:8px;font-size:7.5px;font-weight:600;color:#64748b;text-align:justify;line-height:1.6"><strong style="font-weight:900;color:#334155">AVERÍAS OCULTAS:</strong> Durante la inspección y reparación del equipo pueden detectarse averías ocultas no visibles en la revisión inicial. El taller se compromete a comunicar al cliente cualquier avería adicional en un plazo máximo de 48 horas para obtener su autorización previa. El cliente podrá aceptar o rechazar la ampliación del presupuesto sin coste adicional por la comunicación.</div>
 ${settings.legalTerms ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0"><div style="font-size:7px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px">Condiciones Generales</div><div style="font-size:7px;color:#64748b;line-height:1.6;text-align:justify">${settings.legalTerms}</div></div>` : ''}
 </body></html>`;
 
@@ -652,7 +653,10 @@ ${settings.legalTerms ? `<div style="margin-top:10px;padding-top:8px;border-top:
                </div>
 
                <div className="mt-12 text-[8px] font-bold text-slate-400 text-justify uppercase leading-tight">
-                 {settings.letterhead || "Garantía de 3 meses en reparaciones según legislación vigente. Este presupuesto es meramente informativo y tiene una validez limitada."}
+                 {settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en reparaciones según legislación vigente. Este presupuesto es meramente informativo y tiene una validez limitada.`}
+               </div>
+               <div className="mt-2 text-[7.5px] font-semibold text-slate-400 text-justify leading-relaxed">
+                 <strong className="font-black text-slate-500">Averías ocultas:</strong> Durante la inspección y reparación del equipo pueden detectarse averías ocultas no visibles en la revisión inicial. El taller se compromete a comunicar al cliente cualquier avería adicional en un plazo máximo de 48 horas para obtener su autorización previa. El cliente podrá aceptar o rechazar la ampliación del presupuesto sin coste adicional por la comunicación.
                </div>
              </div>
 

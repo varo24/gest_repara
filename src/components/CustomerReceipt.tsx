@@ -249,6 +249,10 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       ${settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en mano de obra. Validez del presupuesto: 15 días.`}
       Los equipos no retirados en un plazo de <strong>90 días</strong> desde la notificación de finalización podrán considerarse abandonados.
       El taller no se responsabiliza de daños preexistentes no declarados. Los presupuestos requieren autorización expresa del cliente antes de proceder.
+      <br><br><strong style="font-weight:800">Averías ocultas:</strong>
+      Durante la inspección y reparación del equipo pueden detectarse averías ocultas no visibles en la revisión inicial.
+      El taller se compromete a comunicar al cliente cualquier avería adicional en un plazo máximo de 48 horas para obtener su autorización previa.
+      El cliente podrá aceptar o rechazar la ampliación del presupuesto sin coste adicional por la comunicación.
     </div>
   </div>
 
@@ -443,7 +447,10 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
 
             <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f9f9f9', marginBottom: '8px' }}>
               <div style={{ fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>📋 Condiciones</div>
-              <div style={{ fontSize: '9px', color: '#444', lineHeight: 1.7 }}>{settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en mano de obra.`}</div>
+              <div style={{ fontSize: '9px', color: '#444', lineHeight: 1.7 }}>
+                {settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en mano de obra.`}
+                {' '}<strong>Averías ocultas:</strong> Durante la inspección y reparación del equipo pueden detectarse averías ocultas no visibles en la revisión inicial. El taller se compromete a comunicar al cliente cualquier avería adicional en un plazo máximo de 48 horas para obtener su autorización previa. El cliente podrá aceptar o rechazar la ampliación del presupuesto sin coste adicional por la comunicación.
+              </div>
             </div>
 
             <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f0f4f8', marginBottom: '8px' }}>
