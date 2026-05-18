@@ -223,40 +223,56 @@ export const buildFirmaMessage = (
   const rmaLabel = repair
     ? `RMA-${String(repair.rmaNumber).padStart(5, '0')}`
     : 'Presupuesto libre';
-  const equipoLine = repair ? `📱 *Equipo:* ${repair.brand} ${repair.model}\n` : '';
+
+  const deviceLine = repair
+    ? `📱 *Equipo:* ${[repair.deviceType, repair.brand, repair.model].filter(Boolean).join(' ')}`
+    : '';
 
   let detailLines = '';
   if (budget.items?.length) {
     for (const item of budget.items) {
       const lineTotal = (item.quantity * item.unitPrice).toFixed(2);
-      detailLines += `  • ${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''} — ${lineTotal}€\n`;
+      detailLines += `  • ${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''}: ${lineTotal}€\n`;
     }
   }
   if (budget.laborItems?.length) {
     for (const labor of budget.laborItems) {
       const lineTotal = (labor.hours * labor.hourlyRate).toFixed(2);
-      detailLines += `  • ${labor.description} (${labor.hours}h) — ${lineTotal}€\n`;
+      detailLines += `  • ${labor.description} (${labor.hours}h): ${lineTotal}€\n`;
     }
   }
 
   const effectiveTax = budget.taxEnabled === false ? 0 : (budget.taxRate ?? 21);
-  const totalLabel = effectiveTax > 0
-    ? `${budget.total.toFixed(2)}€ (IVA ${effectiveTax}% incluido)`
-    : `${budget.total.toFixed(2)}€ (sin IVA)`;
+  const subtotal = effectiveTax > 0
+    ? budget.total / (1 + effectiveTax / 100)
+    : budget.total;
+  const taxAmount = budget.total - subtotal;
 
-  return `✍ *Presupuesto pendiente de firma — ${settings.appName}*
+  const totalsBlock = effectiveTax > 0
+    ? `💰 *Base imponible:* ${subtotal.toFixed(2)}€
+💰 *IVA (${effectiveTax}%):* ${taxAmount.toFixed(2)}€
+💰 *TOTAL: ${budget.total.toFixed(2)}€*`
+    : `💰 *TOTAL: ${budget.total.toFixed(2)}€* (sin IVA)`;
 
-Hola *${customerName}*, te enviamos el presupuesto para que lo revises y lo firmes digitalmente desde el enlace de abajo.
+  return `Estimado/a *${customerName}*,
 
-📋 *Número de trabajo:* ${rmaLabel}
-${equipoLine}
-${detailLines ? `🔧 *Detalle:*\n${detailLines}\n` : ''}💶 *TOTAL: ${totalLabel}*
-⏳ *Validez:* 15 días
+Le informamos que hemos realizado el diagnóstico de su equipo y le enviamos el presupuesto para proceder con la reparación.
 
-Para aceptar o rechazar el presupuesto, usa este enlace seguro y personal:
-🔗 ${firmaUrl}
+🔧 *Número de trabajo:* ${rmaLabel}
+${deviceLine ? `${deviceLine}\n` : ''}
+📋 *Detalle del presupuesto:*
+${detailLines}
+${totalsBlock}
 
-_${settings.appName} · ${settings.phone || ''}_`;
+⏳ Validez del presupuesto: 15 días
+
+Para *AUTORIZAR* la reparación, firme digitalmente aquí:
+👉 ${firmaUrl}
+
+Si tiene alguna pregunta, no dude en contactarnos.
+
+*${settings.appName}*
+${settings.phone || ''}`;
 };
 
 export const notifyReception = (repair: RepairItem, settings: AppSettings) =>
