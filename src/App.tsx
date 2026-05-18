@@ -38,6 +38,7 @@ import {
   requestPermissionIfNeeded, checkRepairsReady, checkCitasReminder,
   checkStockLow, purgeOldNotifIds, setBadge,
 } from './lib/pushNotifications';
+import { procesarFacturasBackground } from './lib/autoImportService';
 import { Loader2, FileText, Ticket, Menu, Bell, ClipboardList, Search } from 'lucide-react';
 import { logError } from './lib/errorLogger';
 import { printWorkOrder } from './lib/printWorkOrder';
@@ -278,6 +279,14 @@ const App: React.FC = () => {
 useEffect(() => {
     if (notificaciones.length > 0) enviarNotificacionesBrowser(notificaciones);
   }, [notificaciones]);
+
+  // ── Background auto-import de facturas (cada 30 min + al arrancar) ───────────
+  useEffect(() => {
+    const run = () => procesarFacturasBackground(settings, notify);
+    run();
+    const id = setInterval(run, 30 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [settings.imapServerUrl, settings.imapApiKey, settings.imapDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const marcarLeida = useCallback((id: string) => {
     setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
