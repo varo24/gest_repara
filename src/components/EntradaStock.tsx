@@ -7,6 +7,7 @@ import {
 import { InventoryItem, StockMovement, AppSettings, Supplier } from '../types';
 import { storage, localDB } from '../lib/dataService';
 import { analyzeInvoice, analyzeInvoiceText, GeminiInvoiceResult } from '../lib/gemini';
+import { filtrarLineasStock } from '../lib/invoiceFilters';
 
 interface PreFillData {
   proveedor: string;
@@ -106,7 +107,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
       total: preFillData.total,
       supplierId: preFillData.supplierId,
     });
-    setAiLines(preFillData.lineas.map(l => ({
+    setAiLines(filtrarLineasStock(preFillData.lineas).map(l => ({
       inventoryItemId: '',
       ref: l.referencia || '',
       description: l.descripcion,
@@ -288,7 +289,7 @@ const EntradaStock: React.FC<EntradaStockProps> = ({ settings, inventoryItems, o
     });
 
   const mapGeminiResult = (result: GeminiInvoiceResult): EntryLine[] =>
-    result.lineas.map(l => {
+    filtrarLineasStock(result.lineas).map(l => {
       const found = inventoryItems.find(i =>
         (l.referencia && i.ref.toLowerCase() === l.referencia.toLowerCase()) ||
         i.description.toLowerCase().includes(l.descripcion.toLowerCase().slice(0, 15))

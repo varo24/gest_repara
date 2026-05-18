@@ -1,6 +1,7 @@
 import { AppSettings, Supplier } from '../types';
 import { storage, localDB } from './dataService';
 import { uploadFacturaPDF } from './storageService';
+import { filtrarLineasStock } from './invoiceFilters';
 
 type Notify = (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
 
@@ -82,6 +83,9 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
       const claveUnica = `${f.uid}-${f.numero_factura}`;
       if (existingClavas.has(claveUnica)) continue;
 
+      const lineasFiltradas = filtrarLineasStock(f.lineas || []);
+      if (lineasFiltradas.length === 0) continue;
+
       let pdfUrl: string | undefined;
       if (f.attachment_base64) {
         try {
@@ -101,7 +105,7 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
         numeroFactura: f.numero_factura || '',
         fecha: f.fecha_factura || '',
         total: f.total ?? 0,
-        lineas: f.lineas || [],
+        lineas: lineasFiltradas,
         importadoEn: now,
         forzado: false,
         pdfUrl,
