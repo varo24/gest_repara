@@ -28,6 +28,15 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
     day: '2-digit', month: 'long', year: 'numeric',
   });
 
+  // Extraer ciudad de settings.address (último segmento tras coma, sin CP)
+  const cityFromAddress = (() => {
+    if (!settings.address) return '';
+    const parts = settings.address.split(',');
+    const last = parts[parts.length - 1].trim();
+    return last.replace(/^\d{5}\s*/, '').trim(); // quitar código postal si lo hay
+  })();
+  const fechaLugar = `${cityFromAddress ? `${cityFromAddress}, ` : ''}${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+
   const [sigBase64, setSigBase64]       = useState(repair.customerSignature || '');
   const [uploadingFirma, setUploadingFirma] = useState(false);
   const [firmaGuardada, setFirmaGuardada]   = useState(!!repair.firmaClienteUrl);
@@ -273,7 +282,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       </div>
       <div class="rgpd-sig-col">
         <div class="rgpd-sig-label">Fecha y lugar</div>
-        <div class="rgpd-sig-empty"></div>
+        <div style="height:35px;border-bottom:1px solid #000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;font-size:9px;font-weight:700;color:#111">${fechaLugar}</div>
       </div>
     </div>
   </div>
@@ -462,7 +471,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#555', marginBottom: '4px' }}>Fecha y lugar</div>
-                  <div style={{ height: '28px', borderBottom: '1px solid #000' }}></div>
+                  <div style={{ height: '28px', borderBottom: '1px solid #000', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '2px', fontSize: '8px', fontWeight: 700 }}>{fechaLugar}</div>
                 </div>
               </div>
             </div>
