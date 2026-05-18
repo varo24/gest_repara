@@ -604,9 +604,17 @@ ${settings.legalTerms ? `<div style="margin-top:10px;padding-top:8px;border-top:
                <div className="flex justify-between items-end pt-8 border-t border-slate-100">
                  <div className="w-48 text-center space-y-2">
                    <div className="h-20 flex items-center justify-center border-b border-slate-200 overflow-hidden">
-                     {signature && <img src={signature} className="max-h-full mix-blend-multiply" />}
+                     {(signature || initialBudget?.firmaData) && (
+                       <img src={signature || initialBudget?.firmaData} className="max-h-full mix-blend-multiply" />
+                     )}
                    </div>
                    <p className="text-[8px] font-black uppercase text-slate-400">Aceptación del Cliente</p>
+                   {initialBudget?.firmadoPor && (
+                     <p className="text-[8px] font-semibold text-slate-500">Firmado por: {initialBudget.firmadoPor}</p>
+                   )}
+                   {initialBudget?.firmadoAt && (
+                     <p className="text-[9px] text-slate-400">{new Date(initialBudget.firmadoAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                   )}
                  </div>
                  <div className="text-right space-y-2 bg-slate-50 p-6 rounded-2xl min-w-[250px]">
                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase"><span>Subtotal</span> <span>{subtotal.toFixed(2)}€</span></div>
