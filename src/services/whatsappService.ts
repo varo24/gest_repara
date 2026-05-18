@@ -213,6 +213,52 @@ export const sendWhatsApp = async (
 // HELPERS ESPECÍFICOS POR TIPO DE NOTIFICACIÓN
 // ============================================================
 
+export const buildFirmaMessage = (
+  budget: Budget,
+  repair: RepairItem | null,
+  firmaUrl: string,
+  settings: AppSettings,
+): string => {
+  const customerName = repair?.customerName || budget.customerName || 'Cliente';
+  const rmaLabel = repair
+    ? `RMA-${String(repair.rmaNumber).padStart(5, '0')}`
+    : 'Presupuesto libre';
+  const equipoLine = repair ? `📱 *Equipo:* ${repair.brand} ${repair.model}\n` : '';
+
+  let detailLines = '';
+  if (budget.items?.length) {
+    for (const item of budget.items) {
+      const lineTotal = (item.quantity * item.unitPrice).toFixed(2);
+      detailLines += `  • ${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''} — ${lineTotal}€\n`;
+    }
+  }
+  if (budget.laborItems?.length) {
+    for (const labor of budget.laborItems) {
+      const lineTotal = (labor.hours * labor.hourlyRate).toFixed(2);
+      detailLines += `  • ${labor.description} (${labor.hours}h) — ${lineTotal}€\n`;
+    }
+  }
+
+  const effectiveTax = budget.taxEnabled === false ? 0 : (budget.taxRate ?? 21);
+  const totalLabel = effectiveTax > 0
+    ? `${budget.total.toFixed(2)}€ (IVA ${effectiveTax}% incluido)`
+    : `${budget.total.toFixed(2)}€ (sin IVA)`;
+
+  return `✍ *Presupuesto pendiente de firma — ${settings.appName}*
+
+Hola *${customerName}*, te enviamos el presupuesto para que lo revises y lo firmes digitalmente desde el enlace de abajo.
+
+📋 *Número de trabajo:* ${rmaLabel}
+${equipoLine}
+${detailLines ? `🔧 *Detalle:*\n${detailLines}\n` : ''}💶 *TOTAL: ${totalLabel}*
+⏳ *Validez:* 15 días
+
+Para aceptar o rechazar el presupuesto, usa este enlace seguro y personal:
+🔗 ${firmaUrl}
+
+_${settings.appName} · ${settings.phone || ''}_`;
+};
+
 export const notifyReception = (repair: RepairItem, settings: AppSettings) =>
   sendWhatsApp(repair.customerPhone, buildReceptionMessage(repair, settings));
 

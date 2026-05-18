@@ -31,7 +31,7 @@ import { storage } from './lib/dataService';
 import { SyncStatusProvider } from './lib/syncStatusContext';
 import SyncIndicator from './components/SyncIndicator';
 import { descontarStock } from './lib/inventoryService';
-import { notifyReady, notifyCancelled, buildBudgetMessage, sendWhatsApp } from './services/whatsappService';
+import { notifyReady, notifyCancelled, buildBudgetMessage, buildFirmaMessage, sendWhatsApp } from './services/whatsappService';
 import CitaReminderModal from './components/CitaReminderModal';
 import { shouldShowReminders, getCitasPendingReminder, setReminderDate } from './lib/citaReminders';
 import { isPinEnabled, clearSession } from './lib/pinAuth';
@@ -110,7 +110,6 @@ const App: React.FC = () => {
 
   const [preFillEntrada, setPreFillEntrada] = useState<any>(null);
   const firmaNotificadosRef = useRef<Set<string>>(new Set());
-  const firmaInitializedRef = useRef(false);
 
   // Estados para los documentos post-guardado
   const [showReceiptFor, setShowReceiptFor] = useState<RepairItem | null>(null);
@@ -546,25 +545,26 @@ useEffect(() => {
   }, [citas]);
 
   // ── Firma digital: notificar cuando el cliente firma o rechaza ─────────────
+  // Usa ventana de 24h sobre firmadoAt — evita el bloque de inicialización
+  // que suprimía notificaciones de firmas recientes al abrir la app.
   useEffect(() => {
-    if (!firmaInitializedRef.current) {
-      if (budgets.length === 0) return;
-      firmaInitializedRef.current = true;
-      budgets.forEach(b => {
-        if (b.firmaEstado === 'firmado') firmaNotificadosRef.current.add(b.id);
-        if (b.firmaEstado === 'rechazado') firmaNotificadosRef.current.add(`${b.id}_r`);
-      });
-      return;
-    }
+    const MAX_AGE_MS = 24 * 60 * 60 * 1000;
     budgets.forEach(b => {
-      const label = b.customerName || `RMA-${String(b.rmaNumber).padStart(5, '0')}`;
       if (b.firmaEstado === 'firmado' && !firmaNotificadosRef.current.has(b.id)) {
         firmaNotificadosRef.current.add(b.id);
-        notify('success', `${label} ha firmado el presupuesto`);
+        const age = b.firmadoAt ? Date.now() - new Date(b.firmadoAt).getTime() : Infinity;
+        if (age < MAX_AGE_MS) {
+          const label = b.customerName || `RMA-${String(b.rmaNumber).padStart(5, '0')}`;
+          notify('success', `${label} ha firmado el presupuesto`);
+        }
       }
       if (b.firmaEstado === 'rechazado' && !firmaNotificadosRef.current.has(`${b.id}_r`)) {
         firmaNotificadosRef.current.add(`${b.id}_r`);
-        notify('error', `${label} ha rechazado el presupuesto`);
+        const age = b.firmadoAt ? Date.now() - new Date(b.firmadoAt).getTime() : Infinity;
+        if (age < MAX_AGE_MS) {
+          const label = b.customerName || `RMA-${String(b.rmaNumber).padStart(5, '0')}`;
+          notify('error', `${label} ha rechazado el presupuesto`);
+        }
       }
     });
   }, [budgets]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -572,21 +572,33 @@ useEffect(() => {
   const handleEnviarFirma = useCallback(async (budget: Budget) => {
     const repair = repairs.find(r => r.id === budget.repairId);
     const customerName = budget.customerName || repair?.customerName || '';
+    const customerPhone = budget.customerPhone || repair?.customerPhone || '';
+    const rmaLabel = repair
+      ? `RMA-${String(repair.rmaNumber).padStart(5, '0')}`
+      : 'libre';
     const token = crypto.randomUUID();
-    const firmaUrl = `${window.location.origin}/firmar/${token}`;
+    const firmaUrl = `${window.location.origin}/presupuesto/${rmaLabel}/firmar?t=${token}`;
+
     storage.save('budgets', budget.id, {
       firmaToken: token,
       firmaUrl,
       firmaEstado: 'pendiente',
       ...(customerName && !budget.customerName ? { customerName } : {}),
     });
-    try {
-      await navigator.clipboard.writeText(firmaUrl);
-      notify('success', `Enlace de firma copiado. Compártelo con ${customerName || 'el cliente'}.`);
-    } catch {
-      notify('info', `Enlace generado. Cópialo manualmente desde el presupuesto.`);
+
+    if (customerPhone) {
+      const msg = buildFirmaMessage(budget, repair ?? null, firmaUrl, settings);
+      sendWhatsApp(customerPhone, msg);
+      notify('success', `WhatsApp de firma enviado a ${customerName || 'el cliente'}.`);
+    } else {
+      try {
+        await navigator.clipboard.writeText(firmaUrl);
+        notify('success', `Enlace de firma copiado. Compártelo con ${customerName || 'el cliente'}.`);
+      } catch {
+        notify('info', `Enlace generado. Cópialo manualmente desde el presupuesto.`);
+      }
     }
-  }, [repairs, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [repairs, settings, notify]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -658,8 +670,11 @@ useEffect(() => {
     navigateTo('budgets');
   };
 
-  // ── Ruta pública: /firmar/:token ─────────────────────────────────────────
-  const firmaToken = window.location.pathname.match(/^\/firmar\/(.+)$/)?.[1];
+  // ── Ruta pública: /presupuesto/:rma/firmar?t=TOKEN ───────────────────────
+  const firmaPathMatch = window.location.pathname.match(/^\/presupuesto\/[^/]+\/firmar$/);
+  const firmaToken = firmaPathMatch
+    ? new URLSearchParams(window.location.search).get('t')
+    : null;
   if (firmaToken) {
     return (
       <Suspense fallback={<div className="flex items-center justify-center h-screen bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>}>

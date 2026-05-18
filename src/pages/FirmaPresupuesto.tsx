@@ -100,6 +100,7 @@ const FirmaPresupuesto: React.FC<FirmaPresupuestoProps> = ({ token }) => {
         firmadoPor: nombre.trim(),
         firmadoAt: new Date().toISOString(),
         firmaData,
+        updatedAt: new Date().toISOString(),
       });
       setState('done');
     } catch {
@@ -116,6 +117,7 @@ const FirmaPresupuesto: React.FC<FirmaPresupuestoProps> = ({ token }) => {
         firmaEstado: 'rechazado',
         motivoRechazo: motivo.trim() || 'Sin motivo indicado',
         firmadoAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       setState('rejected');
     } catch {
