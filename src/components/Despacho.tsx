@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText, ClipboardList } from 'lucide-react';
+import { Zap, CheckCircle2, X, Printer, MessageCircle, FileText, ClipboardList, FileCheck } from 'lucide-react';
 import { printWorkOrder } from '../lib/printWorkOrder';
+import { printAlbaranEntrega } from '../lib/printAlbaranEntrega';
 import { RepairItem, RepairStatus, Budget, AppSettings, FullInvoice } from '../types';
 import { storage } from '../lib/dataService';
 import { descontarStock } from '../lib/inventoryService';
@@ -323,6 +324,12 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
                 >
                   <ClipboardList size={14} /> Orden
                 </button>
+                <button
+                  onClick={() => printAlbaranEntrega(repair, settings, null, budget ?? null, pay)}
+                  className="flex items-center gap-2 px-5 py-4 bg-indigo-50 text-indigo-600 rounded-xl font-black uppercase text-xs hover:bg-indigo-100 transition-all border border-indigo-100"
+                >
+                  <FileCheck size={14} /> Albarán
+                </button>
                 <button onClick={() => {
                   const msg = `Hola ${repair.customerName}, su ${repair.brand} ${repair.model} está listo. Total: ${fmtMoney(total)}. ${settings.appName}`;
                   window.open(`https://wa.me/${repair.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -347,6 +354,14 @@ img.qr{display:block;margin:6px auto;width:120px;height:120px}
                 className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs hover:bg-blue-700 transition-all"
               >
                 <FileText size={13} /> Factura + Garantía
+              </button>
+            )}
+            {repair && lastInvoice && (
+              <button
+                onClick={() => printAlbaranEntrega(repair, settings, lastInvoice, null, pay)}
+                className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs hover:bg-indigo-700 transition-all"
+              >
+                <FileCheck size={13} /> Albarán de Entrega
               </button>
             )}
             {repair && <button onClick={() => printTicket(repair)} className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-black uppercase text-xs hover:bg-slate-200 transition-all"><Printer size={13} /> Ticket térmico</button>}

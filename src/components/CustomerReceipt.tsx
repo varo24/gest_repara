@@ -134,6 +134,15 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
   .conditions-text { font-size: 9px; color: #333; line-height: 1.8; }
   .status-badge { display: inline-block; border: 2px solid #000; padding: 2px 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 3px; margin-top: 4px; }
   .footer { border-top: 2px solid #000; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #555; }
+  .rgpd { border: 1px solid #aaa; border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; background: #f0f4f8; }
+  .rgpd-title { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: #1e3a5f; margin-bottom: 5px; }
+  .rgpd-text { font-size: 8.5px; color: #333; line-height: 1.75; margin-bottom: 8px; }
+  .rgpd-consent-row { display: flex; align-items: flex-start; gap: 7px; font-size: 9px; font-weight: 700; color: #111; margin-bottom: 8px; }
+  .rgpd-checkbox { width: 13px; height: 13px; border: 1.5px solid #000; border-radius: 2px; flex-shrink: 0; margin-top: 1px; }
+  .rgpd-sig { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+  .rgpd-sig-col { text-align: center; }
+  .rgpd-sig-label { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #555; margin-bottom: 5px; }
+  .rgpd-sig-empty { height: 35px; border-bottom: 1px solid #000; }
 </style>
 </head>
 <body>
@@ -237,6 +246,32 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       ${settings.letterhead || 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.'}
       Los equipos no retirados en un plazo de <strong>90 días</strong> desde la notificación de finalización podrán considerarse abandonados.
       El taller no se responsabiliza de daños preexistentes no declarados. Los presupuestos requieren autorización expresa del cliente antes de proceder.
+    </div>
+  </div>
+
+  <!-- RGPD -->
+  <div class="rgpd">
+    <div class="rgpd-title">🔒 Protección de Datos — RGPD / LOPDGDD</div>
+    <div class="rgpd-text">
+      De conformidad con el Reglamento (UE) 2016/679 (RGPD) y la Ley Orgánica 3/2018 (LOPDGDD), le informamos que sus datos personales serán tratados por <strong>${settings.appName}</strong>${settings.taxId ? `, con CIF/NIF ${settings.taxId}` : ''},
+      con la finalidad de gestionar la reparación de su equipo y la relación comercial. Sus datos no serán cedidos a terceros salvo obligación legal.
+      Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición dirigiéndose a
+      ${settings.address || '[dirección del taller]'}${settings.email ? ` o ${settings.email}` : ''}.
+      Sus datos se conservarán durante el tiempo necesario para cumplir con las obligaciones legales y contractuales.
+    </div>
+    <div class="rgpd-consent-row">
+      <div class="rgpd-checkbox"></div>
+      <span>El cliente declara haber sido informado y presta su consentimiento para el tratamiento de sus datos personales con la finalidad indicada.</span>
+    </div>
+    <div class="rgpd-sig">
+      <div class="rgpd-sig-col">
+        <div class="rgpd-sig-label">Firma del cliente — Consentimiento RGPD</div>
+        <div class="rgpd-sig-empty"></div>
+      </div>
+      <div class="rgpd-sig-col">
+        <div class="rgpd-sig-label">Fecha y lugar</div>
+        <div class="rgpd-sig-empty"></div>
+      </div>
     </div>
   </div>
 
@@ -403,6 +438,27 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
             <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f9f9f9', marginBottom: '8px' }}>
               <div style={{ fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>📋 Condiciones</div>
               <div style={{ fontSize: '9px', color: '#444', lineHeight: 1.7 }}>{settings.letterhead || 'Garantía de 3 meses en mano de obra.'}</div>
+            </div>
+
+            <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f0f4f8', marginBottom: '8px' }}>
+              <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#1e3a5f', marginBottom: '4px' }}>🔒 Protección de Datos — RGPD / LOPDGDD</div>
+              <div style={{ fontSize: '8px', color: '#444', lineHeight: 1.7, marginBottom: '6px' }}>
+                De conformidad con el RGPD y la LOPDGDD, sus datos serán tratados por <strong>{settings.appName}</strong>{settings.taxId ? ` (CIF ${settings.taxId})` : ''} para gestionar la reparación. Puede ejercer sus derechos en {settings.address || '[dirección]'}{settings.email ? ` o ${settings.email}` : ''}.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '8px', fontWeight: 700, marginBottom: '6px' }}>
+                <div style={{ width: '11px', height: '11px', border: '1.5px solid #000', borderRadius: '2px', flexShrink: 0, marginTop: '1px' }}></div>
+                <span>El cliente declara haber sido informado y presta su consentimiento para el tratamiento de sus datos personales.</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#555', marginBottom: '4px' }}>Firma — Consentimiento RGPD</div>
+                  <div style={{ height: '28px', borderBottom: '1px solid #000' }}></div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#555', marginBottom: '4px' }}>Fecha y lugar</div>
+                  <div style={{ height: '28px', borderBottom: '1px solid #000' }}></div>
+                </div>
+              </div>
             </div>
 
             <div style={{ borderTop: '2px solid #000', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555' }}>
