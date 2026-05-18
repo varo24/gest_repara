@@ -16,8 +16,6 @@ interface Props {
   inventory: InventoryItem[];
   stockMovements: StockMovement[];
   cashMovements: any[];
-  cierresCaja: any[];
-  settings: AppSettings;
   facturasImportadas: any[];
   suppliers: Supplier[];
   onBack: () => void;

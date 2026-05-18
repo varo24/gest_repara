@@ -70,7 +70,3 @@ Two independent series: `FAC-XXXXX` (with IVA) and `REC-XXXXX` (sin IVA / recibo
 
 Both `BudgetCreator` and `Facturacion` open a new window with `window.open('')` + `document.write(html)` + `window.print()`. There is an iframe fallback if the popup is blocked.
 
-### Pre-existing TypeScript errors (do not fix without explicit request)
-
-- `src/components/Facturacion.tsx(435)`: `createdAt` not in `Customer` type
-- `src/components/SettingsForm.tsx(361)`: `storage.forceBackup` doesn't exist
