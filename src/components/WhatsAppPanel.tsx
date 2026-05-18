@@ -35,8 +35,12 @@ const WhatsAppPanel: React.FC<WhatsAppPanelProps> = ({ repair, budget, settings,
       id: 'budget',
       label: 'Presupuesto para aprobación',
       emoji: '💰',
-      desc: 'Envía el presupuesto y pide confirmación',
-      available: !!budget
+      desc: budget?.status === 'accepted' || budget?.firmaEstado === 'firmado'
+        ? 'Presupuesto ya aceptado'
+        : budget
+          ? 'Envía el presupuesto y pide confirmación'
+          : 'No hay presupuesto creado',
+      available: !!budget && budget.status !== 'accepted' && budget.firmaEstado !== 'firmado',
     },
     {
       id: 'ready',

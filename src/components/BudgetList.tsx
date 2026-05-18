@@ -401,7 +401,7 @@ const BudgetList: React.FC<BudgetListProps> = ({
                               )}
 
                               {/* Standard actions */}
-                              {repair && onSendWhatsApp && (
+                              {repair && onSendWhatsApp && !isAccepted && budget.firmaEstado !== 'firmado' && (
                                 <button onClick={() => onSendWhatsApp(budget, repair)} className="p-2.5 bg-white text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white border border-slate-100 transition-all" title="Enviar WhatsApp"><MessageCircle size={14} /></button>
                               )}
                               <button onClick={() => onViewBudget(budget)} className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white border border-slate-100 transition-all" title="Ver / Editar"><Eye size={14} /></button>
