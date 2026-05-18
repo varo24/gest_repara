@@ -325,6 +325,21 @@ const SettingsForm: React.FC<SettingsFormProps> = ({ settings, canInstall, onIns
               </label>
               <input type="text" className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
             </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <MapPin size={12} className="text-blue-500" /> Ciudad
+              </label>
+              <input
+                type="text"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:ring-4 focus:ring-blue-500/10 outline-none"
+                placeholder="Madrid"
+                value={formData.city || ''}
+                onChange={e => setFormData({...formData, city: e.target.value})}
+              />
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+                Aparece en la fecha y lugar de los documentos legales (RGPD)
+              </p>
+            </div>
           </div>
         </div>
 
