@@ -5,9 +5,17 @@ import { filtrarLineasStock } from './invoiceFilters';
 
 type Notify = (type: 'success' | 'error' | 'warning' | 'info', msg: string) => void;
 
-async function upsertSupplier(proveedor: string): Promise<string | undefined> {
-  if (!proveedor) return undefined;
-  const normalized = proveedor.trim().toLowerCase();
+interface SupplierFields {
+  proveedor: string;
+  cif_proveedor?: string;
+  email_proveedor?: string;
+  telefono_proveedor?: string;
+  direccion_proveedor?: string;
+}
+
+async function upsertSupplier(f: SupplierFields): Promise<string | undefined> {
+  if (!f.proveedor) return undefined;
+  const normalized = f.proveedor.trim().toLowerCase();
   const existing = (localDB.getAll('suppliers') as Supplier[]).find(
     s => s.name.trim().toLowerCase() === normalized
   );
@@ -15,7 +23,14 @@ async function upsertSupplier(proveedor: string): Promise<string | undefined> {
   const now = new Date().toISOString();
   const id = `SUPP-${Date.now()}`;
   await storage.save('suppliers', id, {
-    id, name: proveedor.trim(), createdAt: now, updatedAt: now,
+    id,
+    name:    f.proveedor.trim(),
+    taxId:   f.cif_proveedor      || undefined,
+    email:   f.email_proveedor    || undefined,
+    phone:   f.telefono_proveedor || undefined,
+    city:    f.direccion_proveedor|| undefined,
+    createdAt: now,
+    updatedAt: now,
   });
   return id;
 }
@@ -94,7 +109,7 @@ export async function procesarFacturasBackground(settings: AppSettings, notify: 
       }
 
       let supplierId: string | undefined;
-      try { supplierId = await upsertSupplier(f.proveedor); } catch {}
+      try { supplierId = await upsertSupplier(f); } catch {}
 
       const importId = `IMP-${Date.now()}-${f.uid}`;
       storage.save('facturas_importadas', importId, {
