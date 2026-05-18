@@ -200,7 +200,7 @@ export function printRechazoPresupuesto(
 <!-- PIE -->
 <div class="footer">
   <span>${settings.appName}${settings.taxId ? ` · NIF/CIF: ${settings.taxId}` : ''}</span>
-  <span>Documento de rechazo generado el ${fecha} · ReparaPro</span>
+  <span>Documento de rechazo generado el ${fecha} · ${settings.appName}</span>
 </div>
 
 </body>

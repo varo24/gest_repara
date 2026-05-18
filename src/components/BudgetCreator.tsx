@@ -99,8 +99,8 @@ const BudgetCreator: React.FC<BudgetCreatorProps> = ({ repair, settings, initial
     const pTaxAmount = taxEnabled ? Math.round(pSubtotal * (tax / 100) * 100) / 100 : 0;
     const pTotal = Math.round((pSubtotal + pTaxAmount) * 100) / 100;
     const allRows = [
-      ...items.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description}</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.quantity}</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.quantity * i.unitPrice).toFixed(2)}€</td></tr>`),
-      ...laborItems.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description} (M.O.)</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.hours}h</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.hours * i.hourlyRate).toFixed(2)}€</td></tr>`)
+      ...items.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description}</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.quantity}</td><td style="padding:10px 16px;text-align:right;color:#94a3b8;font-size:11px">${i.unitPrice.toFixed(2)}€</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.quantity * i.unitPrice).toFixed(2)}€</td></tr>`),
+      ...laborItems.map(i => `<tr><td style="padding:10px 16px;font-weight:700;text-transform:uppercase;font-size:11px">${i.description} (M.O.)</td><td style="padding:10px 16px;text-align:center;color:#94a3b8;font-size:11px">${i.hours}h</td><td style="padding:10px 16px;text-align:right;color:#94a3b8;font-size:11px">${i.hourlyRate.toFixed(2)}€/h</td><td style="padding:10px 16px;text-align:right;font-weight:700;font-size:11px">${(i.hours * i.hourlyRate).toFixed(2)}€</td></tr>`)
     ].join('');
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto ${rmaLabel}</title>
@@ -149,13 +149,14 @@ tbody tr{border-bottom:1px solid #f1f5f9}
     </div>
     <div>
       <div class="shop-name">${settings.appName}</div>
-      <div class="shop-info">${settings.taxId || ''} ${settings.phone ? '| ' + settings.phone : ''}<br>${settings.address || ''}</div>
+      <div class="shop-info">${[settings.taxId, settings.phone].filter(Boolean).join(' · ')}<br>${[settings.address, settings.email].filter(Boolean).join(' · ')}</div>
     </div>
   </div>
   <div style="text-align:right">
     <div class="rma-label">Presupuesto Técnico</div>
     <div class="rma">${rmaLabel}</div>
     <div style="font-size:10px;font-weight:600;color:#64748b;margin-top:4px">Fecha: ${new Date().toLocaleDateString('es-ES')}</div>
+    <div style="font-size:9px;font-weight:600;color:#94a3b8;margin-top:2px">Válido hasta: ${new Date(Date.now() + 15 * 86400000).toLocaleDateString('es-ES')}</div>
   </div>
 </div>
 <div class="grid2">
@@ -171,7 +172,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
   </div>
 </div>
 <table>
-  <thead><tr><th>Descripción</th><th style="text-align:center;width:70px">Cant</th><th style="text-align:right;width:100px">Subtotal</th></tr></thead>
+  <thead><tr><th>Descripción</th><th style="text-align:center;width:60px">Cant</th><th style="text-align:right;width:90px">P. Unit.</th><th style="text-align:right;width:100px">Subtotal</th></tr></thead>
   <tbody>${allRows}</tbody>
 </table>
 <div style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -187,7 +188,7 @@ tbody tr{border-bottom:1px solid #f1f5f9}
     <div class="total-final"><span class="total-label">Total</span><span class="total-amount">${pTotal.toFixed(2)}€</span></div>
   </div>
 </div>
-<div class="footer">${settings.letterhead || 'Garantía de 3 meses en reparaciones según legislación vigente. Este presupuesto es meramente informativo y tiene una validez limitada.'}</div>
+<div class="footer">${settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en reparaciones según legislación vigente. Este presupuesto tiene una validez de 15 días.`}</div>
 ${settings.legalTerms ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0"><div style="font-size:7px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px">Condiciones Generales</div><div style="font-size:7px;color:#64748b;line-height:1.6;text-align:justify">${settings.legalTerms}</div></div>` : ''}
 </body></html>`;
 

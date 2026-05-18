@@ -10,6 +10,15 @@ export const printInvoice = (inv: any, settings: AppSettings, warranty?: any, re
   const isSimplificada = !inv.customerTaxId;
   const isRecibo = (inv.invoiceNumber || '').startsWith('REC-');
   const hasWarranty = !!warranty;
+  const verifactuQrSrc = (() => {
+    const v = (inv as any).verifactu;
+    if (!v?.enabled) return '';
+    const d = v.qrUrl || v.huella;
+    if (!d) return '';
+    return v.qrUrl?.startsWith('data:')
+      ? v.qrUrl
+      : `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(d)}&color=000000&bgcolor=ffffff`;
+  })();
 
   const certSection = hasWarranty ? `
 <!-- ═══ LÍNEA DE CORTE ═══ -->
@@ -212,7 +221,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
     <div class="party-body">
       <div class="party-name">${inv.customerName}</div>
       ${inv.customerAddress ? inv.customerAddress + '<br>' : ''}
-      Tel. ${inv.customerPhone}
+      ${inv.customerPhone ? 'Tel. ' + inv.customerPhone : ''}
       ${inv.customerTaxId ? '<div class="party-cif">' + inv.customerTaxId + '</div>' : ''}
     </div>
   </div>
@@ -252,7 +261,7 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="4"></td>
+      <td colspan="${isRecibo ? 3 : 4}"></td>
       <td style="font-size:8px;font-weight:700;color:#555;text-align:right">Subtotal</td>
       <td style="font-weight:700;text-align:right">${(inv.subtotal||0).toFixed(2)}</td>
     </tr>
@@ -263,8 +272,6 @@ ${inv.status === 'anulada' ? '<div class="stamp-void">ANULADA</div>' : ''}
 <div class="totals-section">
   <div class="totals-box">
     ${!isRecibo ? `
-    <div class="totals-row subtotal"><span>Descuento</span><span>—</span></div>
-    <div class="totals-row subtotal"><span>Dto. P.Pago</span><span>—</span></div>
     <div class="totals-row iva"><span>Base Imponible</span><span>${(inv.subtotal||0).toFixed(2)} €</span></div>
     <div class="totals-row iva"><span>IVA ${inv.taxRate||0}%</span><span>${(inv.taxAmount||0).toFixed(2)} €</span></div>
     ` : ''}
@@ -301,7 +308,7 @@ ${(inv as any).verifactu?.enabled ? `
 <div style="border:1px solid #bfdbfe;border-radius:4px;overflow:hidden;margin-bottom:6mm">
   <div style="background:#1e40af;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:3px 8px">VeriFactu — Factura verificable en la AEAT</div>
   <div style="padding:8px;display:flex;align-items:center;gap:12px">
-    <img src="${(inv as any).verifactu.qrUrl?.startsWith('data:') ? (inv as any).verifactu.qrUrl : `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent((inv as any).verifactu.qrUrl || '')}&color=000000&bgcolor=ffffff`}" style="width:60px;height:60px;border:1px solid #e0e0e0;border-radius:3px;flex-shrink:0" alt="QR Verificación AEAT"/>
+    ${verifactuQrSrc ? `<img src="${verifactuQrSrc}" style="width:60px;height:60px;border:1px solid #e0e0e0;border-radius:3px;flex-shrink:0" alt="QR Verificación AEAT"/>` : ''}
     <div style="font-size:8px;color:#333">
       <div style="font-weight:700;color:#1e40af;margin-bottom:3px">Factura verificable en sede.agenciatributaria.gob.es</div>
       <div style="color:#666">Sistema de Información de Facturación (SIF) · Huella SHA-256</div>

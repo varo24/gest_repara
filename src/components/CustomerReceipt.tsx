@@ -246,7 +246,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
   <div class="conditions">
     <div class="conditions-title">📋 Condiciones del Servicio</div>
     <div class="conditions-text">
-      ${settings.letterhead || 'Garantía de 3 meses en mano de obra. Validez del presupuesto: 15 días.'}
+      ${settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en mano de obra. Validez del presupuesto: 15 días.`}
       Los equipos no retirados en un plazo de <strong>90 días</strong> desde la notificación de finalización podrán considerarse abandonados.
       El taller no se responsabiliza de daños preexistentes no declarados. Los presupuestos requieren autorización expresa del cliente antes de proceder.
     </div>
@@ -259,7 +259,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
       De conformidad con el Reglamento (UE) 2016/679 (RGPD) y la Ley Orgánica 3/2018 (LOPDGDD), le informamos que sus datos personales serán tratados por <strong>${settings.appName}</strong>${settings.taxId ? `, con CIF/NIF ${settings.taxId}` : ''},
       con la finalidad de gestionar la reparación de su equipo y la relación comercial. Sus datos no serán cedidos a terceros salvo obligación legal.
       Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición dirigiéndose a
-      ${settings.address || '[dirección del taller]'}${settings.email ? ` o ${settings.email}` : ''}.
+      ${[settings.address, settings.email].filter(Boolean).length > 0 ? [settings.address, settings.email].filter(Boolean).join(' o ') : 'este establecimiento'}.
       Sus datos se conservarán durante el tiempo necesario para cumplir con las obligaciones legales y contractuales.
     </div>
     <div class="rgpd-consent-row">
@@ -294,7 +294,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
   <!-- PIE -->
   <div class="footer">
     <span>Conserve este resguardo para retirar su equipo · ${settings.appName}</span>
-    <span>Documento generado por ReparaPro Master</span>
+    <span>Documento generado por ${settings.appName}</span>
   </div>
 
 </body>
@@ -443,7 +443,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
 
             <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f9f9f9', marginBottom: '8px' }}>
               <div style={{ fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>📋 Condiciones</div>
-              <div style={{ fontSize: '9px', color: '#444', lineHeight: 1.7 }}>{settings.letterhead || 'Garantía de 3 meses en mano de obra.'}</div>
+              <div style={{ fontSize: '9px', color: '#444', lineHeight: 1.7 }}>{settings.letterhead || `Garantía de ${settings.warrantyMonths ?? 3} meses en mano de obra.`}</div>
             </div>
 
             <div style={{ border: '1px solid #aaa', borderRadius: '4px', padding: '8px', background: '#f0f4f8', marginBottom: '8px' }}>
@@ -472,7 +472,7 @@ const CustomerReceipt: React.FC<CustomerReceiptProps> = ({
 
             <div style={{ borderTop: '2px solid #000', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555' }}>
               <span>Conserve este resguardo · {settings.appName}</span>
-              <span>ReparaPro Master</span>
+              <span>{settings.appName}</span>
             </div>
           </div>
         </div>

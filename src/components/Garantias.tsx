@@ -104,7 +104,7 @@ const Garantias: React.FC<GarantiasProps> = ({ warranties, repairs, settings, on
     window.open(`https://wa.me/${w.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const printWarranty = (w: Warranty) => {
+  const printWarranty = (w: Warranty, repair?: RepairItem | null) => {
     const days = getDaysRemaining(w.expiryDate);
     const isExpired = days < 0;
     const effStatus = getEffectiveStatus(w);
@@ -119,8 +119,9 @@ const Garantias: React.FC<GarantiasProps> = ({ warranties, repairs, settings, on
 <meta charset="UTF-8">
 <title>Certificado de Garantía — ${rmaStr}</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff}
+body{font-family:'Inter','Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff}
 @page{size:A4;margin:0}
 .page{width:210mm;min-height:297mm;padding:16mm 16mm 12mm;display:flex;flex-direction:column;position:relative}
 .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8mm;border-bottom:3px solid #0f172a;margin-bottom:7mm}
@@ -164,7 +165,7 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
     <div>
       <div class="brand-name">${settings.appName}</div>
       ${settings.address ? `<div class="brand-sub">${settings.address}</div>` : ''}
-      <div class="brand-sub">${settings.phone}${settings.taxId ? ' · ' + settings.taxId : ''}</div>
+      ${(settings.phone || settings.taxId) ? `<div class="brand-sub">${[settings.phone, settings.taxId].filter(Boolean).join(' · ')}</div>` : ''}
     </div>
     <div class="doc-right">
       <div class="doc-title">Certificado de Garantía</div>
@@ -186,6 +187,7 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
     <div class="grid2">
       <div class="info-box"><div class="info-lbl">Descripción</div><div class="info-val">${w.deviceDescription}</div></div>
       <div class="info-box"><div class="info-lbl">Número de orden</div><div class="info-val">${rmaStr}</div></div>
+      ${repair?.serialNumber ? `<div class="info-box" style="grid-column:1/-1"><div class="info-lbl">N/S · IMEI</div><div class="info-val" style="font-size:10pt">${repair.serialNumber}</div></div>` : ''}
     </div>
   </div>
 
@@ -223,15 +225,27 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
     </div>
   </div>
 
-  <div class="footer">
-    <div class="sig-box">
-      <div style="flex:1"></div>
-      <div class="sig-lbl">Firma y sello del técnico autorizado</div>
+  ${w.notes ? `
+  <div class="section" style="margin-bottom:5mm">
+    <div class="sec-title">Observaciones</div>
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:4mm 5mm;font-size:8pt;color:#475569;line-height:1.7">${w.notes}</div>
+  </div>` : ''}
+
+  <div style="margin-top:auto;padding-top:6mm;border-top:1px solid #e2e8f0">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:6mm">
+      <div class="sig-box">
+        <div style="flex:1"></div>
+        <div class="sig-lbl">Firma del cliente — Recibí el certificado</div>
+      </div>
+      <div class="sig-box">
+        <div style="flex:1"></div>
+        <div class="sig-lbl">Firma y sello del técnico autorizado</div>
+      </div>
     </div>
     <div class="contact">
       <p><strong>${settings.appName}</strong></p>
       ${settings.address ? `<p>${settings.address}</p>` : ''}
-      <p>${settings.phone}</p>
+      ${settings.phone ? `<p>${settings.phone}</p>` : ''}
       ${settings.email ? `<p>${settings.email}</p>` : ''}
       ${settings.taxId ? `<p>CIF/NIF: ${settings.taxId}</p>` : ''}
       <p class="gen-date">Documento generado el ${new Date().toLocaleDateString('es-ES')}</p>
@@ -501,7 +515,7 @@ body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff
                                     if (inv) {
                                       printInvoice(inv, settings, w);
                                     } else {
-                                      printWarranty(w);
+                                      printWarranty(w, linkedRepair);
                                     }
                                   }}
                                   className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white border border-slate-100 transition-all"

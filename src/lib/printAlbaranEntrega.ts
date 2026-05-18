@@ -106,7 +106,6 @@ export function printAlbaranEntrega(
   <div class="doc-ref" style="text-align:right">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#555">Nº de Trabajo</div>
     <div style="font-size:26px;font-weight:900;border:2px solid #000;padding:2px 10px;display:inline-block;margin:4px 0">${rma}</div>
-    ${invoice ? `<div style="font-size:10px;color:#333;margin-top:2px">Factura: ${invoice.invoiceNumber}</div>` : ''}
     <div style="font-size:10px;color:#333">📅 ${fechaEntrega} · 🕐 ${horaEntrega}</div>
   </div>
 </div>
@@ -151,7 +150,7 @@ export function printAlbaranEntrega(
   <div class="section-title">▶ Trabajos Realizados</div>
   <div class="section-body">
     ${items.length === 0 && labor.length === 0
-      ? `<div style="font-size:11px;color:#333;padding:4px 0">${repair.problemDescription}</div>`
+      ? `<div style="font-size:10px;color:#888;font-style:italic;padding:4px 0">Sin detalle de trabajos registrado.</div>`
       : `<table>
           <thead><tr>
             <th>Descripción</th>
@@ -206,6 +205,7 @@ export function printAlbaranEntrega(
   <div class="conformidad-text">
     El cliente declara recibir el equipo descrito en perfecto estado de funcionamiento con respecto a los trabajos realizados, en conformidad con el presupuesto previamente autorizado y los servicios descritos en este albarán.
     La entrega del equipo implica la aceptación de los trabajos realizados y del importe total cobrado.
+    ${repair.serialNumber ? `<br><strong>Equipo:</strong> ${repair.brand} ${repair.model}${repair.serialNumber ? ` &nbsp;·&nbsp; <strong>N/S:</strong> ${repair.serialNumber}` : ''}` : `<br><strong>Equipo:</strong> ${repair.brand} ${repair.model}`}
   </div>
   <div class="sig-grid">
     <div class="sig-col">
@@ -221,6 +221,8 @@ export function printAlbaranEntrega(
           <div style="font-weight:900;font-size:9px">${settings.appName}</div>
           ${settings.taxId ? `<div>CIF/NIF: ${settings.taxId}</div>` : ''}
           ${settings.address ? `<div>${settings.address}</div>` : ''}
+          ${settings.phone ? `<div>Tel. ${settings.phone}</div>` : ''}
+          ${settings.email ? `<div>${settings.email}</div>` : ''}
         </div>
       </div>
       <div class="sig-name">${repair.technician ? `Técnico: ${repair.technician}` : ''}</div>
@@ -231,7 +233,7 @@ export function printAlbaranEntrega(
 <!-- PIE -->
 <div class="footer">
   <span>${settings.appName}${settings.taxId ? ` · NIF/CIF: ${settings.taxId}` : ''}${settings.address ? ` · ${settings.address}` : ''}</span>
-  <span>Albarán generado el ${fechaEntrega} · ReparaPro</span>
+  <span>Albarán generado el ${fechaEntrega} · ${settings.appName}</span>
 </div>
 
 </body>

@@ -1,4 +1,4 @@
-import { RepairItem, Budget, AppSettings } from '../types';
+import { RepairItem, Budget, AppSettings, FieldNote } from '../types';
 
 const fmtRMA   = (n: number) => `RMA-${n.toString().padStart(5, '0')}`;
 const fmtDate  = (d?: string) => d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
@@ -31,7 +31,7 @@ export const printWorkOrder = (
   settings?: AppSettings,
   repairs?: RepairItem[],
 ): void => {
-  const s = settings ?? { appName: 'Taller', address: '', phone: '', taxId: '' };
+  const s = (settings ?? { appName: 'Taller', address: '', phone: '', taxId: '' }) as AppSettings;
   const rma = fmtRMA(repair.rmaNumber);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(rma)}&color=000000&bgcolor=ffffff`;
 
@@ -194,10 +194,11 @@ ${diag.piezasSustituidas ? `<div class="field-group"><span class="field-label">P
 <meta charset="UTF-8">
 <title>Orden de Trabajo ${rma}</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
 @page { size: A4; margin: 12mm 14mm 15mm 14mm; }
 @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #1a1a1a; background: #fff; line-height: 1.35; }
+body { font-family: 'Inter', Arial, sans-serif; font-size: 10px; color: #1a1a1a; background: #fff; line-height: 1.35; }
 
 /* Header */
 .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 3px solid #1a1a1a; margin-bottom: 10px; }
@@ -260,10 +261,13 @@ table.budget .total-row td { background: #1a1a1a; color: #fff; font-size: 12px; 
 
 <!-- HEADER -->
 <div class="header">
-  <div>
-    <div class="shop-name">${esc(s.appName)}</div>
-    <div class="shop-info">
-      ${[s.address, s.phone ? `Tel. ${s.phone}` : '', s.taxId ? `NIF ${s.taxId}` : ''].filter(Boolean).join(' · ')}
+  <div style="display:flex;align-items:center;gap:10px">
+    ${s.logoUrl ? `<img src="${s.logoUrl}" style="width:52px;height:52px;border:1.5px solid #ddd;border-radius:6px;object-fit:contain;padding:2px;flex-shrink:0" alt="Logo">` : ''}
+    <div>
+      <div class="shop-name">${esc(s.appName)}</div>
+      <div class="shop-info">
+        ${[s.address, s.phone ? `Tel. ${s.phone}` : '', s.email ? s.email : '', s.taxId ? `NIF ${s.taxId}` : ''].filter(Boolean).join(' · ')}
+      </div>
     </div>
   </div>
   <div class="header-right">
@@ -356,6 +360,15 @@ table.budget .total-row td { background: #1a1a1a; color: #fff; font-size: 12px; 
       }
     </div>
     ${repair.notes ? `<div class="field-group"><span class="field-label">Notas adicionales</span><div class="field-value">${esc(repair.notes)}</div></div>` : ''}
+    ${repair.fieldNotes && repair.fieldNotes.length > 0 ? `
+    <div class="field-group" style="margin-top:6px">
+      <span class="field-label">Notas de campo del técnico</span>
+      ${repair.fieldNotes.map((fn: FieldNote) => `
+        <div class="field-value" style="margin-bottom:5px">
+          <span style="font-size:7.5px;color:#888;display:block;margin-bottom:2px">${new Date(fn.timestamp).toLocaleString('es-ES')}</span>
+          ${esc(fn.text)}
+        </div>`).join('')}
+    </div>` : ''}
   </div>
 </div>
 
@@ -390,7 +403,7 @@ ${budgetHTML}
 
 <!-- FOOTER -->
 <div class="footer">
-  ${s.legalTerms ? `<div class="footer-legal">${esc(s.legalTerms)}</div>` : ''}
+  ${s.legalTerms ? `<div class="footer-legal">${s.legalTerms}</div>` : ''}
   <div class="footer-bar">
     <span class="internal-badge">⚙ Documento interno — No válido como resguardo para el cliente</span>
     <span style="font-size:8px;color:#ccc">Impreso: ${new Date().toLocaleString('es-ES')}</span>
