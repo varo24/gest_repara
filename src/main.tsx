@@ -29,10 +29,16 @@ window.addEventListener('unhandledrejection', (e) => {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+if (import.meta.env.DEV && window.location.pathname === '/dev/docs') {
+  import('./dev/DocumentPreview').then(({ default: DocumentPreview }) => {
+    createRoot(document.getElementById('root')!).render(<DocumentPreview />);
+  });
+} else {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+}
