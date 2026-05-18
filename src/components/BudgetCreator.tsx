@@ -11,8 +11,6 @@ import {
   CheckCircle2,
   PenTool,
   Save,
-  Building2,
-  AlertCircle,
   Search
 } from 'lucide-react';
 import { RepairItem, BudgetItem, LaborItem, Budget, AppSettings, InventoryItem, Customer } from '../types';

@@ -57,7 +57,10 @@
       "Bash(npx eslint *)",
       "Bash(sort -k5 -rh)",
       "Bash(find src *)",
-      "Bash(cat vercel.json)"
+      "Bash(cat vercel.json)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(xargs -I {} basename {} .tsx)",
+      "Read(//tmp/**)"
     ]
   }
 }

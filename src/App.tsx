@@ -25,7 +25,7 @@ const Informes        = lazy(() => import('./components/Informes'));
 const Caja            = lazy(() => import('./components/Caja'));
 const Estadisticas    = lazy(() => import('./components/Estadisticas'));
 const FirmaPresupuesto = lazy(() => import('./pages/FirmaPresupuesto'));
-import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion } from './types';
+import { ViewType, RepairItem, Budget, AppSettings, AppNotification, RepairStatus, Cita, ExternalApp, Customer, InventoryItem, StockMovement, Warranty, Supplier, InformeRecord, Notificacion, FacturaImportada } from './types';
 import { generarNotificaciones, solicitarPermiso, enviarNotificacionesBrowser } from './lib/notificationsService';
 import { storage } from './lib/dataService';
 import { SyncStatusProvider } from './lib/syncStatusContext';
@@ -97,7 +97,7 @@ const App: React.FC = () => {
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [warranties, setWarranties] = useState<Warranty[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [facturasImportadas, setFacturasImportadas] = useState<any[]>([]);
+  const [facturasImportadas, setFacturasImportadas] = useState<FacturaImportada[]>([]);
   const [informes, setInformes] = useState<InformeRecord[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [supplierToOpen, setSupplierToOpen] = useState<string | null>(null);

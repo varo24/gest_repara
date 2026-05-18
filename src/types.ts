@@ -118,6 +118,7 @@ export interface Budget {
   firmadoAt?: string;
   firmaData?: string;
   firmaEstado?: 'pendiente' | 'firmado' | 'rechazado';
+  updatedAt?: string;
 }
 
 export interface AppSettings {
@@ -394,4 +395,30 @@ export interface FullInvoice {
     qrUrl?: string;
   };
   verifactu_pendiente_envio?: boolean;
+}
+
+export interface LineaFacturaImportada {
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  referencia?: string;
+  importe?: number;
+  iva?: number;
+}
+
+export interface FacturaImportada {
+  id: string;
+  emailUid: number;
+  claveUnica: string;
+  proveedor: string;
+  numeroFactura: string;
+  fecha: string;
+  total: number;
+  lineas: LineaFacturaImportada[];
+  importadoEn: string;
+  forzado: boolean;
+  pdfUrl?: string;
+  supplierId?: string;
+  estado: 'pendiente_revision' | 'importada' | 'descartada';
+  origen?: 'auto' | 'correo' | 'entrada-stock';
 }
