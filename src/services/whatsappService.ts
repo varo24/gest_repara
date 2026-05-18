@@ -133,13 +133,31 @@ _${settings.appName}_`;
 };
 
 // ============================================================
-// ENVÍO VÍA WHATSAPP WEB (wa.me) — sin configuración previa
+// ENVÍO VÍA WHATSAPP — app nativa con fallback a wa.me
 // ============================================================
 
 const sendViaWeb = (phone: string, message: string): void => {
   const cleanedPhone = cleanPhone(phone);
   const encoded = encodeURIComponent(message);
-  window.open(`https://wa.me/${cleanedPhone}?text=${encoded}`, '_blank');
+  const nativeUrl = `whatsapp://send?phone=${cleanedPhone}&text=${encoded}`;
+  const webUrl    = `https://wa.me/${cleanedPhone}?text=${encoded}`;
+
+  // Disparar el protocolo nativo (WhatsApp Desktop en PC, WhatsApp en móvil)
+  // usando <a> click para no navegar fuera de la SPA.
+  const a = document.createElement('a');
+  a.href = nativeUrl;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // Fallback: si tras 1.5s la página sigue en primer plano (la app no se abrió),
+  // abrimos WhatsApp Web como red de seguridad.
+  const fallback = setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  const cancel = () => clearTimeout(fallback);
+  window.addEventListener('blur', cancel, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancel();
+  }, { once: true });
 };
 
 // ============================================================
